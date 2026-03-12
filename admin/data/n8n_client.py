@@ -16,8 +16,8 @@ def fetch_workflows():
 @st.cache_data(ttl=30)
 def fetch_executions(status=None, limit=250, hours_back=24):
     """Fetch recent executions with optional status filter and time range."""
-    started_after = (datetime.now(timezone.utc) - timedelta(hours=hours_back)).isoformat()
-    params = {"limit": limit, "startedAfter": started_after}
+    cutoff = (datetime.now(timezone.utc) - timedelta(hours=hours_back))
+    params = {"limit": limit}
     if status:
         params["status"] = status
 
@@ -27,13 +27,23 @@ def fetch_executions(status=None, limit=250, hours_back=24):
     data = resp.json()
     all_executions.extend(data.get("data", []))
 
-    # Paginate if needed
+    # Paginate if needed — stop if we've gone past the cutoff
     while data.get("nextCursor"):
+        # Check if oldest item in batch is before cutoff
+        batch = data.get("data", [])
+        if batch:
+            oldest = batch[-1].get("startedAt", "")
+            if oldest and oldest < cutoff.isoformat():
+                break
         params["cursor"] = data["nextCursor"]
         resp = requests.get(f"{N8N_URL}/api/v1/executions", headers=HEADERS, params=params, timeout=15)
         resp.raise_for_status()
         data = resp.json()
         all_executions.extend(data.get("data", []))
+
+    # Filter to time range client-side
+    cutoff_str = cutoff.isoformat()
+    all_executions = [e for e in all_executions if e.get("startedAt", "") >= cutoff_str]
 
     return all_executions
 
