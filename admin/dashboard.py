@@ -1,3 +1,7 @@
+import sys
+import os
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
 import streamlit as st
 
 st.set_page_config(
@@ -6,7 +10,7 @@ st.set_page_config(
     layout="wide",
 )
 
-from admin.pages import health, adoption, messages, alerts, features, user_explorer
+from admin.views import health, adoption, messages, alerts, features, user_explorer
 
 PAGES = {
     "System Health": health,
