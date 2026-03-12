@@ -1,0 +1,149 @@
+<h2>Dashboard Structure</h2>
+<p class="subtitle">Which page layout feels right for your admin dashboard?</p>
+
+<div class="cards">
+  <div class="card" data-choice="a" onclick="toggleSelect(this)">
+    <div class="card-image">
+      <div style="padding: 16px; font-size: 13px;">
+        <div class="mock-nav" style="margin-bottom: 12px;">
+          <strong>OppAssistant Admin</strong> &nbsp;|&nbsp;
+          <span style="color: #60a5fa;">Health</span> &nbsp; Adoption &nbsp; Activity &nbsp; Alerts &nbsp; Features
+        </div>
+        <div style="display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 8px; margin-bottom: 12px;">
+          <div style="background: #1e293b; border-radius: 8px; padding: 12px; text-align: center;">
+            <div style="font-size: 24px; font-weight: bold; color: #34d399;">12</div>
+            <div style="font-size: 10px; color: #94a3b8;">Active Users</div>
+          </div>
+          <div style="background: #1e293b; border-radius: 8px; padding: 12px; text-align: center;">
+            <div style="font-size: 24px; font-weight: bold; color: #60a5fa;">847</div>
+            <div style="font-size: 10px; color: #94a3b8;">Messages Today</div>
+          </div>
+          <div style="background: #1e293b; border-radius: 8px; padding: 12px; text-align: center;">
+            <div style="font-size: 24px; font-weight: bold; color: #fbbf24;">3</div>
+            <div style="font-size: 10px; color: #94a3b8;">Errors (24h)</div>
+          </div>
+          <div style="background: #1e293b; border-radius: 8px; padding: 12px; text-align: center;">
+            <div style="font-size: 24px; font-weight: bold; color: #c084fc;">68%</div>
+            <div style="font-size: 10px; color: #94a3b8;">Draft Approval</div>
+          </div>
+        </div>
+        <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 8px;">
+          <div style="background: #1e293b; border-radius: 8px; padding: 12px;">
+            <div style="font-size: 11px; color: #94a3b8; margin-bottom: 6px;">Message Volume (7 days)</div>
+            <div style="display: flex; align-items: flex-end; gap: 3px; height: 50px;">
+              <div style="background: #3b82f6; width: 14%; height: 40%; border-radius: 2px;"></div>
+              <div style="background: #3b82f6; width: 14%; height: 60%; border-radius: 2px;"></div>
+              <div style="background: #3b82f6; width: 14%; height: 45%; border-radius: 2px;"></div>
+              <div style="background: #3b82f6; width: 14%; height: 80%; border-radius: 2px;"></div>
+              <div style="background: #3b82f6; width: 14%; height: 70%; border-radius: 2px;"></div>
+              <div style="background: #3b82f6; width: 14%; height: 90%; border-radius: 2px;"></div>
+              <div style="background: #60a5fa; width: 14%; height: 55%; border-radius: 2px;"></div>
+            </div>
+          </div>
+          <div style="background: #1e293b; border-radius: 8px; padding: 12px;">
+            <div style="font-size: 11px; color: #94a3b8; margin-bottom: 6px;">By Type</div>
+            <div style="font-size: 11px;">
+              <div style="display: flex; justify-content: space-between; margin-bottom: 3px;">
+                <span>Digest</span><span style="color: #34d399;">342</span>
+              </div>
+              <div style="display: flex; justify-content: space-between; margin-bottom: 3px;">
+                <span>Meeting Prep</span><span style="color: #60a5fa;">218</span>
+              </div>
+              <div style="display: flex; justify-content: space-between; margin-bottom: 3px;">
+                <span>Alerts</span><span style="color: #fbbf24;">156</span>
+              </div>
+              <div style="display: flex; justify-content: space-between;">
+                <span>Conversations</span><span style="color: #c084fc;">131</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>A. Top Tabs Navigation</h3>
+      <p>Horizontal tabs for each section. KPI cards at top, charts below. Clean separation between pages.</p>
+    </div>
+  </div>
+
+  <div class="card" data-choice="b" onclick="toggleSelect(this)">
+    <div class="card-image">
+      <div style="padding: 16px; font-size: 13px;">
+        <div style="display: grid; grid-template-columns: 180px 1fr; gap: 12px;">
+          <div style="background: #1e293b; border-radius: 8px; padding: 12px;">
+            <div style="font-weight: bold; margin-bottom: 12px; color: #60a5fa;">OppAssistant</div>
+            <div style="font-size: 11px;">
+              <div style="padding: 6px 8px; background: #334155; border-radius: 4px; margin-bottom: 4px; color: #60a5fa;">System Health</div>
+              <div style="padding: 6px 8px; margin-bottom: 4px; color: #94a3b8;">User Adoption</div>
+              <div style="padding: 6px 8px; margin-bottom: 4px; color: #94a3b8;">Message Activity</div>
+              <div style="padding: 6px 8px; margin-bottom: 4px; color: #94a3b8;">Alert Performance</div>
+              <div style="padding: 6px 8px; margin-bottom: 4px; color: #94a3b8;">Feature Usage</div>
+              <div style="padding: 6px 8px; margin-bottom: 4px; color: #94a3b8;">User Explorer</div>
+              <div style="padding: 6px 8px; color: #94a3b8;">Deal Intelligence</div>
+            </div>
+          </div>
+          <div>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 8px;">
+              <div style="background: #1e293b; border-radius: 8px; padding: 10px; text-align: center;">
+                <div style="font-size: 20px; font-weight: bold; color: #34d399;">All Clear</div>
+                <div style="font-size: 10px; color: #94a3b8;">Workflow Status</div>
+              </div>
+              <div style="background: #1e293b; border-radius: 8px; padding: 10px; text-align: center;">
+                <div style="font-size: 20px; font-weight: bold; color: #60a5fa;">12/14</div>
+                <div style="font-size: 10px; color: #94a3b8;">Workflows Active</div>
+              </div>
+            </div>
+            <div style="background: #1e293b; border-radius: 8px; padding: 10px;">
+              <div style="font-size: 11px; color: #94a3b8; margin-bottom: 6px;">Recent Executions</div>
+              <div style="font-size: 10px;">
+                <div style="display: flex; justify-content: space-between; padding: 4px 0; border-bottom: 1px solid #334155;">
+                  <span>Sales Digest</span><span style="color: #34d399;">Success</span><span style="color: #64748b;">6:02am</span>
+                </div>
+                <div style="display: flex; justify-content: space-between; padding: 4px 0; border-bottom: 1px solid #334155;">
+                  <span>Meeting Prep Cron</span><span style="color: #34d399;">Success</span><span style="color: #64748b;">5:45am</span>
+                </div>
+                <div style="display: flex; justify-content: space-between; padding: 4px 0;">
+                  <span>Follow-up Cron</span><span style="color: #fbbf24;">1 Error</span><span style="color: #64748b;">5:30am</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>B. Sidebar Navigation</h3>
+      <p>Persistent left sidebar with all sections. More room for section hierarchy and sub-pages as it grows.</p>
+    </div>
+  </div>
+</div>
+
+<div style="margin-top: 24px; padding: 16px; background: #1e293b; border-radius: 8px;">
+  <h3 style="margin-top: 0;">Proposed Pages</h3>
+  <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; font-size: 13px;">
+    <div>
+      <div style="color: #60a5fa; font-weight: bold; margin-bottom: 4px;">1. System Health</div>
+      <div style="color: #94a3b8;">Workflow status, execution history, error rates, message delivery success</div>
+    </div>
+    <div>
+      <div style="color: #60a5fa; font-weight: bold; margin-bottom: 4px;">2. User Adoption</div>
+      <div style="color: #94a3b8;">Onboarding funnel, active users over time, personalization rates</div>
+    </div>
+    <div>
+      <div style="color: #60a5fa; font-weight: bold; margin-bottom: 4px;">3. Message Activity</div>
+      <div style="color: #94a3b8;">Volume by type, daily trends, per-user breakdown, content preview</div>
+    </div>
+    <div>
+      <div style="color: #60a5fa; font-weight: bold; margin-bottom: 4px;">4. Alert Performance</div>
+      <div style="color: #94a3b8;">Alert volume, response rates, mute patterns, effectiveness</div>
+    </div>
+    <div>
+      <div style="color: #60a5fa; font-weight: bold; margin-bottom: 4px;">5. Feature Usage</div>
+      <div style="color: #94a3b8;">Adoption curves, time-to-first-use, education drip effectiveness</div>
+    </div>
+    <div>
+      <div style="color: #60a5fa; font-weight: bold; margin-bottom: 4px;">6. User Explorer</div>
+      <div style="color: #94a3b8;">Drill into any user: their messages, alerts, preferences, activity timeline</div>
+    </div>
+  </div>
+</div>

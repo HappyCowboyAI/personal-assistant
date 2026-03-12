@@ -1,0 +1,1314 @@
+{
+    "updatedAt": "2026-03-05T16:27:15.246Z",
+    "createdAt": "2026-02-25T07:19:32.706Z",
+    "id": "kZr1QKPiE7zxcn2n",
+    "name": "Deal Watch Cron",
+    "description": null,
+    "active": true,
+    "isArchived": false,
+    "nodes": [
+        {
+            "parameters": {
+                "rule": {
+                    "interval": [
+                        {
+                            "field": "cronExpression",
+                            "expression": "0 7 * * 1-5"
+                        }
+                    ]
+                }
+            },
+            "id": "a13c9642-7e57-4757-b431-06f396a7f96f",
+            "name": "Daily 7am PT",
+            "type": "n8n-nodes-base.scheduleTrigger",
+            "typeVersion": 1.2,
+            "position": [
+                208,
+                376
+            ]
+        },
+        {
+            "parameters": {
+                "method": "POST",
+                "url": "https://api.people.ai/v3/auth/tokens",
+                "sendHeaders": true,
+                "headerParameters": {
+                    "parameters": [
+                        {
+                            "name": "Content-Type",
+                            "value": "application/x-www-form-urlencoded"
+                        }
+                    ]
+                },
+                "sendBody": true,
+                "specifyBody": "string",
+                "body": "client_id=YOUR_CLIENT_ID&client_secret=YOUR_CLIENT_SECRET&grant_type=client_credentials",
+                "options": {}
+            },
+            "id": "7f236b21-fa75-4ddb-afee-f96903714072",
+            "name": "Get Auth Token",
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4.2,
+            "position": [
+                432,
+                376
+            ]
+        },
+        {
+            "parameters": {
+                "method": "POST",
+                "url": "https://api.people.ai/v3/beta/insights/export",
+                "sendHeaders": true,
+                "headerParameters": {
+                    "parameters": [
+                        {
+                            "name": "Content-Type",
+                            "value": "application/json"
+                        },
+                        {
+                            "name": "Authorization",
+                            "value": "=Bearer {{ $('Get Auth Token').first().json.access_token }}"
+                        }
+                    ]
+                },
+                "sendBody": true,
+                "specifyBody": "json",
+                "jsonBody": "{\"object\": \"user\", \"columns\": [{\"slug\": \"ootb_user_name\"}, {\"slug\": \"ootb_user_email\"}, {\"slug\": \"ootb_user_manager\"}]}",
+                "options": {}
+            },
+            "id": "2bd47e35-723f-475e-a6e9-9703379400ff",
+            "name": "Fetch User Hierarchy",
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4.2,
+            "position": [
+                1328,
+                208
+            ]
+        },
+        {
+            "parameters": {
+                "jsCode": "// Parse CSV from People.ai User hierarchy export\nconst csvData = $('Fetch User Hierarchy').first().json.data;\n\nif (!csvData) {\n  return [{ json: { hierarchy: {}, managerToReports: {}, userCount: 0, error: 'No hierarchy data returned' } }];\n}\n\nconst lines = csvData.split('\\n').filter(l => l.trim());\nif (lines.length < 2) {\n  return [{ json: { hierarchy: {}, managerToReports: {}, userCount: 0, error: 'Hierarchy CSV has no data rows' } }];\n}\n\nfunction parseCsvLine(line) {\n  const result = [];\n  let current = '';\n  let inQuotes = false;\n  for (let i = 0; i < line.length; i++) {\n    const ch = line[i];\n    if (ch === '\"') {\n      if (inQuotes && i + 1 < line.length && line[i + 1] === '\"') {\n        current += '\"';\n        i++;\n      } else {\n        inQuotes = !inQuotes;\n      }\n    } else if (ch === ',' && !inQuotes) {\n      result.push(current.trim());\n      current = '';\n    } else {\n      current += ch;\n    }\n  }\n  result.push(current.trim());\n  return result;\n}\n\nconst headers = parseCsvLine(lines[0]);\nconst headerMap = {};\nheaders.forEach((h, i) => { headerMap[h] = i; });\n\nfunction getField(row, ...names) {\n  for (const name of names) {\n    if (headerMap[name] !== undefined && row[headerMap[name]]) {\n      return row[headerMap[name]];\n    }\n  }\n  return '';\n}\n\nconst hierarchy = {};\nconst managerToReports = {};\n\nfor (let i = 1; i < lines.length; i++) {\n  const row = parseCsvLine(lines[i]);\n  if (row.length < headers.length) continue;\n\n  const name = getField(row, 'ootb_user_name', 'User Name', 'Name');\n  const email = getField(row, 'ootb_user_email', 'User Email', 'Email').toLowerCase();\n  const manager = getField(row, 'ootb_user_manager', 'Manager', 'User Manager');\n\n  if (email) {\n    hierarchy[email] = { name, email, manager };\n  }\n\n  if (manager) {\n    const mgrLower = manager.toLowerCase();\n    if (!managerToReports[mgrLower]) {\n      managerToReports[mgrLower] = [];\n    }\n    managerToReports[mgrLower].push({ name, email });\n  }\n}\n\nreturn [{ json: { hierarchy, managerToReports, userCount: Object.keys(hierarchy).length } }];\n"
+            },
+            "id": "1bca62bf-2146-4aff-b1a0-e8424924155c",
+            "name": "Parse Hierarchy",
+            "type": "n8n-nodes-base.code",
+            "typeVersion": 2,
+            "position": [
+                1552,
+                208
+            ]
+        },
+        {
+            "parameters": {
+                "method": "POST",
+                "url": "https://api.people.ai/v3/beta/insights/export",
+                "sendHeaders": true,
+                "headerParameters": {
+                    "parameters": [
+                        {
+                            "name": "Content-Type",
+                            "value": "application/json"
+                        },
+                        {
+                            "name": "Authorization",
+                            "value": "=Bearer {{ $('Get Auth Token').first().json.access_token }}"
+                        }
+                    ]
+                },
+                "sendBody": true,
+                "specifyBody": "json",
+                "jsonBody": "{\"object\": \"opportunity\", \"filter\": {\"$and\": [{\"attribute\": {\"slug\": \"ootb_opportunity_is_closed\"}, \"clause\": {\"$eq\": false}}, {\"attribute\": {\"slug\": \"ootb_opportunity_close_date\", \"variation_id\": \"ootb_opportunity_close_date_0\"}, \"clause\": {\"$within\": {\"$ref\": \"time_ranges.this_fyear\"}}}]}, \"columns\": [{\"slug\": \"ootb_opportunity_owners\"}, {\"slug\": \"ootb_opportunity_name\"}, {\"slug\": \"ootb_opportunity_account_name\"}, {\"slug\": \"ootb_opportunity_close_date\"}, {\"slug\": \"ootb_opportunity_current_stage\"}, {\"slug\": \"ootb_opportunity_converted_amount\"}, {\"slug\": \"ootb_opportunity_crm_id\"}, {\"slug\": \"ootb_opportunity_engagement_level\"}, {\"slug\": \"ootb_opportunity_days_in_stage\"}, {\"slug\": \"ootb_opportunity_count_of_meetings_standard\"}, {\"slug\": \"ootb_opportunity_upcoming_meetings_standard\"}, {\"slug\": \"ootb_opportunity_count_of_emails_received\"}, {\"slug\": \"ootb_opportunity_count_of_emails_sent\"}, {\"slug\": \"ootb_opportunity_executive_activities\"}, {\"slug\": \"ootb_opportunity_meetings_with_director_vp_exec\"}, {\"slug\": \"ootb_opportunity_people_engaged\"}, {\"slug\": \"ootb_opportunity_total_activities_count\"}], \"sort\": [{\"attribute\": {\"slug\": \"ootb_opportunity_owners\"}, \"direction\": \"asc\"}]}",
+                "options": {}
+            },
+            "id": "d95b9924-f69f-4b56-b617-81d30c11fda1",
+            "name": "Fetch Insights Opps",
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4.2,
+            "position": [
+                656,
+                376
+            ]
+        },
+        {
+            "parameters": {
+                "jsCode": "// Parse CSV and classify deals \u2014 combined for Deal Watch\nconst csvData = $('Fetch Insights Opps').first().json.data;\n\nif (!csvData) {\n  return [{ json: { classifiedOpps: [], error: 'No data returned' } }];\n}\n\nconst lines = csvData.split('\\n').filter(l => l.trim());\nif (lines.length < 2) {\n  return [{ json: { classifiedOpps: [], oppCount: 0 } }];\n}\n\nfunction parseCsvLine(line) {\n  const result = [];\n  let current = '';\n  let inQuotes = false;\n  for (let i = 0; i < line.length; i++) {\n    const ch = line[i];\n    if (ch === '\"') {\n      if (inQuotes && i + 1 < line.length && line[i + 1] === '\"') {\n        current += '\"';\n        i++;\n      } else {\n        inQuotes = !inQuotes;\n      }\n    } else if (ch === ',' && !inQuotes) {\n      result.push(current.trim());\n      current = '';\n    } else {\n      current += ch;\n    }\n  }\n  result.push(current.trim());\n  return result;\n}\n\nconst headers = parseCsvLine(lines[0]);\nconst headerMap = {};\nheaders.forEach((h, i) => { headerMap[h.toLowerCase()] = i; });\n\nfunction get(row, ...names) {\n  for (const name of names) {\n    const idx = headerMap[name.toLowerCase()];\n    if (idx !== undefined && row[idx] !== undefined && row[idx] !== '') return row[idx];\n  }\n  return '';\n}\n\nfunction num(val) {\n  if (val === null || val === undefined || val === '') return null;\n  const s = String(val);\n  // Handle HH:MM:SS duration format (Days in Stage) \u2014 convert to days\n  if (/^\\d+:\\d+:\\d+$/.test(s)) {\n    const parts = s.split(':');\n    const hours = parseInt(parts[0], 10);\n    return Math.round(hours / 24);\n  }\n  const n = parseFloat(s.replace(/[^0-9.\\-]/g, ''));\n  return isNaN(n) ? null : n;\n}\nfunction n(val) { return num(val) || 0; }\n\nconst classifiedOpps = [];\nfor (let i = 1; i < lines.length; i++) {\n  const row = parseCsvLine(lines[i]);\n  if (row.length < 2) continue;\n\n  const opp = {\n    owners: get(row, 'Owners', 'Owner'),\n    name: get(row, 'Opportunity Name', 'Name'),\n    account: get(row, 'Account Name', 'Account'),\n    closeDate: get(row, 'Close Date'),\n    stage: get(row, 'Stage', 'Current Stage'),\n    amount: get(row, 'Amount (Converted)', 'Converted Amount', 'Amount'),\n    crmId: get(row, 'Record ID', 'CRM ID', 'Opportunity CRM ID', 'CRM Id'),\n    engagement: get(row, 'Opportunity Engagement Level', 'Engagement Level', 'Engagement'),\n    daysInStage: get(row, 'Days in Stage', 'Days In Stage'),\n    meetings30d: get(row, 'Meetings (Last 7 Days)', 'Count Of Meetings Standard', 'Meetings', 'Count of Meetings'),\n    upcomingMeetings: get(row, 'Upcoming Meetings (Next 7 Days)', 'Upcoming Meetings Standard', 'Upcoming Meetings'),\n    emailsReceived: get(row, 'Emails Received (Last 7 Days)', 'Count Of Emails Received', 'Emails Received'),\n    emailsSent: get(row, 'Emails Sent (Last 7 Days)', 'Count Of Emails Sent', 'Emails Sent'),\n    execActivities: get(row, 'Activities with Executives (Last 7 Days)', 'Executive Activities', 'Exec Activities'),\n    execMeetings: get(row, 'Meetings with a Director, VP, or Executive (Last 7 Days)', 'Meetings With Director VP Exec', 'Executive Meetings', 'Director+ Meetings'),\n    peopleEngaged: get(row, 'People Engaged (Last 7 Days)', 'People Engaged', 'Contacts Engaged'),\n    totalActivities: get(row, 'Total Activities (Last 7 Days)', 'Total Activities Count', 'Total Activities')\n  };\n\n  const engagement = n(opp.engagement);\n  const daysInStage = n(opp.daysInStage);\n  const meetings30d = n(opp.meetings30d);\n  const upcomingMeetings = n(opp.upcomingMeetings);\n  const emailsReceived = n(opp.emailsReceived);\n  const emailsSent = n(opp.emailsSent);\n  const execActivities = n(opp.execActivities);\n  const execMeetings = n(opp.execMeetings);\n  const peopleEngaged = n(opp.peopleEngaged);\n\n  const emailResponsiveness = emailsSent > 0 ? emailsReceived / emailsSent : 0;\n  const totalMeetings = meetings30d + execMeetings;\n  const execCoverage = totalMeetings > 0 ? 100 * execMeetings / totalMeetings : 0;\n\n  let classification = 'healthy';\n  let flags = [];\n\n  // Stalled\n  if (engagement < 25 || (engagement < 50 && daysInStage > 45 && meetings30d === 0)) {\n    classification = 'stalled';\n    if (engagement < 25) flags.push('Very low engagement');\n    if (daysInStage > 45) flags.push('Stuck ' + daysInStage + 'd');\n    if (meetings30d === 0) flags.push('No meetings 30d');\n  }\n\n  // Risk\n  if (classification === 'healthy') {\n    let riskSignals = 0;\n    let riskFlags = [];\n    if (execActivities === 0) { riskSignals++; riskFlags.push('No exec'); }\n    if (emailResponsiveness < 0.3 && emailsSent > 0) { riskSignals++; riskFlags.push('Low email response'); }\n    if (peopleEngaged < 3) { riskSignals++; riskFlags.push('Single-threaded'); }\n    if (execCoverage < 10 && totalMeetings > 0) { riskSignals++; riskFlags.push('Low exec coverage'); }\n    if (riskSignals >= 2) {\n      classification = 'risk';\n      flags = riskFlags;\n    }\n  }\n\n  // Accelerating\n  if (classification === 'healthy') {\n    let accelSignals = 0;\n    let accelFlags = [];\n    if (upcomingMeetings >= 2) { accelSignals++; accelFlags.push(upcomingMeetings + ' upcoming mtgs'); }\n    if (execActivities >= 3) { accelSignals++; accelFlags.push(execActivities + ' exec activities'); }\n    if (meetings30d >= 4) { accelSignals++; accelFlags.push(meetings30d + ' mtgs 30d'); }\n    if (engagement >= 70 && accelSignals >= 2) {\n      classification = 'accelerating';\n      flags = accelFlags;\n    }\n  }\n\n  classifiedOpps.push({\n    ...opp,\n    classification,\n    flags,\n    metrics: { engagement, daysInStage, meetings30d, execActivities, peopleEngaged }\n  });\n}\n\nreturn [{ json: { classifiedOpps, oppCount: classifiedOpps.length } }];"
+            },
+            "id": "d0fd627c-99ad-473d-a8c9-309875330b86",
+            "name": "Parse and Classify",
+            "type": "n8n-nodes-base.code",
+            "typeVersion": 2,
+            "position": [
+                880,
+                376
+            ]
+        },
+        {
+            "parameters": {
+                "operation": "getAll",
+                "tableId": "deal_snapshots",
+                "returnAll": true,
+                "filters": {
+                    "conditions": [
+                        {
+                            "keyName": "snapshot_date",
+                            "condition": "eq",
+                            "keyValue": "={{ new Date(Date.now() - 86400000).toISOString().split('T')[0] }}"
+                        }
+                    ]
+                }
+            },
+            "id": "f7b0e2dd-e72f-40e7-a89d-92ebfded7f7e",
+            "name": "Get Yesterday Snapshots",
+            "type": "n8n-nodes-base.supabase",
+            "typeVersion": 1,
+            "position": [
+                880,
+                592
+            ],
+            "alwaysOutputData": true,
+            "credentials": {
+                "supabaseApi": {
+                    "id": "ASRWWkQ0RSMOpNF1",
+                    "name": "Supabase account"
+                }
+            }
+        },
+        {
+            "parameters": {
+                "jsCode": "// Compare today's classifications against yesterday's snapshots\nconst todayData = $('Parse and Classify').first().json;\n\nlet yesterdaySnapshots = [];\ntry {\n  yesterdaySnapshots = $('Get Yesterday Snapshots').all().map(item => item.json);\n} catch (e) {\n  // No yesterday data (first run, table missing, etc.) \u2014 treat all as new\n  yesterdaySnapshots = [];\n}\n\nconst todayOpps = todayData.classifiedOpps || [];\n\n// Build lookup by CRM ID from yesterday's snapshots\nconst yesterdayMap = {};\nfor (const snap of yesterdaySnapshots) {\n  if (snap.opportunity_crm_id) {\n    yesterdayMap[snap.opportunity_crm_id] = snap;\n  }\n}\n\nconst transitions = [];\nconst snapshotsToSave = [];\n\n// Severity ranking for transition direction\nconst severityRank = { 'stalled': 0, 'risk': 1, 'healthy': 2, 'accelerating': 3 };\nconst classLabels = {\n  'stalled': '\\ud83d\\udd34 Stalled',\n  'risk': '\\u26a0\\ufe0f At Risk',\n  'healthy': '\\u2705 Healthy',\n  'accelerating': '\\ud83d\\ude80 Accelerating'\n};\n\nfor (const opp of todayOpps) {\n  const crmId = opp.crmId;\n  if (!crmId) continue;\n\n  // Build snapshot for saving\n  snapshotsToSave.push({\n    opportunity_crm_id: crmId,\n    opportunity_name: opp.name || '',\n    account_name: opp.account || '',\n    owner_name: opp.owners || '',\n    classification: opp.classification,\n    engagement_level: opp.metrics?.engagement || 0,\n    days_in_stage: opp.metrics?.daysInStage || 0,\n    metrics: JSON.stringify(opp.metrics || {})\n  });\n\n  const yesterday = yesterdayMap[crmId];\n\n  if (!yesterday) {\n    // New deal \u2014 only flag if it's stalled or risk\n    if (opp.classification === 'stalled' || opp.classification === 'risk') {\n      transitions.push({\n        crmId,\n        name: opp.name,\n        account: opp.account,\n        owner: opp.owners,\n        previousClass: null,\n        newClass: opp.classification,\n        previousLabel: 'New',\n        newLabel: classLabels[opp.classification],\n        direction: 'worsening',\n        flags: opp.flags || [],\n        engagement: opp.metrics?.engagement || 0\n      });\n    }\n    continue;\n  }\n\n  // Compare classifications\n  const prevClass = yesterday.classification;\n  const newClass = opp.classification;\n\n  if (prevClass === newClass) continue; // No change\n\n  const prevRank = severityRank[prevClass] ?? 2;\n  const newRank = severityRank[newClass] ?? 2;\n  const direction = newRank < prevRank ? 'worsening' : 'improving';\n\n  transitions.push({\n    crmId,\n    name: opp.name,\n    account: opp.account,\n    owner: opp.owners,\n    previousClass: prevClass,\n    newClass: newClass,\n    previousLabel: classLabels[prevClass] || prevClass,\n    newLabel: classLabels[newClass] || newClass,\n    direction,\n    flags: opp.flags || [],\n    engagement: opp.metrics?.engagement || 0\n  });\n}\n\nreturn [{ json: {\n  transitions,\n  transitionCount: transitions.length,\n  worseningCount: transitions.filter(t => t.direction === 'worsening').length,\n  improvingCount: transitions.filter(t => t.direction === 'improving').length,\n  snapshotsToSave,\n  snapshotCount: snapshotsToSave.length,\n  hasTransitions: transitions.length > 0\n}}];"
+            },
+            "id": "ca847a12-cbf3-4e65-9bfe-e018fc4a5a0b",
+            "name": "Detect Transitions",
+            "type": "n8n-nodes-base.code",
+            "typeVersion": 2,
+            "position": [
+                1104,
+                496
+            ]
+        },
+        {
+            "parameters": {
+                "jsCode": "// Build batch upsert for deal_snapshots table\nconst data = $('Detect Transitions').first().json;\nconst snapshots = data.snapshotsToSave || [];\n\nif (snapshots.length === 0) {\n  return [{ json: { query: '', count: 0 } }];\n}\n\n// Build individual upsert values\nconst values = snapshots.map(s => {\n  const metrics = typeof s.metrics === 'string' ? s.metrics : JSON.stringify(s.metrics || {});\n  return `(\n    '${(s.opportunity_crm_id || '').replace(/'/g, \"''\")}',\n    '${(s.opportunity_name || '').replace(/'/g, \"''\")}',\n    '${(s.account_name || '').replace(/'/g, \"''\")}',\n    '${(s.owner_name || '').replace(/'/g, \"''\")}',\n    '${s.classification}',\n    ${s.engagement_level || 0},\n    ${s.days_in_stage || 0},\n    '${metrics.replace(/'/g, \"''\")}'::jsonb,\n    CURRENT_DATE\n  )`;\n}).join(',\\n');\n\nconst query = `INSERT INTO deal_snapshots\n  (opportunity_crm_id, opportunity_name, account_name, owner_name, classification, engagement_level, days_in_stage, metrics, snapshot_date)\nVALUES ${values}\nON CONFLICT (organization_id, opportunity_crm_id, snapshot_date)\nDO UPDATE SET\n  classification = EXCLUDED.classification,\n  engagement_level = EXCLUDED.engagement_level,\n  days_in_stage = EXCLUDED.days_in_stage,\n  metrics = EXCLUDED.metrics,\n  opportunity_name = EXCLUDED.opportunity_name,\n  account_name = EXCLUDED.account_name,\n  owner_name = EXCLUDED.owner_name;`;\n\nreturn [{ json: { query, count: snapshots.length } }];\n"
+            },
+            "id": "8c60d03a-2c98-4daa-b54a-2d454addc6f4",
+            "name": "Build Save Query",
+            "type": "n8n-nodes-base.code",
+            "typeVersion": 2,
+            "position": [
+                1328,
+                592
+            ]
+        },
+        {
+            "parameters": {
+                "method": "POST",
+                "url": "={{ $('Get Auth Token').first().json._supabaseUrl || 'https://your-supabase-url.supabase.co' }}/rest/v1/rpc/exec_sql",
+                "sendHeaders": true,
+                "headerParameters": {
+                    "parameters": [
+                        {
+                            "name": "Content-Type",
+                            "value": "application/json"
+                        },
+                        {
+                            "name": "apikey",
+                            "value": "={{ $env.SUPABASE_KEY || '' }}"
+                        }
+                    ]
+                },
+                "sendBody": true,
+                "specifyBody": "json",
+                "jsonBody": "={{ JSON.stringify({ query: $('Build Save Query').first().json.query }) }}",
+                "options": {}
+            },
+            "id": "17e7cca9-cd48-4b72-af81-0f526f675bb5",
+            "name": "Save Snapshots",
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4.2,
+            "position": [
+                1552,
+                592
+            ],
+            "continueOnFail": true
+        },
+        {
+            "parameters": {
+                "conditions": {
+                    "options": {
+                        "version": 2,
+                        "leftValue": "",
+                        "caseSensitive": true,
+                        "typeValidation": "strict"
+                    },
+                    "conditions": [
+                        {
+                            "id": "80ee9bb5-4358-461b-ba51-e3587aed636c",
+                            "leftValue": "={{ $json.hasTransitions }}",
+                            "rightValue": true,
+                            "operator": {
+                                "type": "boolean",
+                                "operation": "true"
+                            }
+                        }
+                    ],
+                    "combinator": "and"
+                },
+                "options": {}
+            },
+            "id": "960eb8a9-8e35-4518-b3c9-b0cc78242c67",
+            "name": "Has Transitions?",
+            "type": "n8n-nodes-base.if",
+            "typeVersion": 2.2,
+            "position": [
+                1328,
+                400
+            ]
+        },
+        {
+            "parameters": {
+                "operation": "getAll",
+                "tableId": "users",
+                "returnAll": true,
+                "filters": {
+                    "conditions": [
+                        {
+                            "keyName": "onboarding_state",
+                            "condition": "eq",
+                            "keyValue": "complete"
+                        }
+                    ]
+                }
+            },
+            "id": "f9f62704-b5ea-4262-a228-f7fa85804ad4",
+            "name": "Get Alert Users",
+            "type": "n8n-nodes-base.supabase",
+            "typeVersion": 1,
+            "position": [
+                1552,
+                400
+            ],
+            "credentials": {
+                "supabaseApi": {
+                    "id": "ASRWWkQ0RSMOpNF1",
+                    "name": "Supabase account"
+                }
+            }
+        },
+        {
+            "parameters": {
+                "jsCode": "// Match transitions to users based on their scope\nlet transData;\ntry {\n  transData = $('Detect Transitions').first().json;\n} catch (e) {\n  // Detect Transitions didn't execute \u2014 no transitions to alert on\n  return [{ json: { noAlerts: true } }];\n}\n\nconst users = $('Get Alert Users').all().map(item => item.json);\nconst hierarchyData = $('Parse Hierarchy').first().json;\n\nconst transitions = transData.transitions || [];\nif (transitions.length === 0 || users.length === 0) {\n  return [{ json: { noAlerts: true } }];\n}\n\nconst managerToReports = hierarchyData.managerToReports || {};\nconst results = [];\n\nfor (const user of users) {\n  const userEmail = (user.email || '').toLowerCase();\n  const repName = userEmail.split('@')[0].replace(/\\./g, ' ').replace(/\\b\\w/g, c => c.toUpperCase());\n  const repLower = repName.toLowerCase();\n  const digestScope = user.digest_scope || 'my_deals';\n\n  let userTransitions = [];\n\n  if (digestScope === 'my_deals') {\n    userTransitions = transitions.filter(t => {\n      const owner = (t.owner || '').toLowerCase();\n      return owner.includes(repLower);\n    });\n  } else if (digestScope === 'team_deals') {\n    let reportNames = [repLower];\n    for (const [mgrKey, reports] of Object.entries(managerToReports)) {\n      if (mgrKey.includes(repLower) || repLower.includes(mgrKey)) {\n        for (const report of reports) {\n          const rName = (report.name || '').toLowerCase();\n          if (rName && !reportNames.includes(rName)) reportNames.push(rName);\n        }\n      }\n    }\n    if (managerToReports[userEmail]) {\n      for (const report of managerToReports[userEmail]) {\n        const rName = (report.name || '').toLowerCase();\n        if (rName && !reportNames.includes(rName)) reportNames.push(rName);\n      }\n    }\n    userTransitions = transitions.filter(t => {\n      const owner = (t.owner || '').toLowerCase();\n      return reportNames.some(name => owner.includes(name));\n    });\n  } else {\n    // pipeline scope \u2014 see all transitions\n    userTransitions = transitions;\n  }\n\n  if (userTransitions.length === 0) continue;\n\n  results.push({\n    userId: user.id,\n    slackUserId: user.slack_user_id,\n    email: user.email,\n    assistantName: user.assistant_name || 'Aria',\n    assistantEmoji: user.assistant_emoji || ':robot_face:',\n    repName,\n    transitions: userTransitions,\n    worseningCount: userTransitions.filter(t => t.direction === 'worsening').length,\n    improvingCount: userTransitions.filter(t => t.direction === 'improving').length\n  });\n}\n\nif (results.length === 0) {\n  return [{ json: { noAlerts: true } }];\n}\n\nreturn results.map(r => ({ json: r }));"
+            },
+            "id": "f4286345-29af-444b-b5ce-7833afcc206f",
+            "name": "Match Alerts to Users",
+            "type": "n8n-nodes-base.code",
+            "typeVersion": 2,
+            "position": [
+                1776,
+                304
+            ]
+        },
+        {
+            "parameters": {
+                "conditions": {
+                    "options": {
+                        "version": 2,
+                        "leftValue": "",
+                        "caseSensitive": true,
+                        "typeValidation": "strict"
+                    },
+                    "conditions": [
+                        {
+                            "id": "bfc5dde9-5ebb-497a-97a5-783e2404b7d9",
+                            "leftValue": "={{ $json.noAlerts }}",
+                            "rightValue": true,
+                            "operator": {
+                                "type": "boolean",
+                                "operation": "notTrue"
+                            }
+                        }
+                    ],
+                    "combinator": "and"
+                },
+                "options": {}
+            },
+            "id": "9dec1f4e-aab5-48fe-9ea9-e0ec437b7049",
+            "name": "Has Alerts?",
+            "type": "n8n-nodes-base.if",
+            "typeVersion": 2.2,
+            "position": [
+                2000,
+                304
+            ]
+        },
+        {
+            "parameters": {
+                "options": {}
+            },
+            "id": "b5e7cd99-f910-48e9-b30b-ca580d0fdd30",
+            "name": "Split In Batches",
+            "type": "n8n-nodes-base.splitInBatches",
+            "typeVersion": 3,
+            "position": [
+                2224,
+                304
+            ]
+        },
+        {
+            "parameters": {
+                "method": "POST",
+                "url": "https://slack.com/api/conversations.open",
+                "authentication": "genericCredentialType",
+                "genericAuthType": "httpHeaderAuth",
+                "sendHeaders": true,
+                "headerParameters": {
+                    "parameters": [
+                        {
+                            "name": "Content-Type",
+                            "value": "application/json"
+                        }
+                    ]
+                },
+                "sendBody": true,
+                "specifyBody": "json",
+                "jsonBody": "={{ JSON.stringify({ users: $('Split In Batches').first().json.slackUserId }) }}",
+                "options": {}
+            },
+            "id": "32fb0052-1433-4a56-8dea-6ae25e93de62",
+            "name": "Open Bot DM",
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4.2,
+            "position": [
+                2448,
+                232
+            ],
+            "credentials": {
+                "httpHeaderAuth": {
+                    "id": "LluVuiMJ8NUbAiG7",
+                    "name": "Slackbot Auth Token"
+                }
+            }
+        },
+        {
+            "parameters": {
+                "jsCode": "// Build Slack Block Kit alert message \u2014 no AI needed\nconst data = $('Split In Batches').first().json;\nconst transitions = data.transitions || [];\nconst assistantName = data.assistantName || 'Aria';\nconst assistantEmoji = data.assistantEmoji || ':robot_face:';\nconst emojiClean = assistantEmoji.replace(/:/g, '');\n\nconst worsening = transitions.filter(t => t.direction === 'worsening');\nconst improving = transitions.filter(t => t.direction === 'improving');\n\nconst blocks = [];\n\n// Header\nblocks.push({\n  type: 'header',\n  text: { type: 'plain_text', text: emojiClean + ' Deal State Changes', emoji: true }\n});\n\n// Summary\nconst summaryParts = [];\nif (worsening.length > 0) summaryParts.push(worsening.length + ' need' + (worsening.length === 1 ? 's' : '') + ' attention');\nif (improving.length > 0) summaryParts.push(improving.length + ' improving');\nblocks.push({\n  type: 'section',\n  text: { type: 'mrkdwn', text: '*' + transitions.length + ' deals changed state overnight* \\u2014 ' + summaryParts.join(', ') }\n});\n\n// Worsening section\nif (worsening.length > 0) {\n  blocks.push({ type: 'divider' });\n  blocks.push({\n    type: 'section',\n    text: { type: 'mrkdwn', text: '*\\ud83d\\udea8 Needs Attention*' }\n  });\n\n  for (const t of worsening.slice(0, 10)) {\n    const prevLabel = t.previousLabel || 'New';\n    const arrow = prevLabel + ' \\u2192 ' + t.newLabel;\n    const flagText = (t.flags || []).length > 0 ? '\\n    _' + t.flags.join(', ') + '_' : '';\n    const link = t.crmId ? ' <https://app.people.ai/opportunities/' + t.crmId + '|View>' : '';\n    blocks.push({\n      type: 'section',\n      text: { type: 'mrkdwn', text: '*' + (t.name || 'Unknown') + '* (' + (t.account || '') + ')' + link + '\\n' + arrow + flagText }\n    });\n  }\n  if (worsening.length > 10) {\n    blocks.push({\n      type: 'context',\n      elements: [{ type: 'mrkdwn', text: '...and ' + (worsening.length - 10) + ' more' }]\n    });\n  }\n}\n\n// Improving section\nif (improving.length > 0) {\n  blocks.push({ type: 'divider' });\n  blocks.push({\n    type: 'section',\n    text: { type: 'mrkdwn', text: '*\\u2705 Improving*' }\n  });\n\n  for (const t of improving.slice(0, 5)) {\n    const arrow = t.previousLabel + ' \\u2192 ' + t.newLabel;\n    const link = t.crmId ? ' <https://app.people.ai/opportunities/' + t.crmId + '|View>' : '';\n    blocks.push({\n      type: 'section',\n      text: { type: 'mrkdwn', text: '*' + (t.name || 'Unknown') + '* (' + (t.account || '') + ')' + link + '\\n' + arrow }\n    });\n  }\n  if (improving.length > 5) {\n    blocks.push({\n      type: 'context',\n      elements: [{ type: 'mrkdwn', text: '...and ' + (improving.length - 5) + ' more improving' }]\n    });\n  }\n}\n\n// Footer\nconst now = new Date();\nconst dateStr = now.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });\nblocks.push({\n  type: 'context',\n  elements: [{ type: 'mrkdwn', text: 'People.ai deal intelligence \\u2022 ' + dateStr + ' \\u2022 Type `insights` for full analysis' }]\n});\n\nconst notificationText = worsening.length > 0\n  ? worsening.length + ' deal' + (worsening.length === 1 ? '' : 's') + ' need' + (worsening.length === 1 ? 's' : '') + ' attention'\n  : improving.length + ' deal' + (improving.length === 1 ? '' : 's') + ' improved overnight';\n\nreturn [{ json: {\n  slackUserId: data.slackUserId,\n  assistantName,\n  assistantEmoji,\n  blocks: JSON.stringify(blocks),\n  notificationText\n}}];\n"
+            },
+            "id": "78a129b9-c79a-4ef6-99f5-e143bd1acafe",
+            "name": "Build Alert Message",
+            "type": "n8n-nodes-base.code",
+            "typeVersion": 2,
+            "position": [
+                2672,
+                232
+            ]
+        },
+        {
+            "parameters": {
+                "method": "POST",
+                "url": "https://slack.com/api/chat.postMessage",
+                "authentication": "genericCredentialType",
+                "genericAuthType": "httpHeaderAuth",
+                "sendHeaders": true,
+                "headerParameters": {
+                    "parameters": [
+                        {
+                            "name": "Content-Type",
+                            "value": "application/json"
+                        }
+                    ]
+                },
+                "sendBody": true,
+                "specifyBody": "json",
+                "jsonBody": "={{ JSON.stringify({ channel: $('Open Bot DM').first().json.channel.id, text: $('Build Alert Message').first().json.notificationText, username: $('Build Alert Message').first().json.assistantName, icon_emoji: $('Build Alert Message').first().json.assistantEmoji, blocks: JSON.parse($('Build Alert Message').first().json.blocks), unfurl_links: false, unfurl_media: false }) }}",
+                "options": {}
+            },
+            "id": "9d7c8935-b6df-43a5-bf7b-2e7781d59e38",
+            "name": "Send Alert",
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4.2,
+            "position": [
+                2896,
+                304
+            ],
+            "credentials": {
+                "httpHeaderAuth": {
+                    "id": "LluVuiMJ8NUbAiG7",
+                    "name": "Slackbot Auth Token"
+                }
+            },
+            "continueOnFail": true
+        }
+    ],
+    "connections": {
+        "Daily 7am PT": {
+            "main": [
+                [
+                    {
+                        "node": "Get Auth Token",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Get Auth Token": {
+            "main": [
+                [
+                    {
+                        "node": "Fetch User Hierarchy",
+                        "type": "main",
+                        "index": 0
+                    },
+                    {
+                        "node": "Fetch Insights Opps",
+                        "type": "main",
+                        "index": 0
+                    },
+                    {
+                        "node": "Get Yesterday Snapshots",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Fetch User Hierarchy": {
+            "main": [
+                [
+                    {
+                        "node": "Parse Hierarchy",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Fetch Insights Opps": {
+            "main": [
+                [
+                    {
+                        "node": "Parse and Classify",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Parse and Classify": {
+            "main": [
+                [
+                    {
+                        "node": "Detect Transitions",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Get Yesterday Snapshots": {
+            "main": [
+                [
+                    {
+                        "node": "Detect Transitions",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Detect Transitions": {
+            "main": [
+                [
+                    {
+                        "node": "Build Save Query",
+                        "type": "main",
+                        "index": 0
+                    },
+                    {
+                        "node": "Has Transitions?",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Build Save Query": {
+            "main": [
+                [
+                    {
+                        "node": "Save Snapshots",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Has Transitions?": {
+            "main": [
+                [
+                    {
+                        "node": "Get Alert Users",
+                        "type": "main",
+                        "index": 0
+                    }
+                ],
+                []
+            ]
+        },
+        "Parse Hierarchy": {
+            "main": [
+                [
+                    {
+                        "node": "Match Alerts to Users",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Get Alert Users": {
+            "main": [
+                [
+                    {
+                        "node": "Match Alerts to Users",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Match Alerts to Users": {
+            "main": [
+                [
+                    {
+                        "node": "Has Alerts?",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Has Alerts?": {
+            "main": [
+                [
+                    {
+                        "node": "Split In Batches",
+                        "type": "main",
+                        "index": 0
+                    }
+                ],
+                []
+            ]
+        },
+        "Split In Batches": {
+            "main": [
+                [
+                    {
+                        "node": "Open Bot DM",
+                        "type": "main",
+                        "index": 0
+                    }
+                ],
+                []
+            ]
+        },
+        "Open Bot DM": {
+            "main": [
+                [
+                    {
+                        "node": "Build Alert Message",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Build Alert Message": {
+            "main": [
+                [
+                    {
+                        "node": "Send Alert",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Send Alert": {
+            "main": [
+                [
+                    {
+                        "node": "Split In Batches",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        }
+    },
+    "settings": {
+        "executionOrder": "v1",
+        "callerPolicy": "workflowsFromSameOwner",
+        "availableInMCP": false
+    },
+    "staticData": {
+        "node:Daily 7am PT": {
+            "recurrenceRules": []
+        }
+    },
+    "meta": null,
+    "pinData": {},
+    "versionId": "9f4f62f6-b79b-49d0-9016-87e561adee03",
+    "activeVersionId": "9f4f62f6-b79b-49d0-9016-87e561adee03",
+    "versionCounter": 14,
+    "triggerCount": 1,
+    "tags": [],
+    "activeVersion": {
+        "updatedAt": "2026-03-05T16:27:15.247Z",
+        "createdAt": "2026-03-05T16:27:15.247Z",
+        "versionId": "9f4f62f6-b79b-49d0-9016-87e561adee03",
+        "workflowId": "kZr1QKPiE7zxcn2n",
+        "nodes": [
+            {
+                "parameters": {
+                    "rule": {
+                        "interval": [
+                            {
+                                "field": "cronExpression",
+                                "expression": "0 7 * * 1-5"
+                            }
+                        ]
+                    }
+                },
+                "id": "a13c9642-7e57-4757-b431-06f396a7f96f",
+                "name": "Daily 7am PT",
+                "type": "n8n-nodes-base.scheduleTrigger",
+                "typeVersion": 1.2,
+                "position": [
+                    208,
+                    376
+                ]
+            },
+            {
+                "parameters": {
+                    "method": "POST",
+                    "url": "https://api.people.ai/v3/auth/tokens",
+                    "sendHeaders": true,
+                    "headerParameters": {
+                        "parameters": [
+                            {
+                                "name": "Content-Type",
+                                "value": "application/x-www-form-urlencoded"
+                            }
+                        ]
+                    },
+                    "sendBody": true,
+                    "specifyBody": "string",
+                    "body": "client_id=YOUR_CLIENT_ID&client_secret=YOUR_CLIENT_SECRET&grant_type=client_credentials",
+                    "options": {}
+                },
+                "id": "7f236b21-fa75-4ddb-afee-f96903714072",
+                "name": "Get Auth Token",
+                "type": "n8n-nodes-base.httpRequest",
+                "typeVersion": 4.2,
+                "position": [
+                    432,
+                    376
+                ]
+            },
+            {
+                "parameters": {
+                    "method": "POST",
+                    "url": "https://api.people.ai/v3/beta/insights/export",
+                    "sendHeaders": true,
+                    "headerParameters": {
+                        "parameters": [
+                            {
+                                "name": "Content-Type",
+                                "value": "application/json"
+                            },
+                            {
+                                "name": "Authorization",
+                                "value": "=Bearer {{ $('Get Auth Token').first().json.access_token }}"
+                            }
+                        ]
+                    },
+                    "sendBody": true,
+                    "specifyBody": "json",
+                    "jsonBody": "{\"object\": \"user\", \"columns\": [{\"slug\": \"ootb_user_name\"}, {\"slug\": \"ootb_user_email\"}, {\"slug\": \"ootb_user_manager\"}]}",
+                    "options": {}
+                },
+                "id": "2bd47e35-723f-475e-a6e9-9703379400ff",
+                "name": "Fetch User Hierarchy",
+                "type": "n8n-nodes-base.httpRequest",
+                "typeVersion": 4.2,
+                "position": [
+                    1328,
+                    208
+                ]
+            },
+            {
+                "parameters": {
+                    "jsCode": "// Parse CSV from People.ai User hierarchy export\nconst csvData = $('Fetch User Hierarchy').first().json.data;\n\nif (!csvData) {\n  return [{ json: { hierarchy: {}, managerToReports: {}, userCount: 0, error: 'No hierarchy data returned' } }];\n}\n\nconst lines = csvData.split('\\n').filter(l => l.trim());\nif (lines.length < 2) {\n  return [{ json: { hierarchy: {}, managerToReports: {}, userCount: 0, error: 'Hierarchy CSV has no data rows' } }];\n}\n\nfunction parseCsvLine(line) {\n  const result = [];\n  let current = '';\n  let inQuotes = false;\n  for (let i = 0; i < line.length; i++) {\n    const ch = line[i];\n    if (ch === '\"') {\n      if (inQuotes && i + 1 < line.length && line[i + 1] === '\"') {\n        current += '\"';\n        i++;\n      } else {\n        inQuotes = !inQuotes;\n      }\n    } else if (ch === ',' && !inQuotes) {\n      result.push(current.trim());\n      current = '';\n    } else {\n      current += ch;\n    }\n  }\n  result.push(current.trim());\n  return result;\n}\n\nconst headers = parseCsvLine(lines[0]);\nconst headerMap = {};\nheaders.forEach((h, i) => { headerMap[h] = i; });\n\nfunction getField(row, ...names) {\n  for (const name of names) {\n    if (headerMap[name] !== undefined && row[headerMap[name]]) {\n      return row[headerMap[name]];\n    }\n  }\n  return '';\n}\n\nconst hierarchy = {};\nconst managerToReports = {};\n\nfor (let i = 1; i < lines.length; i++) {\n  const row = parseCsvLine(lines[i]);\n  if (row.length < headers.length) continue;\n\n  const name = getField(row, 'ootb_user_name', 'User Name', 'Name');\n  const email = getField(row, 'ootb_user_email', 'User Email', 'Email').toLowerCase();\n  const manager = getField(row, 'ootb_user_manager', 'Manager', 'User Manager');\n\n  if (email) {\n    hierarchy[email] = { name, email, manager };\n  }\n\n  if (manager) {\n    const mgrLower = manager.toLowerCase();\n    if (!managerToReports[mgrLower]) {\n      managerToReports[mgrLower] = [];\n    }\n    managerToReports[mgrLower].push({ name, email });\n  }\n}\n\nreturn [{ json: { hierarchy, managerToReports, userCount: Object.keys(hierarchy).length } }];\n"
+                },
+                "id": "1bca62bf-2146-4aff-b1a0-e8424924155c",
+                "name": "Parse Hierarchy",
+                "type": "n8n-nodes-base.code",
+                "typeVersion": 2,
+                "position": [
+                    1552,
+                    208
+                ]
+            },
+            {
+                "parameters": {
+                    "method": "POST",
+                    "url": "https://api.people.ai/v3/beta/insights/export",
+                    "sendHeaders": true,
+                    "headerParameters": {
+                        "parameters": [
+                            {
+                                "name": "Content-Type",
+                                "value": "application/json"
+                            },
+                            {
+                                "name": "Authorization",
+                                "value": "=Bearer {{ $('Get Auth Token').first().json.access_token }}"
+                            }
+                        ]
+                    },
+                    "sendBody": true,
+                    "specifyBody": "json",
+                    "jsonBody": "{\"object\": \"opportunity\", \"filter\": {\"$and\": [{\"attribute\": {\"slug\": \"ootb_opportunity_is_closed\"}, \"clause\": {\"$eq\": false}}, {\"attribute\": {\"slug\": \"ootb_opportunity_close_date\", \"variation_id\": \"ootb_opportunity_close_date_0\"}, \"clause\": {\"$within\": {\"$ref\": \"time_ranges.this_fyear\"}}}]}, \"columns\": [{\"slug\": \"ootb_opportunity_owners\"}, {\"slug\": \"ootb_opportunity_name\"}, {\"slug\": \"ootb_opportunity_account_name\"}, {\"slug\": \"ootb_opportunity_close_date\"}, {\"slug\": \"ootb_opportunity_current_stage\"}, {\"slug\": \"ootb_opportunity_converted_amount\"}, {\"slug\": \"ootb_opportunity_crm_id\"}, {\"slug\": \"ootb_opportunity_engagement_level\"}, {\"slug\": \"ootb_opportunity_days_in_stage\"}, {\"slug\": \"ootb_opportunity_count_of_meetings_standard\"}, {\"slug\": \"ootb_opportunity_upcoming_meetings_standard\"}, {\"slug\": \"ootb_opportunity_count_of_emails_received\"}, {\"slug\": \"ootb_opportunity_count_of_emails_sent\"}, {\"slug\": \"ootb_opportunity_executive_activities\"}, {\"slug\": \"ootb_opportunity_meetings_with_director_vp_exec\"}, {\"slug\": \"ootb_opportunity_people_engaged\"}, {\"slug\": \"ootb_opportunity_total_activities_count\"}], \"sort\": [{\"attribute\": {\"slug\": \"ootb_opportunity_owners\"}, \"direction\": \"asc\"}]}",
+                    "options": {}
+                },
+                "id": "d95b9924-f69f-4b56-b617-81d30c11fda1",
+                "name": "Fetch Insights Opps",
+                "type": "n8n-nodes-base.httpRequest",
+                "typeVersion": 4.2,
+                "position": [
+                    656,
+                    376
+                ]
+            },
+            {
+                "parameters": {
+                    "jsCode": "// Parse CSV and classify deals \u2014 combined for Deal Watch\nconst csvData = $('Fetch Insights Opps').first().json.data;\n\nif (!csvData) {\n  return [{ json: { classifiedOpps: [], error: 'No data returned' } }];\n}\n\nconst lines = csvData.split('\\n').filter(l => l.trim());\nif (lines.length < 2) {\n  return [{ json: { classifiedOpps: [], oppCount: 0 } }];\n}\n\nfunction parseCsvLine(line) {\n  const result = [];\n  let current = '';\n  let inQuotes = false;\n  for (let i = 0; i < line.length; i++) {\n    const ch = line[i];\n    if (ch === '\"') {\n      if (inQuotes && i + 1 < line.length && line[i + 1] === '\"') {\n        current += '\"';\n        i++;\n      } else {\n        inQuotes = !inQuotes;\n      }\n    } else if (ch === ',' && !inQuotes) {\n      result.push(current.trim());\n      current = '';\n    } else {\n      current += ch;\n    }\n  }\n  result.push(current.trim());\n  return result;\n}\n\nconst headers = parseCsvLine(lines[0]);\nconst headerMap = {};\nheaders.forEach((h, i) => { headerMap[h.toLowerCase()] = i; });\n\nfunction get(row, ...names) {\n  for (const name of names) {\n    const idx = headerMap[name.toLowerCase()];\n    if (idx !== undefined && row[idx] !== undefined && row[idx] !== '') return row[idx];\n  }\n  return '';\n}\n\nfunction num(val) {\n  if (val === null || val === undefined || val === '') return null;\n  const s = String(val);\n  // Handle HH:MM:SS duration format (Days in Stage) \u2014 convert to days\n  if (/^\\d+:\\d+:\\d+$/.test(s)) {\n    const parts = s.split(':');\n    const hours = parseInt(parts[0], 10);\n    return Math.round(hours / 24);\n  }\n  const n = parseFloat(s.replace(/[^0-9.\\-]/g, ''));\n  return isNaN(n) ? null : n;\n}\nfunction n(val) { return num(val) || 0; }\n\nconst classifiedOpps = [];\nfor (let i = 1; i < lines.length; i++) {\n  const row = parseCsvLine(lines[i]);\n  if (row.length < 2) continue;\n\n  const opp = {\n    owners: get(row, 'Owners', 'Owner'),\n    name: get(row, 'Opportunity Name', 'Name'),\n    account: get(row, 'Account Name', 'Account'),\n    closeDate: get(row, 'Close Date'),\n    stage: get(row, 'Stage', 'Current Stage'),\n    amount: get(row, 'Amount (Converted)', 'Converted Amount', 'Amount'),\n    crmId: get(row, 'Record ID', 'CRM ID', 'Opportunity CRM ID', 'CRM Id'),\n    engagement: get(row, 'Opportunity Engagement Level', 'Engagement Level', 'Engagement'),\n    daysInStage: get(row, 'Days in Stage', 'Days In Stage'),\n    meetings30d: get(row, 'Meetings (Last 7 Days)', 'Count Of Meetings Standard', 'Meetings', 'Count of Meetings'),\n    upcomingMeetings: get(row, 'Upcoming Meetings (Next 7 Days)', 'Upcoming Meetings Standard', 'Upcoming Meetings'),\n    emailsReceived: get(row, 'Emails Received (Last 7 Days)', 'Count Of Emails Received', 'Emails Received'),\n    emailsSent: get(row, 'Emails Sent (Last 7 Days)', 'Count Of Emails Sent', 'Emails Sent'),\n    execActivities: get(row, 'Activities with Executives (Last 7 Days)', 'Executive Activities', 'Exec Activities'),\n    execMeetings: get(row, 'Meetings with a Director, VP, or Executive (Last 7 Days)', 'Meetings With Director VP Exec', 'Executive Meetings', 'Director+ Meetings'),\n    peopleEngaged: get(row, 'People Engaged (Last 7 Days)', 'People Engaged', 'Contacts Engaged'),\n    totalActivities: get(row, 'Total Activities (Last 7 Days)', 'Total Activities Count', 'Total Activities')\n  };\n\n  const engagement = n(opp.engagement);\n  const daysInStage = n(opp.daysInStage);\n  const meetings30d = n(opp.meetings30d);\n  const upcomingMeetings = n(opp.upcomingMeetings);\n  const emailsReceived = n(opp.emailsReceived);\n  const emailsSent = n(opp.emailsSent);\n  const execActivities = n(opp.execActivities);\n  const execMeetings = n(opp.execMeetings);\n  const peopleEngaged = n(opp.peopleEngaged);\n\n  const emailResponsiveness = emailsSent > 0 ? emailsReceived / emailsSent : 0;\n  const totalMeetings = meetings30d + execMeetings;\n  const execCoverage = totalMeetings > 0 ? 100 * execMeetings / totalMeetings : 0;\n\n  let classification = 'healthy';\n  let flags = [];\n\n  // Stalled\n  if (engagement < 25 || (engagement < 50 && daysInStage > 45 && meetings30d === 0)) {\n    classification = 'stalled';\n    if (engagement < 25) flags.push('Very low engagement');\n    if (daysInStage > 45) flags.push('Stuck ' + daysInStage + 'd');\n    if (meetings30d === 0) flags.push('No meetings 30d');\n  }\n\n  // Risk\n  if (classification === 'healthy') {\n    let riskSignals = 0;\n    let riskFlags = [];\n    if (execActivities === 0) { riskSignals++; riskFlags.push('No exec'); }\n    if (emailResponsiveness < 0.3 && emailsSent > 0) { riskSignals++; riskFlags.push('Low email response'); }\n    if (peopleEngaged < 3) { riskSignals++; riskFlags.push('Single-threaded'); }\n    if (execCoverage < 10 && totalMeetings > 0) { riskSignals++; riskFlags.push('Low exec coverage'); }\n    if (riskSignals >= 2) {\n      classification = 'risk';\n      flags = riskFlags;\n    }\n  }\n\n  // Accelerating\n  if (classification === 'healthy') {\n    let accelSignals = 0;\n    let accelFlags = [];\n    if (upcomingMeetings >= 2) { accelSignals++; accelFlags.push(upcomingMeetings + ' upcoming mtgs'); }\n    if (execActivities >= 3) { accelSignals++; accelFlags.push(execActivities + ' exec activities'); }\n    if (meetings30d >= 4) { accelSignals++; accelFlags.push(meetings30d + ' mtgs 30d'); }\n    if (engagement >= 70 && accelSignals >= 2) {\n      classification = 'accelerating';\n      flags = accelFlags;\n    }\n  }\n\n  classifiedOpps.push({\n    ...opp,\n    classification,\n    flags,\n    metrics: { engagement, daysInStage, meetings30d, execActivities, peopleEngaged }\n  });\n}\n\nreturn [{ json: { classifiedOpps, oppCount: classifiedOpps.length } }];"
+                },
+                "id": "d0fd627c-99ad-473d-a8c9-309875330b86",
+                "name": "Parse and Classify",
+                "type": "n8n-nodes-base.code",
+                "typeVersion": 2,
+                "position": [
+                    880,
+                    376
+                ]
+            },
+            {
+                "parameters": {
+                    "operation": "getAll",
+                    "tableId": "deal_snapshots",
+                    "returnAll": true,
+                    "filters": {
+                        "conditions": [
+                            {
+                                "keyName": "snapshot_date",
+                                "condition": "eq",
+                                "keyValue": "={{ new Date(Date.now() - 86400000).toISOString().split('T')[0] }}"
+                            }
+                        ]
+                    }
+                },
+                "id": "f7b0e2dd-e72f-40e7-a89d-92ebfded7f7e",
+                "name": "Get Yesterday Snapshots",
+                "type": "n8n-nodes-base.supabase",
+                "typeVersion": 1,
+                "position": [
+                    880,
+                    592
+                ],
+                "alwaysOutputData": true,
+                "credentials": {
+                    "supabaseApi": {
+                        "id": "ASRWWkQ0RSMOpNF1",
+                        "name": "Supabase account"
+                    }
+                }
+            },
+            {
+                "parameters": {
+                    "jsCode": "// Compare today's classifications against yesterday's snapshots\nconst todayData = $('Parse and Classify').first().json;\n\nlet yesterdaySnapshots = [];\ntry {\n  yesterdaySnapshots = $('Get Yesterday Snapshots').all().map(item => item.json);\n} catch (e) {\n  // No yesterday data (first run, table missing, etc.) \u2014 treat all as new\n  yesterdaySnapshots = [];\n}\n\nconst todayOpps = todayData.classifiedOpps || [];\n\n// Build lookup by CRM ID from yesterday's snapshots\nconst yesterdayMap = {};\nfor (const snap of yesterdaySnapshots) {\n  if (snap.opportunity_crm_id) {\n    yesterdayMap[snap.opportunity_crm_id] = snap;\n  }\n}\n\nconst transitions = [];\nconst snapshotsToSave = [];\n\n// Severity ranking for transition direction\nconst severityRank = { 'stalled': 0, 'risk': 1, 'healthy': 2, 'accelerating': 3 };\nconst classLabels = {\n  'stalled': '\\ud83d\\udd34 Stalled',\n  'risk': '\\u26a0\\ufe0f At Risk',\n  'healthy': '\\u2705 Healthy',\n  'accelerating': '\\ud83d\\ude80 Accelerating'\n};\n\nfor (const opp of todayOpps) {\n  const crmId = opp.crmId;\n  if (!crmId) continue;\n\n  // Build snapshot for saving\n  snapshotsToSave.push({\n    opportunity_crm_id: crmId,\n    opportunity_name: opp.name || '',\n    account_name: opp.account || '',\n    owner_name: opp.owners || '',\n    classification: opp.classification,\n    engagement_level: opp.metrics?.engagement || 0,\n    days_in_stage: opp.metrics?.daysInStage || 0,\n    metrics: JSON.stringify(opp.metrics || {})\n  });\n\n  const yesterday = yesterdayMap[crmId];\n\n  if (!yesterday) {\n    // New deal \u2014 only flag if it's stalled or risk\n    if (opp.classification === 'stalled' || opp.classification === 'risk') {\n      transitions.push({\n        crmId,\n        name: opp.name,\n        account: opp.account,\n        owner: opp.owners,\n        previousClass: null,\n        newClass: opp.classification,\n        previousLabel: 'New',\n        newLabel: classLabels[opp.classification],\n        direction: 'worsening',\n        flags: opp.flags || [],\n        engagement: opp.metrics?.engagement || 0\n      });\n    }\n    continue;\n  }\n\n  // Compare classifications\n  const prevClass = yesterday.classification;\n  const newClass = opp.classification;\n\n  if (prevClass === newClass) continue; // No change\n\n  const prevRank = severityRank[prevClass] ?? 2;\n  const newRank = severityRank[newClass] ?? 2;\n  const direction = newRank < prevRank ? 'worsening' : 'improving';\n\n  transitions.push({\n    crmId,\n    name: opp.name,\n    account: opp.account,\n    owner: opp.owners,\n    previousClass: prevClass,\n    newClass: newClass,\n    previousLabel: classLabels[prevClass] || prevClass,\n    newLabel: classLabels[newClass] || newClass,\n    direction,\n    flags: opp.flags || [],\n    engagement: opp.metrics?.engagement || 0\n  });\n}\n\nreturn [{ json: {\n  transitions,\n  transitionCount: transitions.length,\n  worseningCount: transitions.filter(t => t.direction === 'worsening').length,\n  improvingCount: transitions.filter(t => t.direction === 'improving').length,\n  snapshotsToSave,\n  snapshotCount: snapshotsToSave.length,\n  hasTransitions: transitions.length > 0\n}}];"
+                },
+                "id": "ca847a12-cbf3-4e65-9bfe-e018fc4a5a0b",
+                "name": "Detect Transitions",
+                "type": "n8n-nodes-base.code",
+                "typeVersion": 2,
+                "position": [
+                    1104,
+                    496
+                ]
+            },
+            {
+                "parameters": {
+                    "jsCode": "// Build batch upsert for deal_snapshots table\nconst data = $('Detect Transitions').first().json;\nconst snapshots = data.snapshotsToSave || [];\n\nif (snapshots.length === 0) {\n  return [{ json: { query: '', count: 0 } }];\n}\n\n// Build individual upsert values\nconst values = snapshots.map(s => {\n  const metrics = typeof s.metrics === 'string' ? s.metrics : JSON.stringify(s.metrics || {});\n  return `(\n    '${(s.opportunity_crm_id || '').replace(/'/g, \"''\")}',\n    '${(s.opportunity_name || '').replace(/'/g, \"''\")}',\n    '${(s.account_name || '').replace(/'/g, \"''\")}',\n    '${(s.owner_name || '').replace(/'/g, \"''\")}',\n    '${s.classification}',\n    ${s.engagement_level || 0},\n    ${s.days_in_stage || 0},\n    '${metrics.replace(/'/g, \"''\")}'::jsonb,\n    CURRENT_DATE\n  )`;\n}).join(',\\n');\n\nconst query = `INSERT INTO deal_snapshots\n  (opportunity_crm_id, opportunity_name, account_name, owner_name, classification, engagement_level, days_in_stage, metrics, snapshot_date)\nVALUES ${values}\nON CONFLICT (organization_id, opportunity_crm_id, snapshot_date)\nDO UPDATE SET\n  classification = EXCLUDED.classification,\n  engagement_level = EXCLUDED.engagement_level,\n  days_in_stage = EXCLUDED.days_in_stage,\n  metrics = EXCLUDED.metrics,\n  opportunity_name = EXCLUDED.opportunity_name,\n  account_name = EXCLUDED.account_name,\n  owner_name = EXCLUDED.owner_name;`;\n\nreturn [{ json: { query, count: snapshots.length } }];\n"
+                },
+                "id": "8c60d03a-2c98-4daa-b54a-2d454addc6f4",
+                "name": "Build Save Query",
+                "type": "n8n-nodes-base.code",
+                "typeVersion": 2,
+                "position": [
+                    1328,
+                    592
+                ]
+            },
+            {
+                "parameters": {
+                    "method": "POST",
+                    "url": "={{ $('Get Auth Token').first().json._supabaseUrl || 'https://your-supabase-url.supabase.co' }}/rest/v1/rpc/exec_sql",
+                    "sendHeaders": true,
+                    "headerParameters": {
+                        "parameters": [
+                            {
+                                "name": "Content-Type",
+                                "value": "application/json"
+                            },
+                            {
+                                "name": "apikey",
+                                "value": "={{ $env.SUPABASE_KEY || '' }}"
+                            }
+                        ]
+                    },
+                    "sendBody": true,
+                    "specifyBody": "json",
+                    "jsonBody": "={{ JSON.stringify({ query: $('Build Save Query').first().json.query }) }}",
+                    "options": {}
+                },
+                "id": "17e7cca9-cd48-4b72-af81-0f526f675bb5",
+                "name": "Save Snapshots",
+                "type": "n8n-nodes-base.httpRequest",
+                "typeVersion": 4.2,
+                "position": [
+                    1552,
+                    592
+                ],
+                "continueOnFail": true
+            },
+            {
+                "parameters": {
+                    "conditions": {
+                        "options": {
+                            "version": 2,
+                            "leftValue": "",
+                            "caseSensitive": true,
+                            "typeValidation": "strict"
+                        },
+                        "conditions": [
+                            {
+                                "id": "80ee9bb5-4358-461b-ba51-e3587aed636c",
+                                "leftValue": "={{ $json.hasTransitions }}",
+                                "rightValue": true,
+                                "operator": {
+                                    "type": "boolean",
+                                    "operation": "true"
+                                }
+                            }
+                        ],
+                        "combinator": "and"
+                    },
+                    "options": {}
+                },
+                "id": "960eb8a9-8e35-4518-b3c9-b0cc78242c67",
+                "name": "Has Transitions?",
+                "type": "n8n-nodes-base.if",
+                "typeVersion": 2.2,
+                "position": [
+                    1328,
+                    400
+                ]
+            },
+            {
+                "parameters": {
+                    "operation": "getAll",
+                    "tableId": "users",
+                    "returnAll": true,
+                    "filters": {
+                        "conditions": [
+                            {
+                                "keyName": "onboarding_state",
+                                "condition": "eq",
+                                "keyValue": "complete"
+                            }
+                        ]
+                    }
+                },
+                "id": "f9f62704-b5ea-4262-a228-f7fa85804ad4",
+                "name": "Get Alert Users",
+                "type": "n8n-nodes-base.supabase",
+                "typeVersion": 1,
+                "position": [
+                    1552,
+                    400
+                ],
+                "credentials": {
+                    "supabaseApi": {
+                        "id": "ASRWWkQ0RSMOpNF1",
+                        "name": "Supabase account"
+                    }
+                }
+            },
+            {
+                "parameters": {
+                    "jsCode": "// Match transitions to users based on their scope\nlet transData;\ntry {\n  transData = $('Detect Transitions').first().json;\n} catch (e) {\n  // Detect Transitions didn't execute \u2014 no transitions to alert on\n  return [{ json: { noAlerts: true } }];\n}\n\nconst users = $('Get Alert Users').all().map(item => item.json);\nconst hierarchyData = $('Parse Hierarchy').first().json;\n\nconst transitions = transData.transitions || [];\nif (transitions.length === 0 || users.length === 0) {\n  return [{ json: { noAlerts: true } }];\n}\n\nconst managerToReports = hierarchyData.managerToReports || {};\nconst results = [];\n\nfor (const user of users) {\n  const userEmail = (user.email || '').toLowerCase();\n  const repName = userEmail.split('@')[0].replace(/\\./g, ' ').replace(/\\b\\w/g, c => c.toUpperCase());\n  const repLower = repName.toLowerCase();\n  const digestScope = user.digest_scope || 'my_deals';\n\n  let userTransitions = [];\n\n  if (digestScope === 'my_deals') {\n    userTransitions = transitions.filter(t => {\n      const owner = (t.owner || '').toLowerCase();\n      return owner.includes(repLower);\n    });\n  } else if (digestScope === 'team_deals') {\n    let reportNames = [repLower];\n    for (const [mgrKey, reports] of Object.entries(managerToReports)) {\n      if (mgrKey.includes(repLower) || repLower.includes(mgrKey)) {\n        for (const report of reports) {\n          const rName = (report.name || '').toLowerCase();\n          if (rName && !reportNames.includes(rName)) reportNames.push(rName);\n        }\n      }\n    }\n    if (managerToReports[userEmail]) {\n      for (const report of managerToReports[userEmail]) {\n        const rName = (report.name || '').toLowerCase();\n        if (rName && !reportNames.includes(rName)) reportNames.push(rName);\n      }\n    }\n    userTransitions = transitions.filter(t => {\n      const owner = (t.owner || '').toLowerCase();\n      return reportNames.some(name => owner.includes(name));\n    });\n  } else {\n    // pipeline scope \u2014 see all transitions\n    userTransitions = transitions;\n  }\n\n  if (userTransitions.length === 0) continue;\n\n  results.push({\n    userId: user.id,\n    slackUserId: user.slack_user_id,\n    email: user.email,\n    assistantName: user.assistant_name || 'Aria',\n    assistantEmoji: user.assistant_emoji || ':robot_face:',\n    repName,\n    transitions: userTransitions,\n    worseningCount: userTransitions.filter(t => t.direction === 'worsening').length,\n    improvingCount: userTransitions.filter(t => t.direction === 'improving').length\n  });\n}\n\nif (results.length === 0) {\n  return [{ json: { noAlerts: true } }];\n}\n\nreturn results.map(r => ({ json: r }));"
+                },
+                "id": "f4286345-29af-444b-b5ce-7833afcc206f",
+                "name": "Match Alerts to Users",
+                "type": "n8n-nodes-base.code",
+                "typeVersion": 2,
+                "position": [
+                    1776,
+                    304
+                ]
+            },
+            {
+                "parameters": {
+                    "conditions": {
+                        "options": {
+                            "version": 2,
+                            "leftValue": "",
+                            "caseSensitive": true,
+                            "typeValidation": "strict"
+                        },
+                        "conditions": [
+                            {
+                                "id": "bfc5dde9-5ebb-497a-97a5-783e2404b7d9",
+                                "leftValue": "={{ $json.noAlerts }}",
+                                "rightValue": true,
+                                "operator": {
+                                    "type": "boolean",
+                                    "operation": "notTrue"
+                                }
+                            }
+                        ],
+                        "combinator": "and"
+                    },
+                    "options": {}
+                },
+                "id": "9dec1f4e-aab5-48fe-9ea9-e0ec437b7049",
+                "name": "Has Alerts?",
+                "type": "n8n-nodes-base.if",
+                "typeVersion": 2.2,
+                "position": [
+                    2000,
+                    304
+                ]
+            },
+            {
+                "parameters": {
+                    "options": {}
+                },
+                "id": "b5e7cd99-f910-48e9-b30b-ca580d0fdd30",
+                "name": "Split In Batches",
+                "type": "n8n-nodes-base.splitInBatches",
+                "typeVersion": 3,
+                "position": [
+                    2224,
+                    304
+                ]
+            },
+            {
+                "parameters": {
+                    "method": "POST",
+                    "url": "https://slack.com/api/conversations.open",
+                    "authentication": "genericCredentialType",
+                    "genericAuthType": "httpHeaderAuth",
+                    "sendHeaders": true,
+                    "headerParameters": {
+                        "parameters": [
+                            {
+                                "name": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ]
+                    },
+                    "sendBody": true,
+                    "specifyBody": "json",
+                    "jsonBody": "={{ JSON.stringify({ users: $('Split In Batches').first().json.slackUserId }) }}",
+                    "options": {}
+                },
+                "id": "32fb0052-1433-4a56-8dea-6ae25e93de62",
+                "name": "Open Bot DM",
+                "type": "n8n-nodes-base.httpRequest",
+                "typeVersion": 4.2,
+                "position": [
+                    2448,
+                    232
+                ],
+                "credentials": {
+                    "httpHeaderAuth": {
+                        "id": "LluVuiMJ8NUbAiG7",
+                        "name": "Slackbot Auth Token"
+                    }
+                }
+            },
+            {
+                "parameters": {
+                    "jsCode": "// Build Slack Block Kit alert message \u2014 no AI needed\nconst data = $('Split In Batches').first().json;\nconst transitions = data.transitions || [];\nconst assistantName = data.assistantName || 'Aria';\nconst assistantEmoji = data.assistantEmoji || ':robot_face:';\nconst emojiClean = assistantEmoji.replace(/:/g, '');\n\nconst worsening = transitions.filter(t => t.direction === 'worsening');\nconst improving = transitions.filter(t => t.direction === 'improving');\n\nconst blocks = [];\n\n// Header\nblocks.push({\n  type: 'header',\n  text: { type: 'plain_text', text: emojiClean + ' Deal State Changes', emoji: true }\n});\n\n// Summary\nconst summaryParts = [];\nif (worsening.length > 0) summaryParts.push(worsening.length + ' need' + (worsening.length === 1 ? 's' : '') + ' attention');\nif (improving.length > 0) summaryParts.push(improving.length + ' improving');\nblocks.push({\n  type: 'section',\n  text: { type: 'mrkdwn', text: '*' + transitions.length + ' deals changed state overnight* \\u2014 ' + summaryParts.join(', ') }\n});\n\n// Worsening section\nif (worsening.length > 0) {\n  blocks.push({ type: 'divider' });\n  blocks.push({\n    type: 'section',\n    text: { type: 'mrkdwn', text: '*\\ud83d\\udea8 Needs Attention*' }\n  });\n\n  for (const t of worsening.slice(0, 10)) {\n    const prevLabel = t.previousLabel || 'New';\n    const arrow = prevLabel + ' \\u2192 ' + t.newLabel;\n    const flagText = (t.flags || []).length > 0 ? '\\n    _' + t.flags.join(', ') + '_' : '';\n    const link = t.crmId ? ' <https://app.people.ai/opportunities/' + t.crmId + '|View>' : '';\n    blocks.push({\n      type: 'section',\n      text: { type: 'mrkdwn', text: '*' + (t.name || 'Unknown') + '* (' + (t.account || '') + ')' + link + '\\n' + arrow + flagText }\n    });\n  }\n  if (worsening.length > 10) {\n    blocks.push({\n      type: 'context',\n      elements: [{ type: 'mrkdwn', text: '...and ' + (worsening.length - 10) + ' more' }]\n    });\n  }\n}\n\n// Improving section\nif (improving.length > 0) {\n  blocks.push({ type: 'divider' });\n  blocks.push({\n    type: 'section',\n    text: { type: 'mrkdwn', text: '*\\u2705 Improving*' }\n  });\n\n  for (const t of improving.slice(0, 5)) {\n    const arrow = t.previousLabel + ' \\u2192 ' + t.newLabel;\n    const link = t.crmId ? ' <https://app.people.ai/opportunities/' + t.crmId + '|View>' : '';\n    blocks.push({\n      type: 'section',\n      text: { type: 'mrkdwn', text: '*' + (t.name || 'Unknown') + '* (' + (t.account || '') + ')' + link + '\\n' + arrow }\n    });\n  }\n  if (improving.length > 5) {\n    blocks.push({\n      type: 'context',\n      elements: [{ type: 'mrkdwn', text: '...and ' + (improving.length - 5) + ' more improving' }]\n    });\n  }\n}\n\n// Footer\nconst now = new Date();\nconst dateStr = now.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });\nblocks.push({\n  type: 'context',\n  elements: [{ type: 'mrkdwn', text: 'People.ai deal intelligence \\u2022 ' + dateStr + ' \\u2022 Type `insights` for full analysis' }]\n});\n\nconst notificationText = worsening.length > 0\n  ? worsening.length + ' deal' + (worsening.length === 1 ? '' : 's') + ' need' + (worsening.length === 1 ? 's' : '') + ' attention'\n  : improving.length + ' deal' + (improving.length === 1 ? '' : 's') + ' improved overnight';\n\nreturn [{ json: {\n  slackUserId: data.slackUserId,\n  assistantName,\n  assistantEmoji,\n  blocks: JSON.stringify(blocks),\n  notificationText\n}}];\n"
+                },
+                "id": "78a129b9-c79a-4ef6-99f5-e143bd1acafe",
+                "name": "Build Alert Message",
+                "type": "n8n-nodes-base.code",
+                "typeVersion": 2,
+                "position": [
+                    2672,
+                    232
+                ]
+            },
+            {
+                "parameters": {
+                    "method": "POST",
+                    "url": "https://slack.com/api/chat.postMessage",
+                    "authentication": "genericCredentialType",
+                    "genericAuthType": "httpHeaderAuth",
+                    "sendHeaders": true,
+                    "headerParameters": {
+                        "parameters": [
+                            {
+                                "name": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ]
+                    },
+                    "sendBody": true,
+                    "specifyBody": "json",
+                    "jsonBody": "={{ JSON.stringify({ channel: $('Open Bot DM').first().json.channel.id, text: $('Build Alert Message').first().json.notificationText, username: $('Build Alert Message').first().json.assistantName, icon_emoji: $('Build Alert Message').first().json.assistantEmoji, blocks: JSON.parse($('Build Alert Message').first().json.blocks), unfurl_links: false, unfurl_media: false }) }}",
+                    "options": {}
+                },
+                "id": "9d7c8935-b6df-43a5-bf7b-2e7781d59e38",
+                "name": "Send Alert",
+                "type": "n8n-nodes-base.httpRequest",
+                "typeVersion": 4.2,
+                "position": [
+                    2896,
+                    304
+                ],
+                "credentials": {
+                    "httpHeaderAuth": {
+                        "id": "LluVuiMJ8NUbAiG7",
+                        "name": "Slackbot Auth Token"
+                    }
+                },
+                "continueOnFail": true
+            }
+        ],
+        "connections": {
+            "Daily 7am PT": {
+                "main": [
+                    [
+                        {
+                            "node": "Get Auth Token",
+                            "type": "main",
+                            "index": 0
+                        }
+                    ]
+                ]
+            },
+            "Get Auth Token": {
+                "main": [
+                    [
+                        {
+                            "node": "Fetch User Hierarchy",
+                            "type": "main",
+                            "index": 0
+                        },
+                        {
+                            "node": "Fetch Insights Opps",
+                            "type": "main",
+                            "index": 0
+                        },
+                        {
+                            "node": "Get Yesterday Snapshots",
+                            "type": "main",
+                            "index": 0
+                        }
+                    ]
+                ]
+            },
+            "Fetch User Hierarchy": {
+                "main": [
+                    [
+                        {
+                            "node": "Parse Hierarchy",
+                            "type": "main",
+                            "index": 0
+                        }
+                    ]
+                ]
+            },
+            "Fetch Insights Opps": {
+                "main": [
+                    [
+                        {
+                            "node": "Parse and Classify",
+                            "type": "main",
+                            "index": 0
+                        }
+                    ]
+                ]
+            },
+            "Parse and Classify": {
+                "main": [
+                    [
+                        {
+                            "node": "Detect Transitions",
+                            "type": "main",
+                            "index": 0
+                        }
+                    ]
+                ]
+            },
+            "Get Yesterday Snapshots": {
+                "main": [
+                    [
+                        {
+                            "node": "Detect Transitions",
+                            "type": "main",
+                            "index": 0
+                        }
+                    ]
+                ]
+            },
+            "Detect Transitions": {
+                "main": [
+                    [
+                        {
+                            "node": "Build Save Query",
+                            "type": "main",
+                            "index": 0
+                        },
+                        {
+                            "node": "Has Transitions?",
+                            "type": "main",
+                            "index": 0
+                        }
+                    ]
+                ]
+            },
+            "Build Save Query": {
+                "main": [
+                    [
+                        {
+                            "node": "Save Snapshots",
+                            "type": "main",
+                            "index": 0
+                        }
+                    ]
+                ]
+            },
+            "Has Transitions?": {
+                "main": [
+                    [
+                        {
+                            "node": "Get Alert Users",
+                            "type": "main",
+                            "index": 0
+                        }
+                    ],
+                    []
+                ]
+            },
+            "Parse Hierarchy": {
+                "main": [
+                    [
+                        {
+                            "node": "Match Alerts to Users",
+                            "type": "main",
+                            "index": 0
+                        }
+                    ]
+                ]
+            },
+            "Get Alert Users": {
+                "main": [
+                    [
+                        {
+                            "node": "Match Alerts to Users",
+                            "type": "main",
+                            "index": 0
+                        }
+                    ]
+                ]
+            },
+            "Match Alerts to Users": {
+                "main": [
+                    [
+                        {
+                            "node": "Has Alerts?",
+                            "type": "main",
+                            "index": 0
+                        }
+                    ]
+                ]
+            },
+            "Has Alerts?": {
+                "main": [
+                    [
+                        {
+                            "node": "Split In Batches",
+                            "type": "main",
+                            "index": 0
+                        }
+                    ],
+                    []
+                ]
+            },
+            "Split In Batches": {
+                "main": [
+                    [
+                        {
+                            "node": "Open Bot DM",
+                            "type": "main",
+                            "index": 0
+                        }
+                    ],
+                    []
+                ]
+            },
+            "Open Bot DM": {
+                "main": [
+                    [
+                        {
+                            "node": "Build Alert Message",
+                            "type": "main",
+                            "index": 0
+                        }
+                    ]
+                ]
+            },
+            "Build Alert Message": {
+                "main": [
+                    [
+                        {
+                            "node": "Send Alert",
+                            "type": "main",
+                            "index": 0
+                        }
+                    ]
+                ]
+            },
+            "Send Alert": {
+                "main": [
+                    [
+                        {
+                            "node": "Split In Batches",
+                            "type": "main",
+                            "index": 0
+                        }
+                    ]
+                ]
+            }
+        },
+        "authors": "Scott Metcalf",
+        "name": null,
+        "description": null,
+        "autosaved": false
+    }
+}

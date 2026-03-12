@@ -1,0 +1,872 @@
+{
+    "updatedAt": "2026-03-06T19:05:28.558Z",
+    "createdAt": "2026-02-25T17:22:54.846Z",
+    "id": "lJypxYaw0BmUsTV8",
+    "name": "Backstory Presentation",
+    "description": null,
+    "active": true,
+    "isArchived": false,
+    "nodes": [
+        {
+            "parameters": {
+                "inputSource": "passthrough"
+            },
+            "id": "c1a40d3f-a804-45cd-aa6e-aec70010fd13",
+            "name": "Workflow Input Trigger",
+            "type": "n8n-nodes-base.executeWorkflowTrigger",
+            "typeVersion": 1.1,
+            "position": [
+                208,
+                400
+            ]
+        },
+        {
+            "parameters": {
+                "jsCode": "const input = $('Workflow Input Trigger').first().json;\n\nconst BRAND_SPEC = `You are a presentation architect for Backstory. Create structured JSON that will be rendered into branded Google Slides.\n\nSLIDE TYPES (use these type values exactly):\n\n1. \"title\" \u2014 Opening slide. Always first.\n   {type:\"title\", title:\"...\", subtitle:\"...\"}\n\n2. \"agenda\" \u2014 Bulleted outline of topics.\n   {type:\"agenda\", title:\"Agenda\", items:[\n     {text:\"Topic 1\", subitems:[\"Detail A\",\"Detail B\"]},\n     {text:\"Topic 2\"}\n   ]}\n\n3. \"section_divider\" \u2014 Section break. Use between major sections.\n   {type:\"section_divider\", title:\"Section Name\"}\n\n4. \"stats\" \u2014 Three metrics with values, labels, change indicators.\n   {type:\"stats\", title:\"Key Metrics\", stats:[\n     {value:\"99.9%\", label:\"Uptime\", change:\"+0.2%\"},\n     {value:\"142ms\", label:\"P95 Latency\", change:\"-23ms\"},\n     {value:\"2.4M\", label:\"Daily Requests\", change:\"+18%\"}\n   ]}\n\n5. \"two_column\" \u2014 Side-by-side content (wins/challenges, pros/cons).\n   {type:\"two_column\", title:\"...\",\n    left:{header:\"Left Title\", items:[\"Item 1\",\"Item 2\"]},\n    right:{header:\"Right Title\", items:[\"Item 1\",\"Item 2\"]}}\n\n6. \"three_column_cards\" \u2014 Three colored cards with bullet items.\n   {type:\"three_column_cards\", title:\"...\", cards:[\n     {title:\"Card 1\", items:[\"Item A\",\"Item B\"]},\n     {title:\"Card 2\", items:[\"Item A\",\"Item B\"]},\n     {title:\"Card 3\", items:[\"Item A\",\"Item B\"]}\n   ]}\n\n7. \"four_column_timeline\" \u2014 Quarterly/phase timeline.\n   {type:\"four_column_timeline\", title:\"...\", quarters:[\n     {label:\"Q1\", focus:\"Theme\", value:\"Initiative\", note:\"Details\"},\n     {label:\"Q2\", focus:\"Theme\", value:\"Initiative\", note:\"Details\"},\n     {label:\"Q3\", focus:\"Theme\", value:\"Initiative\", note:\"Details\"},\n     {label:\"Q4\", focus:\"Theme\", value:\"Initiative\", note:\"Details\"}\n   ]}\n\n8. \"thank_you\" \u2014 Closing slide. Always last.\n   {type:\"thank_you\", title:\"Thank You\"}\n\nGUIDELINES:\n- 6-12 slides typical. Always start with title, end with thank_you.\n- Use section_divider between major topic areas.\n- Use stats when you have 3 quantitative metrics.\n- Use two_column for comparisons or contrasts.\n- Use three_column_cards for 3 parallel items (teams, priorities).\n- Use four_column_timeline for chronological plans.\n- Keep text concise \u2014 bullet points, not paragraphs.\n- Stats values should be short (e.g. \"$2.4M\", \"99.9%\", \"142ms\").\n\nCRITICAL OUTPUT RULES:\n- Your FINAL response must be ONLY a valid JSON object. Nothing else.\n- No prose before or after. No markdown fences. No explanation.\n- Do NOT wrap the JSON in \\`\\`\\`json blocks.\n- The JSON must start with { and end with }\n- Format: {\"title\":\"Presentation Title\",\"slides\":[...]}`;\n\nconst RESEARCH_INSTRUCTIONS = `\nRESEARCH TOOLS \u2014 USE WHEN RELEVANT:\nYou have access to People.ai MCP tools for account intelligence, sales data, and engagement metrics.\n\n- If the topic involves customers, accounts, deals, or pipeline, use People.ai tools to gather real data.\n- Use find_account, get_account_status, ask_sales_ai_about_account to pull engagement data.\n- If tools return no results or error, proceed without them \u2014 create the best presentation you can from context alone.\n- NEVER let a tool failure prevent you from generating the slide JSON.\n\nREMEMBER: After any research, your FINAL output must be ONLY the JSON object. No commentary.`;\n\nconst systemPrompt = BRAND_SPEC + RESEARCH_INSTRUCTIONS;\nconst agentPrompt = input.presentationPrompt || 'Create a general company overview presentation';\n\nreturn [{ json: {\n  systemPrompt,\n  agentPrompt,\n  channelId: input.channelId,\n  assistantName: input.assistantName || 'Your Assistant',\n  assistantEmoji: input.assistantEmoji || ':robot_face:',\n  presentationPrompt: input.presentationPrompt\n}}];\n"
+            },
+            "id": "471aacfd-a824-4071-a551-fe2bf08a9b67",
+            "name": "Resolve Presentation Identity",
+            "type": "n8n-nodes-base.code",
+            "typeVersion": 2,
+            "position": [
+                432,
+                400
+            ]
+        },
+        {
+            "parameters": {
+                "promptType": "define",
+                "text": "={{ $('Resolve Presentation Identity').first().json.agentPrompt }}",
+                "options": {
+                    "systemMessage": "={{ $('Resolve Presentation Identity').first().json.systemPrompt }}",
+                    "maxIterations": 15
+                }
+            },
+            "id": "d8731103-458d-4bae-b3b7-75760a099437",
+            "name": "Presentation Agent",
+            "type": "@n8n/n8n-nodes-langchain.agent",
+            "typeVersion": 1.7,
+            "position": [
+                784,
+                400
+            ],
+            "continueOnFail": true
+        },
+        {
+            "parameters": {
+                "model": {
+                    "__rl": true,
+                    "mode": "list",
+                    "value": "claude-sonnet-4-5-20250929",
+                    "cachedResultName": "Claude Sonnet 4.5"
+                },
+                "options": {}
+            },
+            "id": "dc21301f-a892-47db-a8d6-c7610f77aa5f",
+            "name": "Anthropic Chat Model",
+            "type": "@n8n/n8n-nodes-langchain.lmChatAnthropic",
+            "typeVersion": 1.3,
+            "position": [
+                656,
+                624
+            ],
+            "credentials": {
+                "anthropicApi": {
+                    "id": "rlAz7ZSl4y6AwRUq",
+                    "name": "Anthropic account 2"
+                }
+            }
+        },
+        {
+            "parameters": {
+                "jsCode": "const agentOutput = $('Presentation Agent').first().json;\n\n// Extract text from various possible agent output structures\nlet text = '';\nif (agentOutput.output) {\n  text = agentOutput.output;\n} else if (agentOutput.text) {\n  text = agentOutput.text;\n} else if (agentOutput.error) {\n  // Agent errored \u2014 log it\n  console.log('Presentation Agent error:', JSON.stringify(agentOutput.error).substring(0, 500));\n  text = '';\n} else {\n  text = JSON.stringify(agentOutput);\n}\n\nlet parsed = null;\n\n// Strategy 1: Direct parse (agent returned clean JSON)\ntry { parsed = JSON.parse(text.trim()); } catch (e) {}\n\n// Strategy 2: Extract from markdown code block\nif (!parsed) {\n  const m = text.match(/```(?:json)?\\s*([\\s\\S]*?)```/);\n  if (m) try { parsed = JSON.parse(m[1].trim()); } catch (e) {}\n}\n\n// Strategy 3: Find the outermost JSON object with slides array\nif (!parsed) {\n  // Look for {\"title\":... pattern\n  const start = text.indexOf('{\"');\n  if (start >= 0) {\n    // Find matching closing brace by counting braces\n    let depth = 0;\n    let end = -1;\n    for (let i = start; i < text.length; i++) {\n      if (text[i] === '{') depth++;\n      else if (text[i] === '}') {\n        depth--;\n        if (depth === 0) { end = i + 1; break; }\n      }\n    }\n    if (end > start) {\n      try { parsed = JSON.parse(text.substring(start, end)); } catch (e) {}\n    }\n  }\n}\n\n// Strategy 4: Try extracting any JSON object (greedy regex)\nif (!parsed) {\n  const m = text.match(/\\{[\\s\\S]*\\}/);\n  if (m) try { parsed = JSON.parse(m[0]); } catch (e) {}\n}\n\n// Validate: must have slides array\nif (parsed && (!parsed.slides || !Array.isArray(parsed.slides) || parsed.slides.length === 0)) {\n  console.log('Parsed JSON but no valid slides array. Keys:', Object.keys(parsed).join(', '));\n  parsed = null;\n}\n\n// Fallback \u2014 create a meaningful single-slide deck from the prompt\nif (!parsed) {\n  const prompt = $('Resolve Presentation Identity').first().json.presentationPrompt || 'Presentation';\n  console.log('WARNING: Could not parse agent output. First 500 chars:', text.substring(0, 500));\n  parsed = {\n    title: prompt.substring(0, 80),\n    slides: [\n      {type: \"title\", title: prompt.substring(0, 80), subtitle: \"Content generation needs retry\"},\n      {type: \"two_column\", title: \"Overview\",\n        left: {header: \"Key Points\", items: [\"Content generation encountered an issue\", \"Please retry the presentation command\"]},\n        right: {header: \"Next Steps\", items: [\"Try again with a more specific prompt\", \"Check n8n execution logs for details\"]}},\n      {type: \"thank_you\", title: \"Thank You\"}\n    ]\n  };\n}\n\n// Ensure bookend slides\nif (parsed.slides[0] && parsed.slides[0].type !== 'title') {\n  parsed.slides.unshift({type: 'title', title: parsed.title || 'Presentation', subtitle: ''});\n}\nif (parsed.slides[parsed.slides.length - 1].type !== 'thank_you') {\n  parsed.slides.push({type: 'thank_you', title: 'Thank You'});\n}\n\nreturn [{ json: parsed }];\n"
+            },
+            "id": "2130b130-49bf-4ae2-963d-22a7339d41fe",
+            "name": "Parse Slide JSON",
+            "type": "n8n-nodes-base.code",
+            "typeVersion": 2,
+            "position": [
+                1248,
+                400
+            ]
+        },
+        {
+            "parameters": {
+                "method": "POST",
+                "url": "https://slides.googleapis.com/v1/presentations",
+                "authentication": "predefinedCredentialType",
+                "nodeCredentialType": "googleSlidesOAuth2Api",
+                "sendHeaders": true,
+                "headerParameters": {
+                    "parameters": [
+                        {
+                            "name": "Content-Type",
+                            "value": "application/json"
+                        }
+                    ]
+                },
+                "sendBody": true,
+                "specifyBody": "json",
+                "jsonBody": "={{ JSON.stringify({title: $('Parse Slide JSON').first().json.title || 'Backstory Presentation'}) }}",
+                "options": {}
+            },
+            "id": "a1bb04df-fef3-418b-a01c-cf6bea469111",
+            "name": "Create Blank Presentation",
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4.2,
+            "position": [
+                1472,
+                400
+            ],
+            "credentials": {
+                "googleSlidesOAuth2Api": {
+                    "id": "frrumderFcESHZN5",
+                    "name": "Google Slides account"
+                }
+            }
+        },
+        {
+            "parameters": {
+                "jsCode": "const slides = $('Parse Slide JSON').first().json.slides;\nconst presId = $('Create Blank Presentation').first().json.presentationId;\nconst defaultSlideId = $('Create Blank Presentation').first().json.slides[0].objectId;\n\nconst EMU = (inches) => Math.round(inches * 914400);\n\nconst RGB = {\n  black:       {red:0, green:0, blue:0},\n  graphite:    {red:0.090, green:0.090, blue:0.129},\n  surfaceGray: {red:0.733, green:0.737, blue:0.737},\n  horizon:     {red:0.384, green:0.588, blue:0.678},\n  white:       {red:1, green:1, blue:1},\n  plum:        {red:0.667, green:0.561, blue:0.627},\n  mint:        {red:0.812, green:0.980, blue:0.847},\n  ember:       {red:0.816, green:0.286, blue:0.067},\n  navy:        {red:0.004, green:0.173, blue:0.282},\n  sky:         {red:0.131, green:0.710, blue:1},\n  salmon:      {red:0.910, green:0.627, blue:0.565}\n};\n\nconst IMG = {\n  wordmark:   'https://lh3.googleusercontent.com/d/1GMUqmxGqOLoMqsxpiUSduo2hUzE4ei_J',\n  booksDark:  'https://lh3.googleusercontent.com/d/1pA1og8eOMnQE4yBT8h9z2oeGneMqCyii',\n  booksWhite: 'https://lh3.googleusercontent.com/d/1cL8RmMHzCscyLIdd3Y83RaM_yVXZI6SS',\n  gradient:   'https://lh3.googleusercontent.com/d/1edNwnzGIyQPv3v0D0JzpqRllAfmkIIwY'\n};\n\nconst reqs = [];\nconst imgReqs = [];\nlet idC = 0;\nconst gid = (p) => 'bs_' + p + '_' + (idC++);\n\nreqs.push({deleteObject: {objectId: defaultSlideId}});\n\nfunction tb(sid, id, x, y, w, h) {\n  reqs.push({createShape: {\n    objectId: id, shapeType: 'TEXT_BOX',\n    elementProperties: {\n      pageObjectId: sid,\n      size: {width: {magnitude: EMU(w), unit: 'EMU'}, height: {magnitude: EMU(h), unit: 'EMU'}},\n      transform: {scaleX: 1, scaleY: 1, translateX: EMU(x), translateY: EMU(y), unit: 'EMU'}\n    }\n  }});\n}\n\nfunction ins(id, text) {\n  if (!text) return;\n  reqs.push({insertText: {objectId: id, text: String(text), insertionIndex: 0}});\n}\n\nfunction sty(id, s) {\n  const ts = {};\n  const f = [];\n  if (s.ff) { ts.fontFamily = s.ff; f.push('fontFamily'); }\n  if (s.fs) { ts.fontSize = {magnitude: s.fs, unit: 'PT'}; f.push('fontSize'); }\n  if (s.b !== undefined) { ts.bold = s.b; f.push('bold'); }\n  if (s.i !== undefined) { ts.italic = s.i; f.push('italic'); }\n  if (s.c) { ts.foregroundColor = {opaqueColor: {rgbColor: s.c}}; f.push('foregroundColor'); }\n  if (f.length === 0) return;\n  reqs.push({updateTextStyle: {objectId: id, style: ts, fields: f.join(','), textRange: {type: 'ALL'}}});\n}\n\nfunction align(id, a) {\n  reqs.push({updateParagraphStyle: {objectId: id, style: {alignment: a}, fields: 'alignment', textRange: {type: 'ALL'}}});\n}\n\nfunction rect(sid, id, x, y, w, h, color) {\n  reqs.push({createShape: {\n    objectId: id, shapeType: 'ROUND_RECTANGLE',\n    elementProperties: {\n      pageObjectId: sid,\n      size: {width: {magnitude: EMU(w), unit: 'EMU'}, height: {magnitude: EMU(h), unit: 'EMU'}},\n      transform: {scaleX: 1, scaleY: 1, translateX: EMU(x), translateY: EMU(y), unit: 'EMU'}\n    }\n  }});\n  reqs.push({updateShapeProperties: {\n    objectId: id,\n    shapeProperties: {\n      shapeBackgroundFill: {solidFill: {color: {rgbColor: color}}},\n      outline: {propertyState: 'NOT_RENDERED'}\n    },\n    fields: 'shapeBackgroundFill,outline'\n  }});\n}\n\nfunction colorStripe(sid, y) {\n  const cs = [RGB.surfaceGray, RGB.plum, RGB.horizon, RGB.salmon, RGB.surfaceGray];\n  cs.forEach((c, i) => {\n    const id = gid('cs');\n    reqs.push({createShape: {\n      objectId: id, shapeType: 'RECTANGLE',\n      elementProperties: {\n        pageObjectId: sid,\n        size: {width: {magnitude: EMU(2), unit: 'EMU'}, height: {magnitude: EMU(0.525), unit: 'EMU'}},\n        transform: {scaleX: 1, scaleY: 1, translateX: EMU(i * 2), translateY: EMU(y), unit: 'EMU'}\n      }\n    }});\n    reqs.push({updateShapeProperties: {\n      objectId: id,\n      shapeProperties: {shapeBackgroundFill: {solidFill: {color: {rgbColor: c}}}, outline: {propertyState: 'NOT_RENDERED'}},\n      fields: 'shapeBackgroundFill,outline'\n    }});\n  });\n}\n\nfunction addWordmark(sid, x, y, w, h) {\n  imgReqs.push({createImage: {objectId: gid('wm'), url: IMG.wordmark,\n    elementProperties: {pageObjectId: sid,\n      size: {width: {magnitude: EMU(w), unit: 'EMU'}, height: {magnitude: EMU(h), unit: 'EMU'}},\n      transform: {scaleX: 1, scaleY: 1, translateX: EMU(x), translateY: EMU(y), unit: 'EMU'}}}});\n}\n\nfunction addBooksDark(sid, x, y) {\n  imgReqs.push({createImage: {objectId: gid('bd'), url: IMG.booksDark,\n    elementProperties: {pageObjectId: sid,\n      size: {width: {magnitude: EMU(0.7), unit: 'EMU'}, height: {magnitude: EMU(0.55), unit: 'EMU'}},\n      transform: {scaleX: 1, scaleY: 1, translateX: EMU(x), translateY: EMU(y), unit: 'EMU'}}}});\n}\n\nfunction addNavyStripe(sid) {\n  // Simulated gradient: 4 rectangles anchored to right edge, darkest = narrowest\n  // API doesn't support gradientFill so we layer solid fills at different opacities\n  const steps = [{x:8.2, w:1.8, a:0.18}, {x:8.65, w:1.35, a:0.25},\n                 {x:9.1,  w:0.9, a:0.45}, {x:9.55, w:0.45, a:0.85}];\n  steps.forEach(s => {\n    const id = gid('stripe');\n    reqs.push({createShape: {\n      objectId: id, shapeType: 'RECTANGLE',\n      elementProperties: {\n        pageObjectId: sid,\n        size: {width: {magnitude: EMU(s.w), unit: 'EMU'}, height: {magnitude: EMU(5.625), unit: 'EMU'}},\n        transform: {scaleX: 1, scaleY: 1, translateX: EMU(s.x), translateY: EMU(0), unit: 'EMU'}\n      }\n    }});\n    reqs.push({updateShapeProperties: {\n      objectId: id,\n      shapeProperties: {\n        shapeBackgroundFill: {solidFill: {color: {rgbColor: RGB.graphite}, alpha: s.a}},\n        outline: {propertyState: 'NOT_RENDERED'}\n      },\n      fields: 'shapeBackgroundFill,outline'\n    }});\n  });\n  // White books logo\n  imgReqs.push({createImage: {objectId: gid('bw'), url: IMG.booksWhite,\n    elementProperties: {pageObjectId: sid,\n      size: {width: {magnitude: EMU(0.7), unit: 'EMU'}, height: {magnitude: EMU(0.55), unit: 'EMU'}},\n      transform: {scaleX: 1, scaleY: 1, translateX: EMU(8.85), translateY: EMU(4.85), unit: 'EMU'}}}});\n}\n\nslides.forEach((slide, idx) => {\n  const sid = 'slide_' + idx;\n  reqs.push({createSlide: {objectId: sid, insertionIndex: idx}});\n  reqs.push({updatePageProperties: {objectId: sid,\n    pageProperties: {pageBackgroundFill: {solidFill: {color: {rgbColor: RGB.white}}}},\n    fields: 'pageBackgroundFill'}});\n\n  switch (slide.type) {\n    case 'title': {\n      // Taller box (2.2\"), smaller font (52pt), subtitle pushed down\n      const t = gid('t'); tb(sid, t, 0.5, 0.7, 9, 2.2); ins(t, slide.title || '');\n      sty(t, {ff:'Cardo', fs:52, b:true, c:RGB.black}); align(t, 'CENTER');\n      if (slide.subtitle) {\n        const s = gid('t'); tb(sid, s, 0.5, 3.0, 9, 0.65); ins(s, slide.subtitle);\n        sty(s, {ff:'Cardo', fs:22, i:true, c:RGB.graphite}); align(s, 'CENTER');\n      }\n      addWordmark(sid, 3.5, 3.8, 3.0, 0.5);\n      colorStripe(sid, 5.1);\n      break;\n    }\n    case 'agenda': {\n      // Title\n      const t = gid('t'); tb(sid, t, 0.5, 0.3, 8.5, 1.1); ins(t, slide.title || 'Agenda');\n      sty(t, {ff:'Cardo', fs:34, b:true, c:RGB.black});\n\n      // Single text box for all content \u2014 one object to click and edit in Slides\n      const cid = gid('t');\n      tb(sid, cid, 0.6, 1.5, 8.2, 4.0);\n\n      const lines = [];\n      const ranges = [];\n      let pos = 0;\n\n      (slide.items || []).forEach(item => {\n        const text = typeof item === 'string' ? item : item.text;\n        const line = '\\u25CF  ' + text + '\\n';\n        ranges.push({start: pos, end: pos + line.length, bold: true, fs: 17, c: RGB.black});\n        lines.push(line);\n        pos += line.length;\n        if (item.subitems) {\n          item.subitems.forEach(sub => {\n            const sub_line = '    \\u2013  ' + sub + '\\n';\n            ranges.push({start: pos, end: pos + sub_line.length, bold: false, fs: 14, c: RGB.graphite});\n            lines.push(sub_line);\n            pos += sub_line.length;\n          });\n        }\n      });\n\n      reqs.push({insertText: {objectId: cid, text: lines.join(''), insertionIndex: 0}});\n\n      ranges.forEach(r => {\n        reqs.push({updateTextStyle: {\n          objectId: cid,\n          style: {\n            fontFamily: 'Roboto',\n            fontSize: {magnitude: r.fs, unit: 'PT'},\n            bold: r.bold,\n            foregroundColor: {opaqueColor: {rgbColor: r.c}}\n          },\n          fields: 'fontFamily,fontSize,bold,foregroundColor',\n          textRange: {type: 'FIXED_RANGE', startIndex: r.start, endIndex: r.end}\n        }});\n      });\n\n      addBooksDark(sid, 8.8, 4.6);\n      break;\n    }\n    case 'section_divider': {\n      // Taller box for long section names\n      const t = gid('t'); tb(sid, t, 0.5, 1.4, 9, 2.0); ins(t, slide.title || '');\n      sty(t, {ff:'Cardo', fs:52, b:true, c:RGB.black}); align(t, 'CENTER');\n      addWordmark(sid, 3.5, 3.8, 3.0, 0.5);\n      colorStripe(sid, 5.1);\n      break;\n    }\n    case 'stats': {\n      // Title\n      const t = gid('t'); tb(sid, t, 0.5, 0.3, 8.5, 1.1); ins(t, slide.title || 'Key Metrics');\n      sty(t, {ff:'Cardo', fs:34, b:true, c:RGB.black});\n\n      // One text box per stat \u2014 value + label + change as a single editable block\n      const pos = [0.4, 3.5, 6.6];\n      (slide.stats || []).slice(0,3).forEach((st, i) => {\n        const cid = gid('t');\n        tb(sid, cid, pos[i], 1.6, 3.0, 3.5);\n\n        const vLine = (st.value || '') + '\\n';\n        const lLine = (st.label || '') + '\\n';\n        const cLine = st.change || '';\n        const full = vLine + lLine + cLine;\n\n        reqs.push({insertText: {objectId: cid, text: full, insertionIndex: 0}});\n\n        // Value \u2014 large, bold, navy\n        reqs.push({updateTextStyle: {objectId: cid,\n          style: {fontFamily: 'Cardo', fontSize: {magnitude: 28, unit: 'PT'}, bold: true,\n                  foregroundColor: {opaqueColor: {rgbColor: RGB.navy}}},\n          fields: 'fontFamily,fontSize,bold,foregroundColor',\n          textRange: {type: 'FIXED_RANGE', startIndex: 0, endIndex: vLine.length}}});\n\n        // Label \u2014 medium, graphite\n        reqs.push({updateTextStyle: {objectId: cid,\n          style: {fontFamily: 'Roboto', fontSize: {magnitude: 15, unit: 'PT'}, bold: false,\n                  foregroundColor: {opaqueColor: {rgbColor: RGB.graphite}}},\n          fields: 'fontFamily,fontSize,bold,foregroundColor',\n          textRange: {type: 'FIXED_RANGE', startIndex: vLine.length, endIndex: vLine.length + lLine.length}}});\n\n        // Change \u2014 small, horizon blue\n        if (st.change) {\n          reqs.push({updateTextStyle: {objectId: cid,\n            style: {fontFamily: 'Roboto', fontSize: {magnitude: 14, unit: 'PT'}, bold: true,\n                    foregroundColor: {opaqueColor: {rgbColor: RGB.horizon}}},\n            fields: 'fontFamily,fontSize,bold,foregroundColor',\n            textRange: {type: 'FIXED_RANGE', startIndex: vLine.length + lLine.length, endIndex: full.length}}});\n        }\n\n        // Center-align everything\n        reqs.push({updateParagraphStyle: {objectId: cid,\n          style: {alignment: 'CENTER'}, fields: 'alignment',\n          textRange: {type: 'ALL'}}});\n      });\n\n      addBooksDark(sid, 8.8, 4.6);\n      break;\n    }\n    case 'two_column': {\n      // Title box 1.1\" tall at 34pt; headers and content shifted down\n      const t = gid('t'); tb(sid, t, 0.5, 0.3, 8.5, 1.1); ins(t, slide.title || '');\n      sty(t, {ff:'Cardo', fs:34, b:true, c:RGB.black});\n      [{d:slide.left, x:0.5, clr:RGB.horizon}, {d:slide.right, x:5.2, clr:RGB.ember}].forEach(col => {\n        if (!col.d) return;\n        const h = gid('t'); tb(sid, h, col.x, 1.5, 4.2, 0.55); ins(h, col.d.header || '');\n        sty(h, {ff:'Roboto', fs:22, b:true, c:col.clr});\n        const items = (col.d.items || []).map(it => '\\u2022 ' + it).join('\\n');\n        const b = gid('t'); tb(sid, b, col.x, 2.1, 4.2, 3.1); ins(b, items);\n        sty(b, {ff:'Roboto', fs:16, c:RGB.graphite});\n      });\n      addBooksDark(sid, 8.85, 4.65);\n      break;\n    }\n    case 'three_column_cards': {\n      // Slide title \u2014 full width\n      const t = gid('t'); tb(sid, t, 0.5, 0.3, 9.0, 1.1); ins(t, slide.title || '');\n      sty(t, {ff:'Cardo', fs:34, b:true, c:RGB.black});\n\n      // 3 cards centered across full 10\" slide: w=2.6, gap=0.4, left margin=0.7\n      const cx = [0.7, 3.7, 6.7]; const cc = [RGB.horizon, RGB.plum, RGB.ember];\n      (slide.cards || []).slice(0,3).forEach((card, i) => {\n        // Heading above card in dark text\n        const ct = gid('t'); tb(sid, ct, cx[i], 1.45, 2.6, 0.45); ins(ct, card.title || '');\n        sty(ct, {ff:'Roboto', fs:15, b:true, c:RGB.black});\n\n        // Colored card\n        rect(sid, gid('r'), cx[i], 1.92, 2.6, 3.35, cc[i]);\n\n        // Single text box for all bullets\n        const items = (card.items || []).map(it => '\\u2022 ' + it).join('\\n');\n        const ci = gid('t'); tb(sid, ci, cx[i]+0.15, 2.05, 2.3, 3.1); ins(ci, items);\n        sty(ci, {ff:'Roboto', fs:13, c:RGB.white});\n      });\n\n      addBooksDark(sid, 9.1, 4.85);\n      break;\n    }\n    case 'four_column_timeline': {\n      // Slide title \u2014 full width\n      const t = gid('t'); tb(sid, t, 0.5, 0.3, 9.0, 1.1); ins(t, slide.title || '');\n      sty(t, {ff:'Cardo', fs:34, b:true, c:RGB.black});\n\n      // 4 columns centered across full 10\" slide: w=2.0, gap=0.2, left margin=0.6\n      const qx = [0.6, 2.8, 5.0, 7.2]; const qc = [RGB.horizon, RGB.plum, RGB.ember, RGB.navy];\n      (slide.quarters || []).slice(0,4).forEach((q, i) => {\n        // Stage label above card\n        const ql = gid('t'); tb(sid, ql, qx[i], 1.45, 2.0, 0.45); ins(ql, q.label || '');\n        sty(ql, {ff:'Roboto', fs:15, b:true, c:RGB.black}); align(ql, 'CENTER');\n\n        // Colored card\n        rect(sid, gid('r'), qx[i], 1.95, 2.0, 2.9, qc[i]);\n\n        // Focus Area label\n        const fl = gid('t'); tb(sid, fl, qx[i], 2.1, 2.0, 0.32); ins(fl, 'Focus Area');\n        sty(fl, {ff:'Roboto', fs:10, c:RGB.white}); align(fl, 'CENTER');\n\n        // Main value \u2014 single text box per card\n        const fv = gid('t'); tb(sid, fv, qx[i], 2.45, 2.0, 0.85); ins(fv, q.focus || q.value || '');\n        sty(fv, {ff:'Cardo', fs:16, b:true, c:RGB.white}); align(fv, 'CENTER');\n\n        if (q.note) {\n          const n = gid('t'); tb(sid, n, qx[i], 3.95, 2.0, 0.4); ins(n, q.note);\n          sty(n, {ff:'Roboto', fs:11, c:RGB.white}); align(n, 'CENTER');\n        }\n      });\n\n      addBooksDark(sid, 9.1, 4.85);\n      break;\n    }\n    case 'thank_you': {\n      const t = gid('t'); tb(sid, t, 0.5, 1.8, 9, 1.5);\n      ins(t, (slide.title || 'THANK YOU').toUpperCase());\n      sty(t, {ff:'Cardo', fs:72, b:true, c:RGB.black}); align(t, 'CENTER');\n      addWordmark(sid, 3.5, 3.5, 3.0, 0.5);\n      colorStripe(sid, 5.1);\n      break;\n    }\n    default: {\n      const t = gid('t'); tb(sid, t, 0.5, 0.3, 8.5, 1.1); ins(t, slide.title || '');\n      sty(t, {ff:'Cardo', fs:34, b:true, c:RGB.black});\n      if (slide.body) {\n        const b = gid('t'); tb(sid, b, 0.5, 1.6, 9, 3.5); ins(b, slide.body);\n        sty(b, {ff:'Roboto', fs:18, c:RGB.graphite});\n      }\n      addBooksDark(sid, 8.85, 4.65);\n      break;\n    }\n  }\n});\n\nreturn [{ json: { requests: reqs, imageRequests: imgReqs, presentationId: presId } }];"
+            },
+            "id": "66f40f08-60be-4717-a326-7abfaaf98c1e",
+            "name": "Build Batch Update",
+            "type": "n8n-nodes-base.code",
+            "typeVersion": 2,
+            "position": [
+                1696,
+                400
+            ]
+        },
+        {
+            "parameters": {
+                "method": "POST",
+                "url": "=https://slides.googleapis.com/v1/presentations/{{ $json.presentationId }}:batchUpdate",
+                "authentication": "predefinedCredentialType",
+                "nodeCredentialType": "googleSlidesOAuth2Api",
+                "sendHeaders": true,
+                "headerParameters": {
+                    "parameters": [
+                        {
+                            "name": "Content-Type",
+                            "value": "application/json"
+                        }
+                    ]
+                },
+                "sendBody": true,
+                "specifyBody": "json",
+                "jsonBody": "={{ JSON.stringify({requests: $('Build Batch Update').first().json.requests}) }}",
+                "options": {}
+            },
+            "id": "9fec3ba2-dcc5-4c55-a4fa-0d3c63f37d97",
+            "name": "Populate Slides",
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4.2,
+            "position": [
+                1920,
+                400
+            ],
+            "credentials": {
+                "googleSlidesOAuth2Api": {
+                    "id": "frrumderFcESHZN5",
+                    "name": "Google Slides account"
+                }
+            }
+        },
+        {
+            "parameters": {
+                "method": "POST",
+                "url": "=https://slides.googleapis.com/v1/presentations/{{ $('Build Batch Update').first().json.presentationId }}:batchUpdate",
+                "authentication": "predefinedCredentialType",
+                "nodeCredentialType": "googleSlidesOAuth2Api",
+                "sendHeaders": true,
+                "headerParameters": {
+                    "parameters": [
+                        {
+                            "name": "Content-Type",
+                            "value": "application/json"
+                        }
+                    ]
+                },
+                "sendBody": true,
+                "specifyBody": "json",
+                "jsonBody": "={{ JSON.stringify({requests: $('Build Batch Update').first().json.imageRequests}) }}",
+                "options": {}
+            },
+            "id": "f524071d-69d0-42ee-b800-be6381d87777",
+            "name": "Add Images",
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4.2,
+            "position": [
+                2144,
+                400
+            ],
+            "credentials": {
+                "googleSlidesOAuth2Api": {
+                    "id": "frrumderFcESHZN5",
+                    "name": "Google Slides account"
+                }
+            },
+            "continueOnFail": true
+        },
+        {
+            "parameters": {
+                "method": "POST",
+                "url": "=https://www.googleapis.com/drive/v3/files/{{ $('Build Batch Update').first().json.presentationId }}/permissions",
+                "authentication": "predefinedCredentialType",
+                "nodeCredentialType": "googleDriveOAuth2Api",
+                "sendHeaders": true,
+                "headerParameters": {
+                    "parameters": [
+                        {
+                            "name": "Content-Type",
+                            "value": "application/json"
+                        }
+                    ]
+                },
+                "sendBody": true,
+                "specifyBody": "json",
+                "jsonBody": "{\"role\": \"writer\", \"type\": \"domain\", \"domain\": \"people.ai\"}",
+                "options": {}
+            },
+            "id": "169d2da9-6a61-4fa7-a9d3-29f9fade62eb",
+            "name": "Share Presentation",
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4.2,
+            "position": [
+                2368,
+                400
+            ],
+            "credentials": {
+                "googleDriveOAuth2Api": {
+                    "id": "sWK7WcHJvWMTBPSQ",
+                    "name": "Google Drive account"
+                }
+            }
+        },
+        {
+            "parameters": {
+                "method": "POST",
+                "url": "https://slack.com/api/chat.postMessage",
+                "authentication": "genericCredentialType",
+                "genericAuthType": "httpHeaderAuth",
+                "sendHeaders": true,
+                "headerParameters": {
+                    "parameters": [
+                        {
+                            "name": "Content-Type",
+                            "value": "application/json"
+                        }
+                    ]
+                },
+                "sendBody": true,
+                "specifyBody": "json",
+                "jsonBody": "={{ JSON.stringify({ channel: $('Resolve Presentation Identity').first().json.channelId, text: $('Resolve Presentation Identity').first().json.assistantEmoji + ' Your *Backstory* presentation is ready!\\n\\n<https://docs.google.com/presentation/d/' + $('Build Batch Update').first().json.presentationId + '/edit|:open_book: ' + ($('Parse Slide JSON').first().json.title || 'Presentation') + '>', username: $('Resolve Presentation Identity').first().json.assistantName, icon_emoji: $('Resolve Presentation Identity').first().json.assistantEmoji, unfurl_links: false, unfurl_media: false }) }}",
+                "options": {}
+            },
+            "id": "0f5d9189-4b3b-4932-b134-1e4df4879a47",
+            "name": "Send Presentation Link",
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4.2,
+            "position": [
+                2592,
+                400
+            ],
+            "credentials": {
+                "httpHeaderAuth": {
+                    "id": "LluVuiMJ8NUbAiG7",
+                    "name": "Slackbot Auth Token"
+                }
+            },
+            "continueOnFail": true
+        },
+        {
+            "parameters": {
+                "endpointUrl": "https://mcp-canary.people.ai/mcp",
+                "authentication": "multipleHeadersAuth",
+                "options": {}
+            },
+            "id": "bc71e931-cf67-4c62-9e62-effe156f4c00",
+            "name": "People.ai MCP",
+            "type": "@n8n/n8n-nodes-langchain.mcpClientTool",
+            "typeVersion": 1.2,
+            "position": [
+                1040,
+                624
+            ],
+            "credentials": {
+                "httpMultipleHeadersAuth": {
+                    "id": "wvV5pwBeIL7f2vLG",
+                    "name": "People.ai MCP Multi-Header"
+                }
+            }
+        }
+    ],
+    "connections": {
+        "Workflow Input Trigger": {
+            "main": [
+                [
+                    {
+                        "node": "Resolve Presentation Identity",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Resolve Presentation Identity": {
+            "main": [
+                [
+                    {
+                        "node": "Presentation Agent",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Presentation Agent": {
+            "main": [
+                [
+                    {
+                        "node": "Parse Slide JSON",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Parse Slide JSON": {
+            "main": [
+                [
+                    {
+                        "node": "Create Blank Presentation",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Create Blank Presentation": {
+            "main": [
+                [
+                    {
+                        "node": "Build Batch Update",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Build Batch Update": {
+            "main": [
+                [
+                    {
+                        "node": "Populate Slides",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Populate Slides": {
+            "main": [
+                [
+                    {
+                        "node": "Add Images",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Add Images": {
+            "main": [
+                [
+                    {
+                        "node": "Share Presentation",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Share Presentation": {
+            "main": [
+                [
+                    {
+                        "node": "Send Presentation Link",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Anthropic Chat Model": {
+            "ai_languageModel": [
+                [
+                    {
+                        "node": "Presentation Agent",
+                        "type": "ai_languageModel",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "People.ai MCP": {
+            "ai_tool": [
+                [
+                    {
+                        "node": "Presentation Agent",
+                        "type": "ai_tool",
+                        "index": 0
+                    }
+                ]
+            ]
+        }
+    },
+    "settings": {
+        "executionOrder": "v1",
+        "callerPolicy": "workflowsFromSameOwner",
+        "availableInMCP": false
+    },
+    "staticData": null,
+    "meta": {
+        "templateCredsSetupCompleted": true
+    },
+    "pinData": {},
+    "versionId": "72733717-40f1-443f-ae5f-180691841df4",
+    "activeVersionId": "72733717-40f1-443f-ae5f-180691841df4",
+    "versionCounter": 106,
+    "triggerCount": 0,
+    "tags": [],
+    "activeVersion": {
+        "updatedAt": "2026-03-06T19:05:28.559Z",
+        "createdAt": "2026-03-06T19:05:28.559Z",
+        "versionId": "72733717-40f1-443f-ae5f-180691841df4",
+        "workflowId": "lJypxYaw0BmUsTV8",
+        "nodes": [
+            {
+                "parameters": {
+                    "inputSource": "passthrough"
+                },
+                "id": "c1a40d3f-a804-45cd-aa6e-aec70010fd13",
+                "name": "Workflow Input Trigger",
+                "type": "n8n-nodes-base.executeWorkflowTrigger",
+                "typeVersion": 1.1,
+                "position": [
+                    208,
+                    400
+                ]
+            },
+            {
+                "parameters": {
+                    "jsCode": "const input = $('Workflow Input Trigger').first().json;\n\nconst BRAND_SPEC = `You are a presentation architect for Backstory. Create structured JSON that will be rendered into branded Google Slides.\n\nSLIDE TYPES (use these type values exactly):\n\n1. \"title\" \u2014 Opening slide. Always first.\n   {type:\"title\", title:\"...\", subtitle:\"...\"}\n\n2. \"agenda\" \u2014 Bulleted outline of topics.\n   {type:\"agenda\", title:\"Agenda\", items:[\n     {text:\"Topic 1\", subitems:[\"Detail A\",\"Detail B\"]},\n     {text:\"Topic 2\"}\n   ]}\n\n3. \"section_divider\" \u2014 Section break. Use between major sections.\n   {type:\"section_divider\", title:\"Section Name\"}\n\n4. \"stats\" \u2014 Three metrics with values, labels, change indicators.\n   {type:\"stats\", title:\"Key Metrics\", stats:[\n     {value:\"99.9%\", label:\"Uptime\", change:\"+0.2%\"},\n     {value:\"142ms\", label:\"P95 Latency\", change:\"-23ms\"},\n     {value:\"2.4M\", label:\"Daily Requests\", change:\"+18%\"}\n   ]}\n\n5. \"two_column\" \u2014 Side-by-side content (wins/challenges, pros/cons).\n   {type:\"two_column\", title:\"...\",\n    left:{header:\"Left Title\", items:[\"Item 1\",\"Item 2\"]},\n    right:{header:\"Right Title\", items:[\"Item 1\",\"Item 2\"]}}\n\n6. \"three_column_cards\" \u2014 Three colored cards with bullet items.\n   {type:\"three_column_cards\", title:\"...\", cards:[\n     {title:\"Card 1\", items:[\"Item A\",\"Item B\"]},\n     {title:\"Card 2\", items:[\"Item A\",\"Item B\"]},\n     {title:\"Card 3\", items:[\"Item A\",\"Item B\"]}\n   ]}\n\n7. \"four_column_timeline\" \u2014 Quarterly/phase timeline.\n   {type:\"four_column_timeline\", title:\"...\", quarters:[\n     {label:\"Q1\", focus:\"Theme\", value:\"Initiative\", note:\"Details\"},\n     {label:\"Q2\", focus:\"Theme\", value:\"Initiative\", note:\"Details\"},\n     {label:\"Q3\", focus:\"Theme\", value:\"Initiative\", note:\"Details\"},\n     {label:\"Q4\", focus:\"Theme\", value:\"Initiative\", note:\"Details\"}\n   ]}\n\n8. \"thank_you\" \u2014 Closing slide. Always last.\n   {type:\"thank_you\", title:\"Thank You\"}\n\nGUIDELINES:\n- 6-12 slides typical. Always start with title, end with thank_you.\n- Use section_divider between major topic areas.\n- Use stats when you have 3 quantitative metrics.\n- Use two_column for comparisons or contrasts.\n- Use three_column_cards for 3 parallel items (teams, priorities).\n- Use four_column_timeline for chronological plans.\n- Keep text concise \u2014 bullet points, not paragraphs.\n- Stats values should be short (e.g. \"$2.4M\", \"99.9%\", \"142ms\").\n\nCRITICAL OUTPUT RULES:\n- Your FINAL response must be ONLY a valid JSON object. Nothing else.\n- No prose before or after. No markdown fences. No explanation.\n- Do NOT wrap the JSON in \\`\\`\\`json blocks.\n- The JSON must start with { and end with }\n- Format: {\"title\":\"Presentation Title\",\"slides\":[...]}`;\n\nconst RESEARCH_INSTRUCTIONS = `\nRESEARCH TOOLS \u2014 USE WHEN RELEVANT:\nYou have access to People.ai MCP tools for account intelligence, sales data, and engagement metrics.\n\n- If the topic involves customers, accounts, deals, or pipeline, use People.ai tools to gather real data.\n- Use find_account, get_account_status, ask_sales_ai_about_account to pull engagement data.\n- If tools return no results or error, proceed without them \u2014 create the best presentation you can from context alone.\n- NEVER let a tool failure prevent you from generating the slide JSON.\n\nREMEMBER: After any research, your FINAL output must be ONLY the JSON object. No commentary.`;\n\nconst systemPrompt = BRAND_SPEC + RESEARCH_INSTRUCTIONS;\nconst agentPrompt = input.presentationPrompt || 'Create a general company overview presentation';\n\nreturn [{ json: {\n  systemPrompt,\n  agentPrompt,\n  channelId: input.channelId,\n  assistantName: input.assistantName || 'Your Assistant',\n  assistantEmoji: input.assistantEmoji || ':robot_face:',\n  presentationPrompt: input.presentationPrompt\n}}];\n"
+                },
+                "id": "471aacfd-a824-4071-a551-fe2bf08a9b67",
+                "name": "Resolve Presentation Identity",
+                "type": "n8n-nodes-base.code",
+                "typeVersion": 2,
+                "position": [
+                    432,
+                    400
+                ]
+            },
+            {
+                "parameters": {
+                    "promptType": "define",
+                    "text": "={{ $('Resolve Presentation Identity').first().json.agentPrompt }}",
+                    "options": {
+                        "systemMessage": "={{ $('Resolve Presentation Identity').first().json.systemPrompt }}",
+                        "maxIterations": 15
+                    }
+                },
+                "id": "d8731103-458d-4bae-b3b7-75760a099437",
+                "name": "Presentation Agent",
+                "type": "@n8n/n8n-nodes-langchain.agent",
+                "typeVersion": 1.7,
+                "position": [
+                    784,
+                    400
+                ],
+                "continueOnFail": true
+            },
+            {
+                "parameters": {
+                    "model": {
+                        "__rl": true,
+                        "mode": "list",
+                        "value": "claude-sonnet-4-5-20250929",
+                        "cachedResultName": "Claude Sonnet 4.5"
+                    },
+                    "options": {}
+                },
+                "id": "dc21301f-a892-47db-a8d6-c7610f77aa5f",
+                "name": "Anthropic Chat Model",
+                "type": "@n8n/n8n-nodes-langchain.lmChatAnthropic",
+                "typeVersion": 1.3,
+                "position": [
+                    656,
+                    624
+                ],
+                "credentials": {
+                    "anthropicApi": {
+                        "id": "rlAz7ZSl4y6AwRUq",
+                        "name": "Anthropic account 2"
+                    }
+                }
+            },
+            {
+                "parameters": {
+                    "jsCode": "const agentOutput = $('Presentation Agent').first().json;\n\n// Extract text from various possible agent output structures\nlet text = '';\nif (agentOutput.output) {\n  text = agentOutput.output;\n} else if (agentOutput.text) {\n  text = agentOutput.text;\n} else if (agentOutput.error) {\n  // Agent errored \u2014 log it\n  console.log('Presentation Agent error:', JSON.stringify(agentOutput.error).substring(0, 500));\n  text = '';\n} else {\n  text = JSON.stringify(agentOutput);\n}\n\nlet parsed = null;\n\n// Strategy 1: Direct parse (agent returned clean JSON)\ntry { parsed = JSON.parse(text.trim()); } catch (e) {}\n\n// Strategy 2: Extract from markdown code block\nif (!parsed) {\n  const m = text.match(/```(?:json)?\\s*([\\s\\S]*?)```/);\n  if (m) try { parsed = JSON.parse(m[1].trim()); } catch (e) {}\n}\n\n// Strategy 3: Find the outermost JSON object with slides array\nif (!parsed) {\n  // Look for {\"title\":... pattern\n  const start = text.indexOf('{\"');\n  if (start >= 0) {\n    // Find matching closing brace by counting braces\n    let depth = 0;\n    let end = -1;\n    for (let i = start; i < text.length; i++) {\n      if (text[i] === '{') depth++;\n      else if (text[i] === '}') {\n        depth--;\n        if (depth === 0) { end = i + 1; break; }\n      }\n    }\n    if (end > start) {\n      try { parsed = JSON.parse(text.substring(start, end)); } catch (e) {}\n    }\n  }\n}\n\n// Strategy 4: Try extracting any JSON object (greedy regex)\nif (!parsed) {\n  const m = text.match(/\\{[\\s\\S]*\\}/);\n  if (m) try { parsed = JSON.parse(m[0]); } catch (e) {}\n}\n\n// Validate: must have slides array\nif (parsed && (!parsed.slides || !Array.isArray(parsed.slides) || parsed.slides.length === 0)) {\n  console.log('Parsed JSON but no valid slides array. Keys:', Object.keys(parsed).join(', '));\n  parsed = null;\n}\n\n// Fallback \u2014 create a meaningful single-slide deck from the prompt\nif (!parsed) {\n  const prompt = $('Resolve Presentation Identity').first().json.presentationPrompt || 'Presentation';\n  console.log('WARNING: Could not parse agent output. First 500 chars:', text.substring(0, 500));\n  parsed = {\n    title: prompt.substring(0, 80),\n    slides: [\n      {type: \"title\", title: prompt.substring(0, 80), subtitle: \"Content generation needs retry\"},\n      {type: \"two_column\", title: \"Overview\",\n        left: {header: \"Key Points\", items: [\"Content generation encountered an issue\", \"Please retry the presentation command\"]},\n        right: {header: \"Next Steps\", items: [\"Try again with a more specific prompt\", \"Check n8n execution logs for details\"]}},\n      {type: \"thank_you\", title: \"Thank You\"}\n    ]\n  };\n}\n\n// Ensure bookend slides\nif (parsed.slides[0] && parsed.slides[0].type !== 'title') {\n  parsed.slides.unshift({type: 'title', title: parsed.title || 'Presentation', subtitle: ''});\n}\nif (parsed.slides[parsed.slides.length - 1].type !== 'thank_you') {\n  parsed.slides.push({type: 'thank_you', title: 'Thank You'});\n}\n\nreturn [{ json: parsed }];\n"
+                },
+                "id": "2130b130-49bf-4ae2-963d-22a7339d41fe",
+                "name": "Parse Slide JSON",
+                "type": "n8n-nodes-base.code",
+                "typeVersion": 2,
+                "position": [
+                    1248,
+                    400
+                ]
+            },
+            {
+                "parameters": {
+                    "method": "POST",
+                    "url": "https://slides.googleapis.com/v1/presentations",
+                    "authentication": "predefinedCredentialType",
+                    "nodeCredentialType": "googleSlidesOAuth2Api",
+                    "sendHeaders": true,
+                    "headerParameters": {
+                        "parameters": [
+                            {
+                                "name": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ]
+                    },
+                    "sendBody": true,
+                    "specifyBody": "json",
+                    "jsonBody": "={{ JSON.stringify({title: $('Parse Slide JSON').first().json.title || 'Backstory Presentation'}) }}",
+                    "options": {}
+                },
+                "id": "a1bb04df-fef3-418b-a01c-cf6bea469111",
+                "name": "Create Blank Presentation",
+                "type": "n8n-nodes-base.httpRequest",
+                "typeVersion": 4.2,
+                "position": [
+                    1472,
+                    400
+                ],
+                "credentials": {
+                    "googleSlidesOAuth2Api": {
+                        "id": "frrumderFcESHZN5",
+                        "name": "Google Slides account"
+                    }
+                }
+            },
+            {
+                "parameters": {
+                    "jsCode": "const slides = $('Parse Slide JSON').first().json.slides;\nconst presId = $('Create Blank Presentation').first().json.presentationId;\nconst defaultSlideId = $('Create Blank Presentation').first().json.slides[0].objectId;\n\nconst EMU = (inches) => Math.round(inches * 914400);\n\nconst RGB = {\n  black:       {red:0, green:0, blue:0},\n  graphite:    {red:0.090, green:0.090, blue:0.129},\n  surfaceGray: {red:0.733, green:0.737, blue:0.737},\n  horizon:     {red:0.384, green:0.588, blue:0.678},\n  white:       {red:1, green:1, blue:1},\n  plum:        {red:0.667, green:0.561, blue:0.627},\n  mint:        {red:0.812, green:0.980, blue:0.847},\n  ember:       {red:0.816, green:0.286, blue:0.067},\n  navy:        {red:0.004, green:0.173, blue:0.282},\n  sky:         {red:0.131, green:0.710, blue:1},\n  salmon:      {red:0.910, green:0.627, blue:0.565}\n};\n\nconst IMG = {\n  wordmark:   'https://lh3.googleusercontent.com/d/1GMUqmxGqOLoMqsxpiUSduo2hUzE4ei_J',\n  booksDark:  'https://lh3.googleusercontent.com/d/1pA1og8eOMnQE4yBT8h9z2oeGneMqCyii',\n  booksWhite: 'https://lh3.googleusercontent.com/d/1cL8RmMHzCscyLIdd3Y83RaM_yVXZI6SS',\n  gradient:   'https://lh3.googleusercontent.com/d/1edNwnzGIyQPv3v0D0JzpqRllAfmkIIwY'\n};\n\nconst reqs = [];\nconst imgReqs = [];\nlet idC = 0;\nconst gid = (p) => 'bs_' + p + '_' + (idC++);\n\nreqs.push({deleteObject: {objectId: defaultSlideId}});\n\nfunction tb(sid, id, x, y, w, h) {\n  reqs.push({createShape: {\n    objectId: id, shapeType: 'TEXT_BOX',\n    elementProperties: {\n      pageObjectId: sid,\n      size: {width: {magnitude: EMU(w), unit: 'EMU'}, height: {magnitude: EMU(h), unit: 'EMU'}},\n      transform: {scaleX: 1, scaleY: 1, translateX: EMU(x), translateY: EMU(y), unit: 'EMU'}\n    }\n  }});\n}\n\nfunction ins(id, text) {\n  if (!text) return;\n  reqs.push({insertText: {objectId: id, text: String(text), insertionIndex: 0}});\n}\n\nfunction sty(id, s) {\n  const ts = {};\n  const f = [];\n  if (s.ff) { ts.fontFamily = s.ff; f.push('fontFamily'); }\n  if (s.fs) { ts.fontSize = {magnitude: s.fs, unit: 'PT'}; f.push('fontSize'); }\n  if (s.b !== undefined) { ts.bold = s.b; f.push('bold'); }\n  if (s.i !== undefined) { ts.italic = s.i; f.push('italic'); }\n  if (s.c) { ts.foregroundColor = {opaqueColor: {rgbColor: s.c}}; f.push('foregroundColor'); }\n  if (f.length === 0) return;\n  reqs.push({updateTextStyle: {objectId: id, style: ts, fields: f.join(','), textRange: {type: 'ALL'}}});\n}\n\nfunction align(id, a) {\n  reqs.push({updateParagraphStyle: {objectId: id, style: {alignment: a}, fields: 'alignment', textRange: {type: 'ALL'}}});\n}\n\nfunction rect(sid, id, x, y, w, h, color) {\n  reqs.push({createShape: {\n    objectId: id, shapeType: 'ROUND_RECTANGLE',\n    elementProperties: {\n      pageObjectId: sid,\n      size: {width: {magnitude: EMU(w), unit: 'EMU'}, height: {magnitude: EMU(h), unit: 'EMU'}},\n      transform: {scaleX: 1, scaleY: 1, translateX: EMU(x), translateY: EMU(y), unit: 'EMU'}\n    }\n  }});\n  reqs.push({updateShapeProperties: {\n    objectId: id,\n    shapeProperties: {\n      shapeBackgroundFill: {solidFill: {color: {rgbColor: color}}},\n      outline: {propertyState: 'NOT_RENDERED'}\n    },\n    fields: 'shapeBackgroundFill,outline'\n  }});\n}\n\nfunction colorStripe(sid, y) {\n  const cs = [RGB.surfaceGray, RGB.plum, RGB.horizon, RGB.salmon, RGB.surfaceGray];\n  cs.forEach((c, i) => {\n    const id = gid('cs');\n    reqs.push({createShape: {\n      objectId: id, shapeType: 'RECTANGLE',\n      elementProperties: {\n        pageObjectId: sid,\n        size: {width: {magnitude: EMU(2), unit: 'EMU'}, height: {magnitude: EMU(0.525), unit: 'EMU'}},\n        transform: {scaleX: 1, scaleY: 1, translateX: EMU(i * 2), translateY: EMU(y), unit: 'EMU'}\n      }\n    }});\n    reqs.push({updateShapeProperties: {\n      objectId: id,\n      shapeProperties: {shapeBackgroundFill: {solidFill: {color: {rgbColor: c}}}, outline: {propertyState: 'NOT_RENDERED'}},\n      fields: 'shapeBackgroundFill,outline'\n    }});\n  });\n}\n\nfunction addWordmark(sid, x, y, w, h) {\n  imgReqs.push({createImage: {objectId: gid('wm'), url: IMG.wordmark,\n    elementProperties: {pageObjectId: sid,\n      size: {width: {magnitude: EMU(w), unit: 'EMU'}, height: {magnitude: EMU(h), unit: 'EMU'}},\n      transform: {scaleX: 1, scaleY: 1, translateX: EMU(x), translateY: EMU(y), unit: 'EMU'}}}});\n}\n\nfunction addBooksDark(sid, x, y) {\n  imgReqs.push({createImage: {objectId: gid('bd'), url: IMG.booksDark,\n    elementProperties: {pageObjectId: sid,\n      size: {width: {magnitude: EMU(0.7), unit: 'EMU'}, height: {magnitude: EMU(0.55), unit: 'EMU'}},\n      transform: {scaleX: 1, scaleY: 1, translateX: EMU(x), translateY: EMU(y), unit: 'EMU'}}}});\n}\n\nfunction addNavyStripe(sid) {\n  // Simulated gradient: 4 rectangles anchored to right edge, darkest = narrowest\n  // API doesn't support gradientFill so we layer solid fills at different opacities\n  const steps = [{x:8.2, w:1.8, a:0.18}, {x:8.65, w:1.35, a:0.25},\n                 {x:9.1,  w:0.9, a:0.45}, {x:9.55, w:0.45, a:0.85}];\n  steps.forEach(s => {\n    const id = gid('stripe');\n    reqs.push({createShape: {\n      objectId: id, shapeType: 'RECTANGLE',\n      elementProperties: {\n        pageObjectId: sid,\n        size: {width: {magnitude: EMU(s.w), unit: 'EMU'}, height: {magnitude: EMU(5.625), unit: 'EMU'}},\n        transform: {scaleX: 1, scaleY: 1, translateX: EMU(s.x), translateY: EMU(0), unit: 'EMU'}\n      }\n    }});\n    reqs.push({updateShapeProperties: {\n      objectId: id,\n      shapeProperties: {\n        shapeBackgroundFill: {solidFill: {color: {rgbColor: RGB.graphite}, alpha: s.a}},\n        outline: {propertyState: 'NOT_RENDERED'}\n      },\n      fields: 'shapeBackgroundFill,outline'\n    }});\n  });\n  // White books logo\n  imgReqs.push({createImage: {objectId: gid('bw'), url: IMG.booksWhite,\n    elementProperties: {pageObjectId: sid,\n      size: {width: {magnitude: EMU(0.7), unit: 'EMU'}, height: {magnitude: EMU(0.55), unit: 'EMU'}},\n      transform: {scaleX: 1, scaleY: 1, translateX: EMU(8.85), translateY: EMU(4.85), unit: 'EMU'}}}});\n}\n\nslides.forEach((slide, idx) => {\n  const sid = 'slide_' + idx;\n  reqs.push({createSlide: {objectId: sid, insertionIndex: idx}});\n  reqs.push({updatePageProperties: {objectId: sid,\n    pageProperties: {pageBackgroundFill: {solidFill: {color: {rgbColor: RGB.white}}}},\n    fields: 'pageBackgroundFill'}});\n\n  switch (slide.type) {\n    case 'title': {\n      // Taller box (2.2\"), smaller font (52pt), subtitle pushed down\n      const t = gid('t'); tb(sid, t, 0.5, 0.7, 9, 2.2); ins(t, slide.title || '');\n      sty(t, {ff:'Cardo', fs:52, b:true, c:RGB.black}); align(t, 'CENTER');\n      if (slide.subtitle) {\n        const s = gid('t'); tb(sid, s, 0.5, 3.0, 9, 0.65); ins(s, slide.subtitle);\n        sty(s, {ff:'Cardo', fs:22, i:true, c:RGB.graphite}); align(s, 'CENTER');\n      }\n      addWordmark(sid, 3.5, 3.8, 3.0, 0.5);\n      colorStripe(sid, 5.1);\n      break;\n    }\n    case 'agenda': {\n      // Title\n      const t = gid('t'); tb(sid, t, 0.5, 0.3, 8.5, 1.1); ins(t, slide.title || 'Agenda');\n      sty(t, {ff:'Cardo', fs:34, b:true, c:RGB.black});\n\n      // Single text box for all content \u2014 one object to click and edit in Slides\n      const cid = gid('t');\n      tb(sid, cid, 0.6, 1.5, 8.2, 4.0);\n\n      const lines = [];\n      const ranges = [];\n      let pos = 0;\n\n      (slide.items || []).forEach(item => {\n        const text = typeof item === 'string' ? item : item.text;\n        const line = '\\u25CF  ' + text + '\\n';\n        ranges.push({start: pos, end: pos + line.length, bold: true, fs: 17, c: RGB.black});\n        lines.push(line);\n        pos += line.length;\n        if (item.subitems) {\n          item.subitems.forEach(sub => {\n            const sub_line = '    \\u2013  ' + sub + '\\n';\n            ranges.push({start: pos, end: pos + sub_line.length, bold: false, fs: 14, c: RGB.graphite});\n            lines.push(sub_line);\n            pos += sub_line.length;\n          });\n        }\n      });\n\n      reqs.push({insertText: {objectId: cid, text: lines.join(''), insertionIndex: 0}});\n\n      ranges.forEach(r => {\n        reqs.push({updateTextStyle: {\n          objectId: cid,\n          style: {\n            fontFamily: 'Roboto',\n            fontSize: {magnitude: r.fs, unit: 'PT'},\n            bold: r.bold,\n            foregroundColor: {opaqueColor: {rgbColor: r.c}}\n          },\n          fields: 'fontFamily,fontSize,bold,foregroundColor',\n          textRange: {type: 'FIXED_RANGE', startIndex: r.start, endIndex: r.end}\n        }});\n      });\n\n      addBooksDark(sid, 8.8, 4.6);\n      break;\n    }\n    case 'section_divider': {\n      // Taller box for long section names\n      const t = gid('t'); tb(sid, t, 0.5, 1.4, 9, 2.0); ins(t, slide.title || '');\n      sty(t, {ff:'Cardo', fs:52, b:true, c:RGB.black}); align(t, 'CENTER');\n      addWordmark(sid, 3.5, 3.8, 3.0, 0.5);\n      colorStripe(sid, 5.1);\n      break;\n    }\n    case 'stats': {\n      // Title\n      const t = gid('t'); tb(sid, t, 0.5, 0.3, 8.5, 1.1); ins(t, slide.title || 'Key Metrics');\n      sty(t, {ff:'Cardo', fs:34, b:true, c:RGB.black});\n\n      // One text box per stat \u2014 value + label + change as a single editable block\n      const pos = [0.4, 3.5, 6.6];\n      (slide.stats || []).slice(0,3).forEach((st, i) => {\n        const cid = gid('t');\n        tb(sid, cid, pos[i], 1.6, 3.0, 3.5);\n\n        const vLine = (st.value || '') + '\\n';\n        const lLine = (st.label || '') + '\\n';\n        const cLine = st.change || '';\n        const full = vLine + lLine + cLine;\n\n        reqs.push({insertText: {objectId: cid, text: full, insertionIndex: 0}});\n\n        // Value \u2014 large, bold, navy\n        reqs.push({updateTextStyle: {objectId: cid,\n          style: {fontFamily: 'Cardo', fontSize: {magnitude: 28, unit: 'PT'}, bold: true,\n                  foregroundColor: {opaqueColor: {rgbColor: RGB.navy}}},\n          fields: 'fontFamily,fontSize,bold,foregroundColor',\n          textRange: {type: 'FIXED_RANGE', startIndex: 0, endIndex: vLine.length}}});\n\n        // Label \u2014 medium, graphite\n        reqs.push({updateTextStyle: {objectId: cid,\n          style: {fontFamily: 'Roboto', fontSize: {magnitude: 15, unit: 'PT'}, bold: false,\n                  foregroundColor: {opaqueColor: {rgbColor: RGB.graphite}}},\n          fields: 'fontFamily,fontSize,bold,foregroundColor',\n          textRange: {type: 'FIXED_RANGE', startIndex: vLine.length, endIndex: vLine.length + lLine.length}}});\n\n        // Change \u2014 small, horizon blue\n        if (st.change) {\n          reqs.push({updateTextStyle: {objectId: cid,\n            style: {fontFamily: 'Roboto', fontSize: {magnitude: 14, unit: 'PT'}, bold: true,\n                    foregroundColor: {opaqueColor: {rgbColor: RGB.horizon}}},\n            fields: 'fontFamily,fontSize,bold,foregroundColor',\n            textRange: {type: 'FIXED_RANGE', startIndex: vLine.length + lLine.length, endIndex: full.length}}});\n        }\n\n        // Center-align everything\n        reqs.push({updateParagraphStyle: {objectId: cid,\n          style: {alignment: 'CENTER'}, fields: 'alignment',\n          textRange: {type: 'ALL'}}});\n      });\n\n      addBooksDark(sid, 8.8, 4.6);\n      break;\n    }\n    case 'two_column': {\n      // Title box 1.1\" tall at 34pt; headers and content shifted down\n      const t = gid('t'); tb(sid, t, 0.5, 0.3, 8.5, 1.1); ins(t, slide.title || '');\n      sty(t, {ff:'Cardo', fs:34, b:true, c:RGB.black});\n      [{d:slide.left, x:0.5, clr:RGB.horizon}, {d:slide.right, x:5.2, clr:RGB.ember}].forEach(col => {\n        if (!col.d) return;\n        const h = gid('t'); tb(sid, h, col.x, 1.5, 4.2, 0.55); ins(h, col.d.header || '');\n        sty(h, {ff:'Roboto', fs:22, b:true, c:col.clr});\n        const items = (col.d.items || []).map(it => '\\u2022 ' + it).join('\\n');\n        const b = gid('t'); tb(sid, b, col.x, 2.1, 4.2, 3.1); ins(b, items);\n        sty(b, {ff:'Roboto', fs:16, c:RGB.graphite});\n      });\n      addBooksDark(sid, 8.85, 4.65);\n      break;\n    }\n    case 'three_column_cards': {\n      // Slide title \u2014 full width\n      const t = gid('t'); tb(sid, t, 0.5, 0.3, 9.0, 1.1); ins(t, slide.title || '');\n      sty(t, {ff:'Cardo', fs:34, b:true, c:RGB.black});\n\n      // 3 cards centered across full 10\" slide: w=2.6, gap=0.4, left margin=0.7\n      const cx = [0.7, 3.7, 6.7]; const cc = [RGB.horizon, RGB.plum, RGB.ember];\n      (slide.cards || []).slice(0,3).forEach((card, i) => {\n        // Heading above card in dark text\n        const ct = gid('t'); tb(sid, ct, cx[i], 1.45, 2.6, 0.45); ins(ct, card.title || '');\n        sty(ct, {ff:'Roboto', fs:15, b:true, c:RGB.black});\n\n        // Colored card\n        rect(sid, gid('r'), cx[i], 1.92, 2.6, 3.35, cc[i]);\n\n        // Single text box for all bullets\n        const items = (card.items || []).map(it => '\\u2022 ' + it).join('\\n');\n        const ci = gid('t'); tb(sid, ci, cx[i]+0.15, 2.05, 2.3, 3.1); ins(ci, items);\n        sty(ci, {ff:'Roboto', fs:13, c:RGB.white});\n      });\n\n      addBooksDark(sid, 9.1, 4.85);\n      break;\n    }\n    case 'four_column_timeline': {\n      // Slide title \u2014 full width\n      const t = gid('t'); tb(sid, t, 0.5, 0.3, 9.0, 1.1); ins(t, slide.title || '');\n      sty(t, {ff:'Cardo', fs:34, b:true, c:RGB.black});\n\n      // 4 columns centered across full 10\" slide: w=2.0, gap=0.2, left margin=0.6\n      const qx = [0.6, 2.8, 5.0, 7.2]; const qc = [RGB.horizon, RGB.plum, RGB.ember, RGB.navy];\n      (slide.quarters || []).slice(0,4).forEach((q, i) => {\n        // Stage label above card\n        const ql = gid('t'); tb(sid, ql, qx[i], 1.45, 2.0, 0.45); ins(ql, q.label || '');\n        sty(ql, {ff:'Roboto', fs:15, b:true, c:RGB.black}); align(ql, 'CENTER');\n\n        // Colored card\n        rect(sid, gid('r'), qx[i], 1.95, 2.0, 2.9, qc[i]);\n\n        // Focus Area label\n        const fl = gid('t'); tb(sid, fl, qx[i], 2.1, 2.0, 0.32); ins(fl, 'Focus Area');\n        sty(fl, {ff:'Roboto', fs:10, c:RGB.white}); align(fl, 'CENTER');\n\n        // Main value \u2014 single text box per card\n        const fv = gid('t'); tb(sid, fv, qx[i], 2.45, 2.0, 0.85); ins(fv, q.focus || q.value || '');\n        sty(fv, {ff:'Cardo', fs:16, b:true, c:RGB.white}); align(fv, 'CENTER');\n\n        if (q.note) {\n          const n = gid('t'); tb(sid, n, qx[i], 3.95, 2.0, 0.4); ins(n, q.note);\n          sty(n, {ff:'Roboto', fs:11, c:RGB.white}); align(n, 'CENTER');\n        }\n      });\n\n      addBooksDark(sid, 9.1, 4.85);\n      break;\n    }\n    case 'thank_you': {\n      const t = gid('t'); tb(sid, t, 0.5, 1.8, 9, 1.5);\n      ins(t, (slide.title || 'THANK YOU').toUpperCase());\n      sty(t, {ff:'Cardo', fs:72, b:true, c:RGB.black}); align(t, 'CENTER');\n      addWordmark(sid, 3.5, 3.5, 3.0, 0.5);\n      colorStripe(sid, 5.1);\n      break;\n    }\n    default: {\n      const t = gid('t'); tb(sid, t, 0.5, 0.3, 8.5, 1.1); ins(t, slide.title || '');\n      sty(t, {ff:'Cardo', fs:34, b:true, c:RGB.black});\n      if (slide.body) {\n        const b = gid('t'); tb(sid, b, 0.5, 1.6, 9, 3.5); ins(b, slide.body);\n        sty(b, {ff:'Roboto', fs:18, c:RGB.graphite});\n      }\n      addBooksDark(sid, 8.85, 4.65);\n      break;\n    }\n  }\n});\n\nreturn [{ json: { requests: reqs, imageRequests: imgReqs, presentationId: presId } }];"
+                },
+                "id": "66f40f08-60be-4717-a326-7abfaaf98c1e",
+                "name": "Build Batch Update",
+                "type": "n8n-nodes-base.code",
+                "typeVersion": 2,
+                "position": [
+                    1696,
+                    400
+                ]
+            },
+            {
+                "parameters": {
+                    "method": "POST",
+                    "url": "=https://slides.googleapis.com/v1/presentations/{{ $json.presentationId }}:batchUpdate",
+                    "authentication": "predefinedCredentialType",
+                    "nodeCredentialType": "googleSlidesOAuth2Api",
+                    "sendHeaders": true,
+                    "headerParameters": {
+                        "parameters": [
+                            {
+                                "name": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ]
+                    },
+                    "sendBody": true,
+                    "specifyBody": "json",
+                    "jsonBody": "={{ JSON.stringify({requests: $('Build Batch Update').first().json.requests}) }}",
+                    "options": {}
+                },
+                "id": "9fec3ba2-dcc5-4c55-a4fa-0d3c63f37d97",
+                "name": "Populate Slides",
+                "type": "n8n-nodes-base.httpRequest",
+                "typeVersion": 4.2,
+                "position": [
+                    1920,
+                    400
+                ],
+                "credentials": {
+                    "googleSlidesOAuth2Api": {
+                        "id": "frrumderFcESHZN5",
+                        "name": "Google Slides account"
+                    }
+                }
+            },
+            {
+                "parameters": {
+                    "method": "POST",
+                    "url": "=https://slides.googleapis.com/v1/presentations/{{ $('Build Batch Update').first().json.presentationId }}:batchUpdate",
+                    "authentication": "predefinedCredentialType",
+                    "nodeCredentialType": "googleSlidesOAuth2Api",
+                    "sendHeaders": true,
+                    "headerParameters": {
+                        "parameters": [
+                            {
+                                "name": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ]
+                    },
+                    "sendBody": true,
+                    "specifyBody": "json",
+                    "jsonBody": "={{ JSON.stringify({requests: $('Build Batch Update').first().json.imageRequests}) }}",
+                    "options": {}
+                },
+                "id": "f524071d-69d0-42ee-b800-be6381d87777",
+                "name": "Add Images",
+                "type": "n8n-nodes-base.httpRequest",
+                "typeVersion": 4.2,
+                "position": [
+                    2144,
+                    400
+                ],
+                "credentials": {
+                    "googleSlidesOAuth2Api": {
+                        "id": "frrumderFcESHZN5",
+                        "name": "Google Slides account"
+                    }
+                },
+                "continueOnFail": true
+            },
+            {
+                "parameters": {
+                    "method": "POST",
+                    "url": "=https://www.googleapis.com/drive/v3/files/{{ $('Build Batch Update').first().json.presentationId }}/permissions",
+                    "authentication": "predefinedCredentialType",
+                    "nodeCredentialType": "googleDriveOAuth2Api",
+                    "sendHeaders": true,
+                    "headerParameters": {
+                        "parameters": [
+                            {
+                                "name": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ]
+                    },
+                    "sendBody": true,
+                    "specifyBody": "json",
+                    "jsonBody": "{\"role\": \"writer\", \"type\": \"domain\", \"domain\": \"people.ai\"}",
+                    "options": {}
+                },
+                "id": "169d2da9-6a61-4fa7-a9d3-29f9fade62eb",
+                "name": "Share Presentation",
+                "type": "n8n-nodes-base.httpRequest",
+                "typeVersion": 4.2,
+                "position": [
+                    2368,
+                    400
+                ],
+                "credentials": {
+                    "googleDriveOAuth2Api": {
+                        "id": "sWK7WcHJvWMTBPSQ",
+                        "name": "Google Drive account"
+                    }
+                }
+            },
+            {
+                "parameters": {
+                    "method": "POST",
+                    "url": "https://slack.com/api/chat.postMessage",
+                    "authentication": "genericCredentialType",
+                    "genericAuthType": "httpHeaderAuth",
+                    "sendHeaders": true,
+                    "headerParameters": {
+                        "parameters": [
+                            {
+                                "name": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ]
+                    },
+                    "sendBody": true,
+                    "specifyBody": "json",
+                    "jsonBody": "={{ JSON.stringify({ channel: $('Resolve Presentation Identity').first().json.channelId, text: $('Resolve Presentation Identity').first().json.assistantEmoji + ' Your *Backstory* presentation is ready!\\n\\n<https://docs.google.com/presentation/d/' + $('Build Batch Update').first().json.presentationId + '/edit|:open_book: ' + ($('Parse Slide JSON').first().json.title || 'Presentation') + '>', username: $('Resolve Presentation Identity').first().json.assistantName, icon_emoji: $('Resolve Presentation Identity').first().json.assistantEmoji, unfurl_links: false, unfurl_media: false }) }}",
+                    "options": {}
+                },
+                "id": "0f5d9189-4b3b-4932-b134-1e4df4879a47",
+                "name": "Send Presentation Link",
+                "type": "n8n-nodes-base.httpRequest",
+                "typeVersion": 4.2,
+                "position": [
+                    2592,
+                    400
+                ],
+                "credentials": {
+                    "httpHeaderAuth": {
+                        "id": "LluVuiMJ8NUbAiG7",
+                        "name": "Slackbot Auth Token"
+                    }
+                },
+                "continueOnFail": true
+            },
+            {
+                "parameters": {
+                    "endpointUrl": "https://mcp-canary.people.ai/mcp",
+                    "authentication": "multipleHeadersAuth",
+                    "options": {}
+                },
+                "id": "bc71e931-cf67-4c62-9e62-effe156f4c00",
+                "name": "People.ai MCP",
+                "type": "@n8n/n8n-nodes-langchain.mcpClientTool",
+                "typeVersion": 1.2,
+                "position": [
+                    1040,
+                    624
+                ],
+                "credentials": {
+                    "httpMultipleHeadersAuth": {
+                        "id": "wvV5pwBeIL7f2vLG",
+                        "name": "People.ai MCP Multi-Header"
+                    }
+                }
+            }
+        ],
+        "connections": {
+            "Workflow Input Trigger": {
+                "main": [
+                    [
+                        {
+                            "node": "Resolve Presentation Identity",
+                            "type": "main",
+                            "index": 0
+                        }
+                    ]
+                ]
+            },
+            "Resolve Presentation Identity": {
+                "main": [
+                    [
+                        {
+                            "node": "Presentation Agent",
+                            "type": "main",
+                            "index": 0
+                        }
+                    ]
+                ]
+            },
+            "Presentation Agent": {
+                "main": [
+                    [
+                        {
+                            "node": "Parse Slide JSON",
+                            "type": "main",
+                            "index": 0
+                        }
+                    ]
+                ]
+            },
+            "Parse Slide JSON": {
+                "main": [
+                    [
+                        {
+                            "node": "Create Blank Presentation",
+                            "type": "main",
+                            "index": 0
+                        }
+                    ]
+                ]
+            },
+            "Create Blank Presentation": {
+                "main": [
+                    [
+                        {
+                            "node": "Build Batch Update",
+                            "type": "main",
+                            "index": 0
+                        }
+                    ]
+                ]
+            },
+            "Build Batch Update": {
+                "main": [
+                    [
+                        {
+                            "node": "Populate Slides",
+                            "type": "main",
+                            "index": 0
+                        }
+                    ]
+                ]
+            },
+            "Populate Slides": {
+                "main": [
+                    [
+                        {
+                            "node": "Add Images",
+                            "type": "main",
+                            "index": 0
+                        }
+                    ]
+                ]
+            },
+            "Add Images": {
+                "main": [
+                    [
+                        {
+                            "node": "Share Presentation",
+                            "type": "main",
+                            "index": 0
+                        }
+                    ]
+                ]
+            },
+            "Share Presentation": {
+                "main": [
+                    [
+                        {
+                            "node": "Send Presentation Link",
+                            "type": "main",
+                            "index": 0
+                        }
+                    ]
+                ]
+            },
+            "Anthropic Chat Model": {
+                "ai_languageModel": [
+                    [
+                        {
+                            "node": "Presentation Agent",
+                            "type": "ai_languageModel",
+                            "index": 0
+                        }
+                    ]
+                ]
+            },
+            "People.ai MCP": {
+                "ai_tool": [
+                    [
+                        {
+                            "node": "Presentation Agent",
+                            "type": "ai_tool",
+                            "index": 0
+                        }
+                    ]
+                ]
+            }
+        },
+        "authors": "Scott Metcalf",
+        "name": null,
+        "description": null,
+        "autosaved": false
+    }
+}

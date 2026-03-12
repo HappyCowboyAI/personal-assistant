@@ -1,0 +1,1231 @@
+{
+    "updatedAt": "2026-03-03T17:28:40.890Z",
+    "createdAt": "2026-03-03T17:28:40.890Z",
+    "id": "dutUnWP73mjpkaIL",
+    "name": "Continue Conversation",
+    "description": null,
+    "active": true,
+    "isArchived": false,
+    "nodes": [
+        {
+            "parameters": {
+                "inputSource": "passthrough"
+            },
+            "id": "cdbeb85d-16d9-4a13-811d-ac4d31d3aba6",
+            "name": "Execute Workflow Trigger",
+            "type": "n8n-nodes-base.executeWorkflowTrigger",
+            "typeVersion": 1.1,
+            "position": [
+                0,
+                400
+            ]
+        },
+        {
+            "parameters": {
+                "method": "GET",
+                "url": "=https://rhrlnkbphxntxxxcrgvv.supabase.co/rest/v1/conversations?id=eq.{{ $json.conversationId }}&select=*",
+                "authentication": "predefinedCredentialType",
+                "nodeCredentialType": "supabaseApi",
+                "sendHeaders": true,
+                "headerParameters": {
+                    "parameters": [
+                        {
+                            "name": "Accept",
+                            "value": "application/json"
+                        },
+                        {
+                            "name": "Prefer",
+                            "value": "return=representation"
+                        }
+                    ]
+                },
+                "options": {}
+            },
+            "id": "88167de1-e0a1-429b-995c-ca58d21ee95d",
+            "name": "Load Conversation",
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4.2,
+            "position": [
+                250,
+                400
+            ],
+            "credentials": {
+                "supabaseApi": {
+                    "id": "ASRWWkQ0RSMOpNF1",
+                    "name": "Supabase account"
+                }
+            }
+        },
+        {
+            "parameters": {
+                "jsCode": "const conversation = $('Load Conversation').first().json;\nconst now = new Date();\nconst expiresAt = new Date(conversation.expires_at);\n\nif (expiresAt < now) {\n  return [{ json: { error: true, errorMessage: 'This conversation has expired. Please start a new request.' } }];\n}\nif (conversation.turn_count >= conversation.max_turns) {\n  return [{ json: { error: true, errorMessage: 'This thread has reached its limit. Please start a new request for further help.' } }];\n}\nif (conversation.status === 'processing') {\n  return [{ json: { error: true, errorMessage: \"I'm still working on your last message \\u2014 one moment!\" } }];\n}\nreturn [{ json: { error: false, conversationId: conversation.id } }];\n"
+            },
+            "id": "97d0bfcd-98fd-4540-9013-2ecbc2945761",
+            "name": "Check Limits",
+            "type": "n8n-nodes-base.code",
+            "typeVersion": 2,
+            "position": [
+                500,
+                400
+            ]
+        },
+        {
+            "parameters": {
+                "conditions": {
+                    "options": {
+                        "version": 2,
+                        "leftValue": "",
+                        "caseSensitive": true,
+                        "typeValidation": "strict"
+                    },
+                    "conditions": [
+                        {
+                            "id": "f6721732-e2bf-434f-8dfc-bea65d208185",
+                            "leftValue": "={{ $json.error }}",
+                            "rightValue": true,
+                            "operator": {
+                                "type": "boolean",
+                                "operation": "true"
+                            }
+                        }
+                    ],
+                    "combinator": "and"
+                },
+                "options": {}
+            },
+            "id": "25975c38-faae-4bc7-b6d7-61fff2d5ab0f",
+            "name": "Has Error?",
+            "type": "n8n-nodes-base.if",
+            "typeVersion": 2.2,
+            "position": [
+                750,
+                400
+            ]
+        },
+        {
+            "parameters": {
+                "method": "POST",
+                "url": "https://slack.com/api/chat.postMessage",
+                "authentication": "genericCredentialType",
+                "genericAuthType": "httpHeaderAuth",
+                "sendHeaders": true,
+                "headerParameters": {
+                    "parameters": [
+                        {
+                            "name": "Content-Type",
+                            "value": "application/json"
+                        }
+                    ]
+                },
+                "sendBody": true,
+                "specifyBody": "json",
+                "jsonBody": "={{ JSON.stringify({ channel: $('Execute Workflow Trigger').first().json.channelId, thread_ts: $('Execute Workflow Trigger').first().json.threadTs, text: $json.errorMessage, username: ($('Load Conversation').first().json.agent_config || {}).assistantName || 'Aria', icon_emoji: ($('Load Conversation').first().json.agent_config || {}).assistantEmoji || ':robot_face:', unfurl_links: false, unfurl_media: false }) }}",
+                "options": {}
+            },
+            "id": "0d21eb12-1be6-4ec6-99cf-88575e046356",
+            "name": "Post Error",
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4.2,
+            "position": [
+                1000,
+                250
+            ],
+            "credentials": {
+                "httpHeaderAuth": {
+                    "id": "LluVuiMJ8NUbAiG7",
+                    "name": "Slackbot Auth Token"
+                }
+            }
+        },
+        {
+            "parameters": {
+                "method": "PATCH",
+                "url": "=https://rhrlnkbphxntxxxcrgvv.supabase.co/rest/v1/conversations?id=eq.{{ $json.conversationId }}",
+                "authentication": "predefinedCredentialType",
+                "nodeCredentialType": "supabaseApi",
+                "sendHeaders": true,
+                "headerParameters": {
+                    "parameters": [
+                        {
+                            "name": "Content-Type",
+                            "value": "application/json"
+                        },
+                        {
+                            "name": "Prefer",
+                            "value": "return=representation"
+                        }
+                    ]
+                },
+                "sendBody": true,
+                "specifyBody": "json",
+                "jsonBody": "={{ JSON.stringify({ status: 'processing' }) }}",
+                "options": {}
+            },
+            "id": "885e54bd-9e4e-4b3f-8ef4-c745368466ec",
+            "name": "Set Processing",
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4.2,
+            "position": [
+                1000,
+                550
+            ],
+            "credentials": {
+                "supabaseApi": {
+                    "id": "ASRWWkQ0RSMOpNF1",
+                    "name": "Supabase account"
+                }
+            }
+        },
+        {
+            "parameters": {
+                "method": "GET",
+                "url": "=https://rhrlnkbphxntxxxcrgvv.supabase.co/rest/v1/messages?conversation_id=eq.{{ $('Check Limits').first().json.conversationId }}&order=sent_at.asc&select=role,content",
+                "authentication": "predefinedCredentialType",
+                "nodeCredentialType": "supabaseApi",
+                "sendHeaders": true,
+                "headerParameters": {
+                    "parameters": [
+                        {
+                            "name": "Accept",
+                            "value": "application/json"
+                        }
+                    ]
+                },
+                "options": {}
+            },
+            "id": "07f020e2-81cd-4ec4-9a8e-84c3142b7cd7",
+            "name": "Load History",
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4.2,
+            "position": [
+                1250,
+                550
+            ],
+            "credentials": {
+                "supabaseApi": {
+                    "id": "ASRWWkQ0RSMOpNF1",
+                    "name": "Supabase account"
+                }
+            }
+        },
+        {
+            "parameters": {
+                "method": "POST",
+                "url": "https://rhrlnkbphxntxxxcrgvv.supabase.co/rest/v1/messages",
+                "authentication": "predefinedCredentialType",
+                "nodeCredentialType": "supabaseApi",
+                "sendHeaders": true,
+                "headerParameters": {
+                    "parameters": [
+                        {
+                            "name": "Content-Type",
+                            "value": "application/json"
+                        },
+                        {
+                            "name": "Prefer",
+                            "value": "return=representation"
+                        }
+                    ]
+                },
+                "sendBody": true,
+                "specifyBody": "json",
+                "jsonBody": "={{ JSON.stringify({ user_id: $('Load Conversation').first().json.user_id, message_type: 'conversation', conversation_id: $('Check Limits').first().json.conversationId, slack_thread_ts: $('Execute Workflow Trigger').first().json.threadTs, role: 'user', content: $('Execute Workflow Trigger').first().json.messageText, channel: 'slack', direction: 'inbound' }) }}",
+                "options": {}
+            },
+            "id": "fab34cea-4a37-4fad-8035-0ae883e2f5a3",
+            "name": "Log Inbound",
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4.2,
+            "position": [
+                1500,
+                550
+            ],
+            "credentials": {
+                "supabaseApi": {
+                    "id": "ASRWWkQ0RSMOpNF1",
+                    "name": "Supabase account"
+                }
+            }
+        },
+        {
+            "parameters": {
+                "jsCode": "const conversation = $('Load Conversation').first().json;\nconst historyItems = $('Load History').all();\nconst newMessage = $('Execute Workflow Trigger').first().json.messageText;\nconst config = conversation.agent_config || {};\n\nconst messages = historyItems.map(item => ({\n  role: item.json.role,\n  content: item.json.content\n}));\nmessages.push({ role: 'user', content: newMessage });\n\nconst MAX_HISTORY_CHARS = 16000;\nlet totalChars = messages.reduce((sum, m) => sum + m.content.length, 0);\nlet finalMessages = messages;\nif (totalChars > MAX_HISTORY_CHARS) {\n  const recent = messages.slice(-8);\n  const older = messages.slice(0, -8);\n  const summary = older.map(m => `${m.role}: ${m.content.substring(0, 200)}`).join('\\n');\n  finalMessages = [\n    { role: 'user', content: `[Previous conversation summary]\\n${summary}` },\n    ...recent\n  ];\n}\n\nlet systemPrompt = config.systemPrompt || 'You are a helpful sales assistant.';\nsystemPrompt += '\\n\\nYou are continuing an existing conversation. The message history is provided. Build on what was discussed \\u2014 do not repeat introductions or re-ask questions that were already answered.';\n\nconst turnCount = conversation.turn_count || 1;\nconst maxTurns = conversation.max_turns || 10;\nif (turnCount >= maxTurns - 1) {\n  systemPrompt += '\\n\\nIMPORTANT: This is the final exchange in this thread. Provide your best complete answer. If more work is needed, tell the user to start a new conversation.';\n}\n\nconst chatHistory = finalMessages.slice(0, -1).map(m =>\n  `${m.role === 'user' ? 'Human' : 'Assistant'}: ${m.content}`\n).join('\\n\\n');\nconst userMessage = finalMessages[finalMessages.length - 1].content;\nconst agentPrompt = chatHistory\n  ? `[Conversation history]\\n${chatHistory}\\n\\n[Current message]\\n${userMessage}`\n  : userMessage;\n\nreturn [{\n  json: {\n    systemPrompt,\n    agentPrompt,\n    assistantName: config.assistantName || 'Aria',\n    assistantEmoji: config.assistantEmoji || ':robot_face:',\n    channelId: $('Execute Workflow Trigger').first().json.channelId,\n    threadTs: $('Execute Workflow Trigger').first().json.threadTs,\n    conversationId: conversation.id,\n    turnCount,\n    maxTurns,\n    isFinalTurn: turnCount >= maxTurns - 1,\n    workflowType: conversation.workflow_type\n  }\n}];\n"
+            },
+            "id": "6306b5a1-e7fe-4c3b-b663-e7fafeebfd92",
+            "name": "Build Agent Context",
+            "type": "n8n-nodes-base.code",
+            "typeVersion": 2,
+            "position": [
+                1750,
+                550
+            ]
+        },
+        {
+            "parameters": {
+                "promptType": "define",
+                "text": "={{ $('Build Agent Context').first().json.agentPrompt }}",
+                "options": {
+                    "systemMessage": "={{ $('Build Agent Context').first().json.systemPrompt }}",
+                    "maxIterations": 10
+                }
+            },
+            "id": "54d781a4-18ca-4847-b449-64964fe29289",
+            "name": "Conversation Agent",
+            "type": "@n8n/n8n-nodes-langchain.agent",
+            "typeVersion": 1.7,
+            "position": [
+                2000,
+                550
+            ],
+            "continueOnFail": true
+        },
+        {
+            "parameters": {
+                "model": {
+                    "__rl": true,
+                    "mode": "list",
+                    "value": "claude-sonnet-4-5-20250929",
+                    "cachedResultName": "Claude Sonnet 4.5"
+                },
+                "options": {}
+            },
+            "id": "265acbda-0df3-4116-9370-3d048e7275c8",
+            "name": "Anthropic Chat Model",
+            "type": "@n8n/n8n-nodes-langchain.lmChatAnthropic",
+            "typeVersion": 1.3,
+            "position": [
+                2008,
+                774
+            ],
+            "credentials": {
+                "anthropicApi": {
+                    "id": "rlAz7ZSl4y6AwRUq",
+                    "name": "Anthropic account 2"
+                }
+            }
+        },
+        {
+            "parameters": {
+                "endpointUrl": "https://mcp.people.ai/mcp",
+                "authentication": "multipleHeadersAuth",
+                "options": {}
+            },
+            "id": "ee3e1716-fbb5-4797-8385-459475ca6b89",
+            "name": "People.ai MCP",
+            "type": "@n8n/n8n-nodes-langchain.mcpClientTool",
+            "typeVersion": 1.2,
+            "position": [
+                2136,
+                774
+            ],
+            "credentials": {
+                "httpMultipleHeadersAuth": {
+                    "id": "wvV5pwBeIL7f2vLG",
+                    "name": "People.ai MCP Multi-Header"
+                }
+            }
+        },
+        {
+            "parameters": {
+                "method": "POST",
+                "url": "https://slack.com/api/chat.postMessage",
+                "authentication": "genericCredentialType",
+                "genericAuthType": "httpHeaderAuth",
+                "sendHeaders": true,
+                "headerParameters": {
+                    "parameters": [
+                        {
+                            "name": "Content-Type",
+                            "value": "application/json"
+                        }
+                    ]
+                },
+                "sendBody": true,
+                "specifyBody": "json",
+                "jsonBody": "={{ JSON.stringify({ channel: $('Build Agent Context').first().json.channelId, thread_ts: $('Build Agent Context').first().json.threadTs, text: $json.output || $json.text || 'I encountered an issue processing your request. Please try again.', username: $('Build Agent Context').first().json.assistantName, icon_emoji: $('Build Agent Context').first().json.assistantEmoji, unfurl_links: false, unfurl_media: false }) }}",
+                "options": {}
+            },
+            "id": "9fa0f044-e5cc-4811-bfc9-14f901fe971c",
+            "name": "Post Response",
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4.2,
+            "position": [
+                2250,
+                550
+            ],
+            "credentials": {
+                "httpHeaderAuth": {
+                    "id": "LluVuiMJ8NUbAiG7",
+                    "name": "Slackbot Auth Token"
+                }
+            }
+        },
+        {
+            "parameters": {
+                "method": "POST",
+                "url": "https://rhrlnkbphxntxxxcrgvv.supabase.co/rest/v1/messages",
+                "authentication": "predefinedCredentialType",
+                "nodeCredentialType": "supabaseApi",
+                "sendHeaders": true,
+                "headerParameters": {
+                    "parameters": [
+                        {
+                            "name": "Content-Type",
+                            "value": "application/json"
+                        },
+                        {
+                            "name": "Prefer",
+                            "value": "return=representation"
+                        }
+                    ]
+                },
+                "sendBody": true,
+                "specifyBody": "json",
+                "jsonBody": "={{ JSON.stringify({ user_id: $('Load Conversation').first().json.user_id, message_type: 'conversation', conversation_id: $('Build Agent Context').first().json.conversationId, slack_thread_ts: $('Build Agent Context').first().json.threadTs, role: 'assistant', content: $('Conversation Agent').first().json.output || $('Conversation Agent').first().json.text || '', channel: 'slack', direction: 'outbound' }) }}",
+                "options": {}
+            },
+            "id": "0e2f029c-346d-4b55-b30a-d36e50c68b41",
+            "name": "Log Outbound",
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4.2,
+            "position": [
+                2500,
+                550
+            ],
+            "credentials": {
+                "supabaseApi": {
+                    "id": "ASRWWkQ0RSMOpNF1",
+                    "name": "Supabase account"
+                }
+            }
+        },
+        {
+            "parameters": {
+                "method": "PATCH",
+                "url": "=https://rhrlnkbphxntxxxcrgvv.supabase.co/rest/v1/conversations?id=eq.{{ $('Build Agent Context').first().json.conversationId }}",
+                "authentication": "predefinedCredentialType",
+                "nodeCredentialType": "supabaseApi",
+                "sendHeaders": true,
+                "headerParameters": {
+                    "parameters": [
+                        {
+                            "name": "Content-Type",
+                            "value": "application/json"
+                        },
+                        {
+                            "name": "Prefer",
+                            "value": "return=representation"
+                        }
+                    ]
+                },
+                "sendBody": true,
+                "specifyBody": "json",
+                "jsonBody": "={{ JSON.stringify({ turn_count: ($('Build Agent Context').first().json.turnCount || 1) + 1, expires_at: new Date(Date.now() + 4 * 60 * 60 * 1000).toISOString(), status: $('Build Agent Context').first().json.isFinalTurn ? 'completed' : 'active' }) }}",
+                "options": {}
+            },
+            "id": "eb59c9e0-a02f-44c0-b9ff-ddaa912b3d0f",
+            "name": "Update Conversation",
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4.2,
+            "position": [
+                2750,
+                550
+            ],
+            "credentials": {
+                "supabaseApi": {
+                    "id": "ASRWWkQ0RSMOpNF1",
+                    "name": "Supabase account"
+                }
+            }
+        }
+    ],
+    "connections": {
+        "Execute Workflow Trigger": {
+            "main": [
+                [
+                    {
+                        "node": "Load Conversation",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Load Conversation": {
+            "main": [
+                [
+                    {
+                        "node": "Check Limits",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Check Limits": {
+            "main": [
+                [
+                    {
+                        "node": "Has Error?",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Has Error?": {
+            "main": [
+                [
+                    {
+                        "node": "Post Error",
+                        "type": "main",
+                        "index": 0
+                    }
+                ],
+                [
+                    {
+                        "node": "Set Processing",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Set Processing": {
+            "main": [
+                [
+                    {
+                        "node": "Load History",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Load History": {
+            "main": [
+                [
+                    {
+                        "node": "Log Inbound",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Log Inbound": {
+            "main": [
+                [
+                    {
+                        "node": "Build Agent Context",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Build Agent Context": {
+            "main": [
+                [
+                    {
+                        "node": "Conversation Agent",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Conversation Agent": {
+            "main": [
+                [
+                    {
+                        "node": "Post Response",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Post Response": {
+            "main": [
+                [
+                    {
+                        "node": "Log Outbound",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Log Outbound": {
+            "main": [
+                [
+                    {
+                        "node": "Update Conversation",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Anthropic Chat Model": {
+            "ai_languageModel": [
+                [
+                    {
+                        "node": "Conversation Agent",
+                        "type": "ai_languageModel",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "People.ai MCP": {
+            "ai_tool": [
+                [
+                    {
+                        "node": "Conversation Agent",
+                        "type": "ai_tool",
+                        "index": 0
+                    }
+                ]
+            ]
+        }
+    },
+    "settings": {
+        "executionOrder": "v1",
+        "callerPolicy": "workflowsFromSameOwner",
+        "availableInMCP": false
+    },
+    "staticData": null,
+    "meta": null,
+    "pinData": null,
+    "versionId": "12b461f3-d9aa-4842-b248-aab6b8fd26b0",
+    "activeVersionId": "12b461f3-d9aa-4842-b248-aab6b8fd26b0",
+    "versionCounter": 3,
+    "triggerCount": 0,
+    "shared": [
+        {
+            "updatedAt": "2026-03-03T17:28:40.895Z",
+            "createdAt": "2026-03-03T17:28:40.895Z",
+            "role": "workflow:owner",
+            "workflowId": "dutUnWP73mjpkaIL",
+            "projectId": "85jtzrEPriGDXgHV",
+            "project": {
+                "updatedAt": "2025-11-24T07:01:19.205Z",
+                "createdAt": "2025-11-24T06:56:53.862Z",
+                "id": "85jtzrEPriGDXgHV",
+                "name": "Scott Metcalf <metcalf.scott@gmail.com>",
+                "type": "personal",
+                "icon": null,
+                "description": null,
+                "creatorId": "bfa163c1-bd53-4c0f-b0ba-8dc3626f7c79"
+            }
+        }
+    ],
+    "tags": [],
+    "activeVersion": {
+        "updatedAt": "2026-03-03T17:28:40.900Z",
+        "createdAt": "2026-03-03T17:28:40.900Z",
+        "versionId": "12b461f3-d9aa-4842-b248-aab6b8fd26b0",
+        "workflowId": "dutUnWP73mjpkaIL",
+        "nodes": [
+            {
+                "parameters": {
+                    "inputSource": "passthrough"
+                },
+                "id": "cdbeb85d-16d9-4a13-811d-ac4d31d3aba6",
+                "name": "Execute Workflow Trigger",
+                "type": "n8n-nodes-base.executeWorkflowTrigger",
+                "typeVersion": 1.1,
+                "position": [
+                    0,
+                    400
+                ]
+            },
+            {
+                "parameters": {
+                    "method": "GET",
+                    "url": "=https://rhrlnkbphxntxxxcrgvv.supabase.co/rest/v1/conversations?id=eq.{{ $json.conversationId }}&select=*",
+                    "authentication": "predefinedCredentialType",
+                    "nodeCredentialType": "supabaseApi",
+                    "sendHeaders": true,
+                    "headerParameters": {
+                        "parameters": [
+                            {
+                                "name": "Accept",
+                                "value": "application/json"
+                            },
+                            {
+                                "name": "Prefer",
+                                "value": "return=representation"
+                            }
+                        ]
+                    },
+                    "options": {}
+                },
+                "id": "88167de1-e0a1-429b-995c-ca58d21ee95d",
+                "name": "Load Conversation",
+                "type": "n8n-nodes-base.httpRequest",
+                "typeVersion": 4.2,
+                "position": [
+                    250,
+                    400
+                ],
+                "credentials": {
+                    "supabaseApi": {
+                        "id": "ASRWWkQ0RSMOpNF1",
+                        "name": "Supabase account"
+                    }
+                }
+            },
+            {
+                "parameters": {
+                    "jsCode": "const conversation = $('Load Conversation').first().json;\nconst now = new Date();\nconst expiresAt = new Date(conversation.expires_at);\n\nif (expiresAt < now) {\n  return [{ json: { error: true, errorMessage: 'This conversation has expired. Please start a new request.' } }];\n}\nif (conversation.turn_count >= conversation.max_turns) {\n  return [{ json: { error: true, errorMessage: 'This thread has reached its limit. Please start a new request for further help.' } }];\n}\nif (conversation.status === 'processing') {\n  return [{ json: { error: true, errorMessage: \"I'm still working on your last message \\u2014 one moment!\" } }];\n}\nreturn [{ json: { error: false, conversationId: conversation.id } }];\n"
+                },
+                "id": "97d0bfcd-98fd-4540-9013-2ecbc2945761",
+                "name": "Check Limits",
+                "type": "n8n-nodes-base.code",
+                "typeVersion": 2,
+                "position": [
+                    500,
+                    400
+                ]
+            },
+            {
+                "parameters": {
+                    "conditions": {
+                        "options": {
+                            "version": 2,
+                            "leftValue": "",
+                            "caseSensitive": true,
+                            "typeValidation": "strict"
+                        },
+                        "conditions": [
+                            {
+                                "id": "f6721732-e2bf-434f-8dfc-bea65d208185",
+                                "leftValue": "={{ $json.error }}",
+                                "rightValue": true,
+                                "operator": {
+                                    "type": "boolean",
+                                    "operation": "true"
+                                }
+                            }
+                        ],
+                        "combinator": "and"
+                    },
+                    "options": {}
+                },
+                "id": "25975c38-faae-4bc7-b6d7-61fff2d5ab0f",
+                "name": "Has Error?",
+                "type": "n8n-nodes-base.if",
+                "typeVersion": 2.2,
+                "position": [
+                    750,
+                    400
+                ]
+            },
+            {
+                "parameters": {
+                    "method": "POST",
+                    "url": "https://slack.com/api/chat.postMessage",
+                    "authentication": "genericCredentialType",
+                    "genericAuthType": "httpHeaderAuth",
+                    "sendHeaders": true,
+                    "headerParameters": {
+                        "parameters": [
+                            {
+                                "name": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ]
+                    },
+                    "sendBody": true,
+                    "specifyBody": "json",
+                    "jsonBody": "={{ JSON.stringify({ channel: $('Execute Workflow Trigger').first().json.channelId, thread_ts: $('Execute Workflow Trigger').first().json.threadTs, text: $json.errorMessage, username: ($('Load Conversation').first().json.agent_config || {}).assistantName || 'Aria', icon_emoji: ($('Load Conversation').first().json.agent_config || {}).assistantEmoji || ':robot_face:', unfurl_links: false, unfurl_media: false }) }}",
+                    "options": {}
+                },
+                "id": "0d21eb12-1be6-4ec6-99cf-88575e046356",
+                "name": "Post Error",
+                "type": "n8n-nodes-base.httpRequest",
+                "typeVersion": 4.2,
+                "position": [
+                    1000,
+                    250
+                ],
+                "credentials": {
+                    "httpHeaderAuth": {
+                        "id": "LluVuiMJ8NUbAiG7",
+                        "name": "Slackbot Auth Token"
+                    }
+                }
+            },
+            {
+                "parameters": {
+                    "method": "PATCH",
+                    "url": "=https://rhrlnkbphxntxxxcrgvv.supabase.co/rest/v1/conversations?id=eq.{{ $json.conversationId }}",
+                    "authentication": "predefinedCredentialType",
+                    "nodeCredentialType": "supabaseApi",
+                    "sendHeaders": true,
+                    "headerParameters": {
+                        "parameters": [
+                            {
+                                "name": "Content-Type",
+                                "value": "application/json"
+                            },
+                            {
+                                "name": "Prefer",
+                                "value": "return=representation"
+                            }
+                        ]
+                    },
+                    "sendBody": true,
+                    "specifyBody": "json",
+                    "jsonBody": "={{ JSON.stringify({ status: 'processing' }) }}",
+                    "options": {}
+                },
+                "id": "885e54bd-9e4e-4b3f-8ef4-c745368466ec",
+                "name": "Set Processing",
+                "type": "n8n-nodes-base.httpRequest",
+                "typeVersion": 4.2,
+                "position": [
+                    1000,
+                    550
+                ],
+                "credentials": {
+                    "supabaseApi": {
+                        "id": "ASRWWkQ0RSMOpNF1",
+                        "name": "Supabase account"
+                    }
+                }
+            },
+            {
+                "parameters": {
+                    "method": "GET",
+                    "url": "=https://rhrlnkbphxntxxxcrgvv.supabase.co/rest/v1/messages?conversation_id=eq.{{ $('Check Limits').first().json.conversationId }}&order=sent_at.asc&select=role,content",
+                    "authentication": "predefinedCredentialType",
+                    "nodeCredentialType": "supabaseApi",
+                    "sendHeaders": true,
+                    "headerParameters": {
+                        "parameters": [
+                            {
+                                "name": "Accept",
+                                "value": "application/json"
+                            }
+                        ]
+                    },
+                    "options": {}
+                },
+                "id": "07f020e2-81cd-4ec4-9a8e-84c3142b7cd7",
+                "name": "Load History",
+                "type": "n8n-nodes-base.httpRequest",
+                "typeVersion": 4.2,
+                "position": [
+                    1250,
+                    550
+                ],
+                "credentials": {
+                    "supabaseApi": {
+                        "id": "ASRWWkQ0RSMOpNF1",
+                        "name": "Supabase account"
+                    }
+                }
+            },
+            {
+                "parameters": {
+                    "method": "POST",
+                    "url": "https://rhrlnkbphxntxxxcrgvv.supabase.co/rest/v1/messages",
+                    "authentication": "predefinedCredentialType",
+                    "nodeCredentialType": "supabaseApi",
+                    "sendHeaders": true,
+                    "headerParameters": {
+                        "parameters": [
+                            {
+                                "name": "Content-Type",
+                                "value": "application/json"
+                            },
+                            {
+                                "name": "Prefer",
+                                "value": "return=representation"
+                            }
+                        ]
+                    },
+                    "sendBody": true,
+                    "specifyBody": "json",
+                    "jsonBody": "={{ JSON.stringify({ user_id: $('Load Conversation').first().json.user_id, message_type: 'conversation', conversation_id: $('Check Limits').first().json.conversationId, slack_thread_ts: $('Execute Workflow Trigger').first().json.threadTs, role: 'user', content: $('Execute Workflow Trigger').first().json.messageText, channel: 'slack', direction: 'inbound' }) }}",
+                    "options": {}
+                },
+                "id": "fab34cea-4a37-4fad-8035-0ae883e2f5a3",
+                "name": "Log Inbound",
+                "type": "n8n-nodes-base.httpRequest",
+                "typeVersion": 4.2,
+                "position": [
+                    1500,
+                    550
+                ],
+                "credentials": {
+                    "supabaseApi": {
+                        "id": "ASRWWkQ0RSMOpNF1",
+                        "name": "Supabase account"
+                    }
+                }
+            },
+            {
+                "parameters": {
+                    "jsCode": "const conversation = $('Load Conversation').first().json;\nconst historyItems = $('Load History').all();\nconst newMessage = $('Execute Workflow Trigger').first().json.messageText;\nconst config = conversation.agent_config || {};\n\nconst messages = historyItems.map(item => ({\n  role: item.json.role,\n  content: item.json.content\n}));\nmessages.push({ role: 'user', content: newMessage });\n\nconst MAX_HISTORY_CHARS = 16000;\nlet totalChars = messages.reduce((sum, m) => sum + m.content.length, 0);\nlet finalMessages = messages;\nif (totalChars > MAX_HISTORY_CHARS) {\n  const recent = messages.slice(-8);\n  const older = messages.slice(0, -8);\n  const summary = older.map(m => `${m.role}: ${m.content.substring(0, 200)}`).join('\\n');\n  finalMessages = [\n    { role: 'user', content: `[Previous conversation summary]\\n${summary}` },\n    ...recent\n  ];\n}\n\nlet systemPrompt = config.systemPrompt || 'You are a helpful sales assistant.';\nsystemPrompt += '\\n\\nYou are continuing an existing conversation. The message history is provided. Build on what was discussed \\u2014 do not repeat introductions or re-ask questions that were already answered.';\n\nconst turnCount = conversation.turn_count || 1;\nconst maxTurns = conversation.max_turns || 10;\nif (turnCount >= maxTurns - 1) {\n  systemPrompt += '\\n\\nIMPORTANT: This is the final exchange in this thread. Provide your best complete answer. If more work is needed, tell the user to start a new conversation.';\n}\n\nconst chatHistory = finalMessages.slice(0, -1).map(m =>\n  `${m.role === 'user' ? 'Human' : 'Assistant'}: ${m.content}`\n).join('\\n\\n');\nconst userMessage = finalMessages[finalMessages.length - 1].content;\nconst agentPrompt = chatHistory\n  ? `[Conversation history]\\n${chatHistory}\\n\\n[Current message]\\n${userMessage}`\n  : userMessage;\n\nreturn [{\n  json: {\n    systemPrompt,\n    agentPrompt,\n    assistantName: config.assistantName || 'Aria',\n    assistantEmoji: config.assistantEmoji || ':robot_face:',\n    channelId: $('Execute Workflow Trigger').first().json.channelId,\n    threadTs: $('Execute Workflow Trigger').first().json.threadTs,\n    conversationId: conversation.id,\n    turnCount,\n    maxTurns,\n    isFinalTurn: turnCount >= maxTurns - 1,\n    workflowType: conversation.workflow_type\n  }\n}];\n"
+                },
+                "id": "6306b5a1-e7fe-4c3b-b663-e7fafeebfd92",
+                "name": "Build Agent Context",
+                "type": "n8n-nodes-base.code",
+                "typeVersion": 2,
+                "position": [
+                    1750,
+                    550
+                ]
+            },
+            {
+                "parameters": {
+                    "promptType": "define",
+                    "text": "={{ $('Build Agent Context').first().json.agentPrompt }}",
+                    "options": {
+                        "systemMessage": "={{ $('Build Agent Context').first().json.systemPrompt }}",
+                        "maxIterations": 10
+                    }
+                },
+                "id": "54d781a4-18ca-4847-b449-64964fe29289",
+                "name": "Conversation Agent",
+                "type": "@n8n/n8n-nodes-langchain.agent",
+                "typeVersion": 1.7,
+                "position": [
+                    2000,
+                    550
+                ],
+                "continueOnFail": true
+            },
+            {
+                "parameters": {
+                    "model": {
+                        "__rl": true,
+                        "mode": "list",
+                        "value": "claude-sonnet-4-5-20250929",
+                        "cachedResultName": "Claude Sonnet 4.5"
+                    },
+                    "options": {}
+                },
+                "id": "265acbda-0df3-4116-9370-3d048e7275c8",
+                "name": "Anthropic Chat Model",
+                "type": "@n8n/n8n-nodes-langchain.lmChatAnthropic",
+                "typeVersion": 1.3,
+                "position": [
+                    2008,
+                    774
+                ],
+                "credentials": {
+                    "anthropicApi": {
+                        "id": "rlAz7ZSl4y6AwRUq",
+                        "name": "Anthropic account 2"
+                    }
+                }
+            },
+            {
+                "parameters": {
+                    "endpointUrl": "https://mcp.people.ai/mcp",
+                    "authentication": "multipleHeadersAuth",
+                    "options": {}
+                },
+                "id": "ee3e1716-fbb5-4797-8385-459475ca6b89",
+                "name": "People.ai MCP",
+                "type": "@n8n/n8n-nodes-langchain.mcpClientTool",
+                "typeVersion": 1.2,
+                "position": [
+                    2136,
+                    774
+                ],
+                "credentials": {
+                    "httpMultipleHeadersAuth": {
+                        "id": "wvV5pwBeIL7f2vLG",
+                        "name": "People.ai MCP Multi-Header"
+                    }
+                }
+            },
+            {
+                "parameters": {
+                    "method": "POST",
+                    "url": "https://slack.com/api/chat.postMessage",
+                    "authentication": "genericCredentialType",
+                    "genericAuthType": "httpHeaderAuth",
+                    "sendHeaders": true,
+                    "headerParameters": {
+                        "parameters": [
+                            {
+                                "name": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ]
+                    },
+                    "sendBody": true,
+                    "specifyBody": "json",
+                    "jsonBody": "={{ JSON.stringify({ channel: $('Build Agent Context').first().json.channelId, thread_ts: $('Build Agent Context').first().json.threadTs, text: $json.output || $json.text || 'I encountered an issue processing your request. Please try again.', username: $('Build Agent Context').first().json.assistantName, icon_emoji: $('Build Agent Context').first().json.assistantEmoji, unfurl_links: false, unfurl_media: false }) }}",
+                    "options": {}
+                },
+                "id": "9fa0f044-e5cc-4811-bfc9-14f901fe971c",
+                "name": "Post Response",
+                "type": "n8n-nodes-base.httpRequest",
+                "typeVersion": 4.2,
+                "position": [
+                    2250,
+                    550
+                ],
+                "credentials": {
+                    "httpHeaderAuth": {
+                        "id": "LluVuiMJ8NUbAiG7",
+                        "name": "Slackbot Auth Token"
+                    }
+                }
+            },
+            {
+                "parameters": {
+                    "method": "POST",
+                    "url": "https://rhrlnkbphxntxxxcrgvv.supabase.co/rest/v1/messages",
+                    "authentication": "predefinedCredentialType",
+                    "nodeCredentialType": "supabaseApi",
+                    "sendHeaders": true,
+                    "headerParameters": {
+                        "parameters": [
+                            {
+                                "name": "Content-Type",
+                                "value": "application/json"
+                            },
+                            {
+                                "name": "Prefer",
+                                "value": "return=representation"
+                            }
+                        ]
+                    },
+                    "sendBody": true,
+                    "specifyBody": "json",
+                    "jsonBody": "={{ JSON.stringify({ user_id: $('Load Conversation').first().json.user_id, message_type: 'conversation', conversation_id: $('Build Agent Context').first().json.conversationId, slack_thread_ts: $('Build Agent Context').first().json.threadTs, role: 'assistant', content: $('Conversation Agent').first().json.output || $('Conversation Agent').first().json.text || '', channel: 'slack', direction: 'outbound' }) }}",
+                    "options": {}
+                },
+                "id": "0e2f029c-346d-4b55-b30a-d36e50c68b41",
+                "name": "Log Outbound",
+                "type": "n8n-nodes-base.httpRequest",
+                "typeVersion": 4.2,
+                "position": [
+                    2500,
+                    550
+                ],
+                "credentials": {
+                    "supabaseApi": {
+                        "id": "ASRWWkQ0RSMOpNF1",
+                        "name": "Supabase account"
+                    }
+                }
+            },
+            {
+                "parameters": {
+                    "method": "PATCH",
+                    "url": "=https://rhrlnkbphxntxxxcrgvv.supabase.co/rest/v1/conversations?id=eq.{{ $('Build Agent Context').first().json.conversationId }}",
+                    "authentication": "predefinedCredentialType",
+                    "nodeCredentialType": "supabaseApi",
+                    "sendHeaders": true,
+                    "headerParameters": {
+                        "parameters": [
+                            {
+                                "name": "Content-Type",
+                                "value": "application/json"
+                            },
+                            {
+                                "name": "Prefer",
+                                "value": "return=representation"
+                            }
+                        ]
+                    },
+                    "sendBody": true,
+                    "specifyBody": "json",
+                    "jsonBody": "={{ JSON.stringify({ turn_count: ($('Build Agent Context').first().json.turnCount || 1) + 1, expires_at: new Date(Date.now() + 4 * 60 * 60 * 1000).toISOString(), status: $('Build Agent Context').first().json.isFinalTurn ? 'completed' : 'active' }) }}",
+                    "options": {}
+                },
+                "id": "eb59c9e0-a02f-44c0-b9ff-ddaa912b3d0f",
+                "name": "Update Conversation",
+                "type": "n8n-nodes-base.httpRequest",
+                "typeVersion": 4.2,
+                "position": [
+                    2750,
+                    550
+                ],
+                "credentials": {
+                    "supabaseApi": {
+                        "id": "ASRWWkQ0RSMOpNF1",
+                        "name": "Supabase account"
+                    }
+                }
+            }
+        ],
+        "connections": {
+            "Execute Workflow Trigger": {
+                "main": [
+                    [
+                        {
+                            "node": "Load Conversation",
+                            "type": "main",
+                            "index": 0
+                        }
+                    ]
+                ]
+            },
+            "Load Conversation": {
+                "main": [
+                    [
+                        {
+                            "node": "Check Limits",
+                            "type": "main",
+                            "index": 0
+                        }
+                    ]
+                ]
+            },
+            "Check Limits": {
+                "main": [
+                    [
+                        {
+                            "node": "Has Error?",
+                            "type": "main",
+                            "index": 0
+                        }
+                    ]
+                ]
+            },
+            "Has Error?": {
+                "main": [
+                    [
+                        {
+                            "node": "Post Error",
+                            "type": "main",
+                            "index": 0
+                        }
+                    ],
+                    [
+                        {
+                            "node": "Set Processing",
+                            "type": "main",
+                            "index": 0
+                        }
+                    ]
+                ]
+            },
+            "Set Processing": {
+                "main": [
+                    [
+                        {
+                            "node": "Load History",
+                            "type": "main",
+                            "index": 0
+                        }
+                    ]
+                ]
+            },
+            "Load History": {
+                "main": [
+                    [
+                        {
+                            "node": "Log Inbound",
+                            "type": "main",
+                            "index": 0
+                        }
+                    ]
+                ]
+            },
+            "Log Inbound": {
+                "main": [
+                    [
+                        {
+                            "node": "Build Agent Context",
+                            "type": "main",
+                            "index": 0
+                        }
+                    ]
+                ]
+            },
+            "Build Agent Context": {
+                "main": [
+                    [
+                        {
+                            "node": "Conversation Agent",
+                            "type": "main",
+                            "index": 0
+                        }
+                    ]
+                ]
+            },
+            "Conversation Agent": {
+                "main": [
+                    [
+                        {
+                            "node": "Post Response",
+                            "type": "main",
+                            "index": 0
+                        }
+                    ]
+                ]
+            },
+            "Post Response": {
+                "main": [
+                    [
+                        {
+                            "node": "Log Outbound",
+                            "type": "main",
+                            "index": 0
+                        }
+                    ]
+                ]
+            },
+            "Log Outbound": {
+                "main": [
+                    [
+                        {
+                            "node": "Update Conversation",
+                            "type": "main",
+                            "index": 0
+                        }
+                    ]
+                ]
+            },
+            "Anthropic Chat Model": {
+                "ai_languageModel": [
+                    [
+                        {
+                            "node": "Conversation Agent",
+                            "type": "ai_languageModel",
+                            "index": 0
+                        }
+                    ]
+                ]
+            },
+            "People.ai MCP": {
+                "ai_tool": [
+                    [
+                        {
+                            "node": "Conversation Agent",
+                            "type": "ai_tool",
+                            "index": 0
+                        }
+                    ]
+                ]
+            }
+        },
+        "authors": "Scott Metcalf",
+        "name": null,
+        "description": null,
+        "autosaved": false,
+        "workflowPublishHistory": [
+            {
+                "createdAt": "2026-03-03T17:28:41.252Z",
+                "id": 598,
+                "workflowId": "dutUnWP73mjpkaIL",
+                "versionId": "12b461f3-d9aa-4842-b248-aab6b8fd26b0",
+                "event": "activated",
+                "userId": "bfa163c1-bd53-4c0f-b0ba-8dc3626f7c79"
+            }
+        ]
+    }
+}

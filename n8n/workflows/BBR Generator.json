@@ -1,0 +1,816 @@
+{
+  "updatedAt": "2026-03-01T04:50:17.980Z",
+  "createdAt": "2026-03-01T03:43:13.395Z",
+  "id": "iQFcam5ePPFCp3QO",
+  "name": "BBR Generator",
+  "description": null,
+  "active": true,
+  "isArchived": false,
+  "nodes": [
+    {
+      "id": "0cbf4da5-0843-4f3a-9cff-9077372ef360",
+      "name": "BBR Trigger",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        240,
+        300
+      ],
+      "parameters": {
+        "inputSource": "passthrough"
+      }
+    },
+    {
+      "id": "f3780cc6-9761-4dfc-a75d-0cd45e9b454a",
+      "name": "BBR Research Agent",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 1.7,
+      "position": [
+        500,
+        300
+      ],
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ 'Research \"' + $('BBR Trigger').first().json.bbrAccount + '\" for a Backstory Business Review using People.ai tools. Use get_account_status then ask_sales_ai_about_account. Return ONLY a valid JSON object with: accountName, engagementScore, engagementTrend, opportunities (array: name/amount/stage/closeDate), keyContacts (array: name/title/lastActivity), wins (array of strings), gaps (array of strings), whyBackstory (array of 3 strings), enablementTimeline (array of 3-5 strings), stats (array of up to 4: value/label/change), actionItems (array: action/owner/targetDate).' }}",
+        "options": {
+          "systemMessage": "You are a data research assistant. Your ONLY job is to gather account data from People.ai tools and return it as a single valid JSON object with no surrounding text or markdown. Call get_account_status first, then ask_sales_ai_about_account. Return the raw JSON object only."
+        }
+      }
+    },
+    {
+      "id": "cd274e49-cdc3-45e3-ae53-60ddcc32ec2d",
+      "name": "BBR Anthropic Model",
+      "type": "@n8n/n8n-nodes-langchain.lmChatAnthropic",
+      "typeVersion": 1.3,
+      "position": [
+        380,
+        500
+      ],
+      "credentials": {
+        "anthropicApi": {
+          "id": "rlAz7ZSl4y6AwRUq",
+          "name": "Anthropic account 2"
+        }
+      },
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "mode": "list",
+          "value": "claude-haiku-4-5-20251001",
+          "cachedResultName": "Claude Haiku 4.5"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "36117f38-72e5-429b-b6f1-61cb38750051",
+      "name": "BBR People.ai MCP",
+      "type": "@n8n/n8n-nodes-langchain.mcpClientTool",
+      "typeVersion": 1.2,
+      "position": [
+        620,
+        500
+      ],
+      "credentials": {
+        "httpMultipleHeadersAuth": {
+          "id": "wvV5pwBeIL7f2vLG",
+          "name": "People.ai MCP Multi-Header"
+        }
+      },
+      "parameters": {
+        "endpointUrl": "https://mcp.people.ai/mcp",
+        "authentication": "multipleHeadersAuth",
+        "options": {}
+      }
+    },
+    {
+      "id": "660790da-fd02-4add-ae7a-af9f4ce0af2a",
+      "name": "Parse BBR Data",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        760,
+        300
+      ],
+      "parameters": {
+        "jsCode": "const trig = $('BBR Trigger').first().json;\nconst agentOutput = $('BBR Research Agent').first().json;\nconst rawText = agentOutput.output || agentOutput.text || JSON.stringify(agentOutput);\n\nlet d = {};\ntry { d = JSON.parse(rawText); } catch(e) {}\nif (!d.accountName) {\n  const m = rawText.match(/```(?:json)?\\s*([\\s\\S]*?)```/);\n  if (m) try { d = JSON.parse(m[1].trim()); } catch(e) {}\n}\nif (!d.accountName) {\n  const m = rawText.match(/\\{[\\s\\S]*\\}/);\n  if (m) try { d = JSON.parse(m[0]); } catch(e) {}\n}\n\nconst accountName = d.accountName || trig.bbrAccount || 'Customer';\nconst today = new Date().toLocaleDateString('en-US', { year:'numeric', month:'long', day:'numeric' });\n\nconst slides = [];\n\n// 1. Title\nslides.push({ type:'title', title:'Backstory Business Review\\n' + accountName, subtitle: today });\n\n// 2. Agenda\nslides.push({ type:'agenda', title:'Agenda', items:[\n  { text:'Account at a Glance', subitems:['Engagement health','Pipeline overview'] },\n  { text:'Wins & Gaps' },\n  { text:'Why Backstory' },\n  { text:'Enablement Plan' },\n  { text:'Next Steps & Roadmap' }\n]});\n\n// 3. Stats\nconst stats = (d.stats || []).slice(0,3);\nif (stats.length === 0 && d.engagementScore) {\n  stats.push({ value: String(d.engagementScore), label:'Engagement Score', change: d.engagementTrend || '' });\n}\nif (stats.length > 0) {\n  slides.push({ type:'stats', title:'Account at a Glance', stats });\n}\n\n// 4. Section: Account Intelligence\nslides.push({ type:'section_divider', title:'Account Intelligence' });\n\n// 5. Wins vs Gaps\nslides.push({ type:'two_column', title:'Wins & Gaps',\n  left:  { header:\"What's Working\",   items:(d.wins || ['Established relationship','Product engagement']).slice(0,5) },\n  right: { header:'Gaps to Address',  items:(d.gaps || ['Expand adoption','Executive alignment']).slice(0,5) }\n});\n\n// 6. Why Backstory\nconst whyItems = (d.whyBackstory || []).slice(0,3);\nif (whyItems.length > 0) {\n  const labels = ['Value Driver 1','Value Driver 2','Value Driver 3'];\n  slides.push({ type:'three_column_cards', title:'Why Backstory',\n    cards: whyItems.map((why, i) => ({ title: labels[i], items:[why] }))\n  });\n}\n\n// 7. Enablement Plan\nconst timeline = (d.enablementTimeline || []).slice(0,4);\nif (timeline.length >= 2) {\n  slides.push({ type:'four_column_timeline', title:'Enablement Plan',\n    quarters: timeline.map((t, i) => ({\n      label: 'Phase ' + (i+1),\n      focus: t.split(' ').slice(0,4).join(' '),\n      value: t,\n      note: ''\n    }))\n  });\n}\n\n// 8. Section: Next Steps\nslides.push({ type:'section_divider', title:'Next Steps' });\n\n// 9. Actions + Contacts\nconst actionItems = (d.actionItems || []).slice(0,5)\n  .map(a => a.action + (a.owner ? ' \\u2014 ' + a.owner : ''));\nconst contacts = (d.keyContacts || []).slice(0,5)\n  .map(c => c.name + (c.title ? ', ' + c.title : ''));\nslides.push({ type:'two_column', title:'Next Steps',\n  left:  { header:'Actions',      items: actionItems.length > 0 ? actionItems : ['Schedule follow-up','Align on success metrics'] },\n  right: { header:'Key Contacts', items: contacts.length > 0 ? contacts : ['See People.ai for details'] }\n});\n\n// 10. Roadmap Placeholder\nslides.push({ type:'roadmap_placeholder', title:'Product Roadmap',\n  body: 'PLACEHOLDER \\u2014 Insert relevant slides from the Backstory Product Roadmap.\\n\\nRoadmap deck:\\nhttps://docs.google.com/presentation/d/1pw5YAQkmw3Xqey9bA-UYa6lyDGl5behoAbHOu9Zi7ag/edit\\n\\nTo complete this slide:\\n1. Open the roadmap link above\\n2. Copy slides relevant to this account\\u2019s use case\\n3. Paste them in place of this placeholder and delete it'\n});\n\n// 11. Thank You\nslides.push({ type:'thank_you', title:'Thank You' });\n\nreturn [{ json:{\n  title: 'BBR: ' + accountName,\n  slides,\n  accountName,\n  channelId: trig.channelId,\n  assistantName: trig.assistantName || 'Aria',\n  assistantEmoji: trig.assistantEmoji || ':robot_face:',\n  thinkingTs: trig.thinkingTs\n}}];"
+      }
+    },
+    {
+      "id": "082c1f97-6c0b-4f7c-9d7d-100cc84152fd",
+      "name": "Create BBR Presentation",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1020,
+        300
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "https://slides.googleapis.com/v1/presentations",
+        "authentication": "predefinedCredentialType",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({title: $('Parse BBR Data').first().json.title || 'BBR Presentation'}) }}",
+        "options": {},
+        "nodeCredentialType": "googleSlidesOAuth2Api"
+      },
+      "credentials": {
+        "googleSlidesOAuth2Api": {
+          "id": "frrumderFcESHZN5",
+          "name": "Google Slides account"
+        }
+      }
+    },
+    {
+      "id": "03a81411-5b02-4414-9347-fca7e5dbf931",
+      "name": "Build BBR Slides",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1280,
+        300
+      ],
+      "parameters": {
+        "jsCode": "const slides = $('Parse BBR Data').first().json.slides;\nconst presId = $('Create BBR Presentation').first().json.presentationId;\nconst defaultSlideId = $('Create BBR Presentation').first().json.slides[0].objectId;\n\nconst EMU = (inches) => Math.round(inches * 914400);\n\nconst RGB = {\n  black:       {red:0, green:0, blue:0},\n  graphite:    {red:0.090, green:0.090, blue:0.129},\n  surfaceGray: {red:0.733, green:0.737, blue:0.737},\n  horizon:     {red:0.384, green:0.588, blue:0.678},\n  white:       {red:1, green:1, blue:1},\n  plum:        {red:0.667, green:0.561, blue:0.627},\n  mint:        {red:0.812, green:0.980, blue:0.847},\n  ember:       {red:0.816, green:0.286, blue:0.067},\n  navy:        {red:0.004, green:0.173, blue:0.282},\n  sky:         {red:0.131, green:0.710, blue:1},\n  salmon:      {red:0.910, green:0.627, blue:0.565},\n  cinder:      {red:0.753, green:0.333, blue:0.153}\n};\n\nconst IMG = {\n  wordmark:   'https://lh3.googleusercontent.com/d/1GMUqmxGqOLoMqsxpiUSduo2hUzE4ei_J',\n  booksDark:  'https://lh3.googleusercontent.com/d/1pA1og8eOMnQE4yBT8h9z2oeGneMqCyii',\n  booksWhite: 'https://lh3.googleusercontent.com/d/1cL8RmMHzCscyLIdd3Y83RaM_yVXZI6SS',\n  gradient:   'https://lh3.googleusercontent.com/d/1edNwnzGIyQPv3v0D0JzpqRllAfmkIIwY'\n};\n\nconst reqs = [];\nconst imgReqs = [];\nlet idC = 0;\nconst gid = (p) => 'bs_' + p + '_' + (idC++);\n\nreqs.push({deleteObject: {objectId: defaultSlideId}});\n\nfunction tb(sid, id, x, y, w, h) {\n  reqs.push({createShape: {\n    objectId: id, shapeType: 'TEXT_BOX',\n    elementProperties: {\n      pageObjectId: sid,\n      size: {width: {magnitude: EMU(w), unit: 'EMU'}, height: {magnitude: EMU(h), unit: 'EMU'}},\n      transform: {scaleX: 1, scaleY: 1, translateX: EMU(x), translateY: EMU(y), unit: 'EMU'}\n    }\n  }});\n}\n\nfunction ins(id, text) {\n  if (!text) return;\n  reqs.push({insertText: {objectId: id, text: String(text), insertionIndex: 0}});\n}\n\nfunction sty(id, s) {\n  const ts = {};\n  const f = [];\n  if (s.ff) { ts.fontFamily = s.ff; f.push('fontFamily'); }\n  if (s.fs) { ts.fontSize = {magnitude: s.fs, unit: 'PT'}; f.push('fontSize'); }\n  if (s.b !== undefined) { ts.bold = s.b; f.push('bold'); }\n  if (s.i !== undefined) { ts.italic = s.i; f.push('italic'); }\n  if (s.c) { ts.foregroundColor = {opaqueColor: {rgbColor: s.c}}; f.push('foregroundColor'); }\n  if (f.length === 0) return;\n  reqs.push({updateTextStyle: {objectId: id, style: ts, fields: f.join(','), textRange: {type: 'ALL'}}});\n}\n\nfunction align(id, a) {\n  reqs.push({updateParagraphStyle: {objectId: id, style: {alignment: a}, fields: 'alignment', textRange: {type: 'ALL'}}});\n}\n\nfunction rect(sid, id, x, y, w, h, color) {\n  reqs.push({createShape: {\n    objectId: id, shapeType: 'ROUND_RECTANGLE',\n    elementProperties: {\n      pageObjectId: sid,\n      size: {width: {magnitude: EMU(w), unit: 'EMU'}, height: {magnitude: EMU(h), unit: 'EMU'}},\n      transform: {scaleX: 1, scaleY: 1, translateX: EMU(x), translateY: EMU(y), unit: 'EMU'}\n    }\n  }});\n  reqs.push({updateShapeProperties: {\n    objectId: id,\n    shapeProperties: {\n      shapeBackgroundFill: {solidFill: {color: {rgbColor: color}}},\n      outline: {propertyState: 'NOT_RENDERED'}\n    },\n    fields: 'shapeBackgroundFill,outline'\n  }});\n}\n\nfunction banner(sid, color) {\n  const id = gid('ban');\n  reqs.push({createShape: {\n    objectId: id, shapeType: 'RECTANGLE',\n    elementProperties: {\n      pageObjectId: sid,\n      size: {width: {magnitude: EMU(10), unit: 'EMU'}, height: {magnitude: EMU(0.55), unit: 'EMU'}},\n      transform: {scaleX: 1, scaleY: 1, translateX: EMU(0), translateY: EMU(0), unit: 'EMU'}\n    }\n  }});\n  reqs.push({updateShapeProperties: {\n    objectId: id,\n    shapeProperties: {\n      shapeBackgroundFill: {solidFill: {color: {rgbColor: color}}},\n      outline: {propertyState: 'NOT_RENDERED'}\n    },\n    fields: 'shapeBackgroundFill,outline'\n  }});\n  return id;\n}\n\nfunction colorStripe(sid, y) {\n  const cs = [RGB.surfaceGray, RGB.plum, RGB.horizon, RGB.salmon, RGB.surfaceGray];\n  cs.forEach((c, i) => {\n    const id = gid('cs');\n    reqs.push({createShape: {\n      objectId: id, shapeType: 'RECTANGLE',\n      elementProperties: {\n        pageObjectId: sid,\n        size: {width: {magnitude: EMU(2), unit: 'EMU'}, height: {magnitude: EMU(0.525), unit: 'EMU'}},\n        transform: {scaleX: 1, scaleY: 1, translateX: EMU(i * 2), translateY: EMU(y), unit: 'EMU'}\n      }\n    }});\n    reqs.push({updateShapeProperties: {\n      objectId: id,\n      shapeProperties: {shapeBackgroundFill: {solidFill: {color: {rgbColor: c}}}, outline: {propertyState: 'NOT_RENDERED'}},\n      fields: 'shapeBackgroundFill,outline'\n    }});\n  });\n}\n\nfunction addWordmark(sid, x, y, w, h) {\n  imgReqs.push({createImage: {objectId: gid('wm'), url: IMG.wordmark,\n    elementProperties: {pageObjectId: sid,\n      size: {width: {magnitude: EMU(w), unit: 'EMU'}, height: {magnitude: EMU(h), unit: 'EMU'}},\n      transform: {scaleX: 1, scaleY: 1, translateX: EMU(x), translateY: EMU(y), unit: 'EMU'}}}});\n}\n\nfunction addBooksDark(sid, x, y) {\n  imgReqs.push({createImage: {objectId: gid('bd'), url: IMG.booksDark,\n    elementProperties: {pageObjectId: sid,\n      size: {width: {magnitude: EMU(0.7), unit: 'EMU'}, height: {magnitude: EMU(0.55), unit: 'EMU'}},\n      transform: {scaleX: 1, scaleY: 1, translateX: EMU(x), translateY: EMU(y), unit: 'EMU'}}}});\n}\n\nslides.forEach((slide, idx) => {\n  const sid = 'slide_' + idx;\n  reqs.push({createSlide: {objectId: sid, insertionIndex: idx}});\n  reqs.push({updatePageProperties: {objectId: sid,\n    pageProperties: {pageBackgroundFill: {solidFill: {color: {rgbColor: RGB.white}}}},\n    fields: 'pageBackgroundFill'}});\n\n  switch (slide.type) {\n    case 'title': {\n      const t = gid('t'); tb(sid, t, 0.5, 0.7, 9, 2.2); ins(t, slide.title || '');\n      sty(t, {ff:'Cardo', fs:52, b:true, c:RGB.black}); align(t, 'CENTER');\n      if (slide.subtitle) {\n        const s = gid('t'); tb(sid, s, 0.5, 3.0, 9, 0.65); ins(s, slide.subtitle);\n        sty(s, {ff:'Cardo', fs:22, i:true, c:RGB.graphite}); align(s, 'CENTER');\n      }\n      addWordmark(sid, 3.5, 3.8, 3.0, 0.5);\n      colorStripe(sid, 5.1);\n      break;\n    }\n    case 'agenda': {\n      const t = gid('t'); tb(sid, t, 0.5, 0.3, 8.5, 1.1); ins(t, slide.title || 'Agenda');\n      sty(t, {ff:'Cardo', fs:34, b:true, c:RGB.black});\n      const cid = gid('t');\n      tb(sid, cid, 0.6, 1.5, 8.2, 4.0);\n      const lines = [];\n      const ranges = [];\n      let pos = 0;\n      (slide.items || []).forEach(item => {\n        const text = typeof item === 'string' ? item : item.text;\n        const line = '\\u25CF  ' + text + '\\n';\n        ranges.push({start: pos, end: pos + line.length, bold: true, fs: 17, c: RGB.black});\n        lines.push(line);\n        pos += line.length;\n        if (item.subitems) {\n          item.subitems.forEach(sub => {\n            const sub_line = '    \\u2013  ' + sub + '\\n';\n            ranges.push({start: pos, end: pos + sub_line.length, bold: false, fs: 14, c: RGB.graphite});\n            lines.push(sub_line);\n            pos += sub_line.length;\n          });\n        }\n      });\n      reqs.push({insertText: {objectId: cid, text: lines.join(''), insertionIndex: 0}});\n      ranges.forEach(r => {\n        reqs.push({updateTextStyle: {\n          objectId: cid,\n          style: {fontFamily: 'Roboto', fontSize: {magnitude: r.fs, unit: 'PT'}, bold: r.bold,\n                  foregroundColor: {opaqueColor: {rgbColor: r.c}}},\n          fields: 'fontFamily,fontSize,bold,foregroundColor',\n          textRange: {type: 'FIXED_RANGE', startIndex: r.start, endIndex: r.end}\n        }});\n      });\n      addBooksDark(sid, 8.8, 4.6);\n      break;\n    }\n    case 'section_divider': {\n      const t = gid('t'); tb(sid, t, 0.5, 1.4, 9, 2.0); ins(t, slide.title || '');\n      sty(t, {ff:'Cardo', fs:52, b:true, c:RGB.black}); align(t, 'CENTER');\n      addWordmark(sid, 3.5, 3.8, 3.0, 0.5);\n      colorStripe(sid, 5.1);\n      break;\n    }\n    case 'stats': {\n      const t = gid('t'); tb(sid, t, 0.5, 0.3, 8.5, 1.1); ins(t, slide.title || 'Key Metrics');\n      sty(t, {ff:'Cardo', fs:34, b:true, c:RGB.black});\n      const pos = [0.4, 3.5, 6.6];\n      (slide.stats || []).slice(0,3).forEach((st, i) => {\n        const cid = gid('t');\n        tb(sid, cid, pos[i], 1.6, 3.0, 3.5);\n        const vLine = (st.value || '') + '\\n';\n        const lLine = (st.label || '') + '\\n';\n        const cLine = st.change || '';\n        const full = vLine + lLine + cLine;\n        reqs.push({insertText: {objectId: cid, text: full, insertionIndex: 0}});\n        reqs.push({updateTextStyle: {objectId: cid,\n          style: {fontFamily: 'Cardo', fontSize: {magnitude: 28, unit: 'PT'}, bold: true,\n                  foregroundColor: {opaqueColor: {rgbColor: RGB.navy}}},\n          fields: 'fontFamily,fontSize,bold,foregroundColor',\n          textRange: {type: 'FIXED_RANGE', startIndex: 0, endIndex: vLine.length}}});\n        reqs.push({updateTextStyle: {objectId: cid,\n          style: {fontFamily: 'Roboto', fontSize: {magnitude: 15, unit: 'PT'}, bold: false,\n                  foregroundColor: {opaqueColor: {rgbColor: RGB.graphite}}},\n          fields: 'fontFamily,fontSize,bold,foregroundColor',\n          textRange: {type: 'FIXED_RANGE', startIndex: vLine.length, endIndex: vLine.length + lLine.length}}});\n        if (st.change) {\n          reqs.push({updateTextStyle: {objectId: cid,\n            style: {fontFamily: 'Roboto', fontSize: {magnitude: 14, unit: 'PT'}, bold: true,\n                    foregroundColor: {opaqueColor: {rgbColor: RGB.horizon}}},\n            fields: 'fontFamily,fontSize,bold,foregroundColor',\n            textRange: {type: 'FIXED_RANGE', startIndex: vLine.length + lLine.length, endIndex: full.length}}});\n        }\n        reqs.push({updateParagraphStyle: {objectId: cid,\n          style: {alignment: 'CENTER'}, fields: 'alignment', textRange: {type: 'ALL'}}});\n      });\n      addBooksDark(sid, 8.8, 4.6);\n      break;\n    }\n    case 'two_column': {\n      const t = gid('t'); tb(sid, t, 0.5, 0.3, 8.5, 1.1); ins(t, slide.title || '');\n      sty(t, {ff:'Cardo', fs:34, b:true, c:RGB.black});\n      [{d:slide.left, x:0.5, clr:RGB.horizon}, {d:slide.right, x:5.2, clr:RGB.ember}].forEach(col => {\n        if (!col.d) return;\n        const h = gid('t'); tb(sid, h, col.x, 1.5, 4.2, 0.55); ins(h, col.d.header || '');\n        sty(h, {ff:'Roboto', fs:22, b:true, c:col.clr});\n        const items = (col.d.items || []).map(it => '\\u2022 ' + it).join('\\n');\n        const b = gid('t'); tb(sid, b, col.x, 2.1, 4.2, 3.1); ins(b, items);\n        sty(b, {ff:'Roboto', fs:16, c:RGB.graphite});\n      });\n      addBooksDark(sid, 8.85, 4.65);\n      break;\n    }\n    case 'three_column_cards': {\n      const t = gid('t'); tb(sid, t, 0.5, 0.3, 9.0, 1.1); ins(t, slide.title || '');\n      sty(t, {ff:'Cardo', fs:34, b:true, c:RGB.black});\n      const cx = [0.7, 3.7, 6.7]; const cc = [RGB.horizon, RGB.plum, RGB.ember];\n      (slide.cards || []).slice(0,3).forEach((card, i) => {\n        const ct = gid('t'); tb(sid, ct, cx[i], 1.45, 2.6, 0.45); ins(ct, card.title || '');\n        sty(ct, {ff:'Roboto', fs:15, b:true, c:RGB.black});\n        rect(sid, gid('r'), cx[i], 1.92, 2.6, 3.35, cc[i]);\n        const items = (card.items || []).map(it => '\\u2022 ' + it).join('\\n');\n        const ci = gid('t'); tb(sid, ci, cx[i]+0.15, 2.05, 2.3, 3.1); ins(ci, items);\n        sty(ci, {ff:'Roboto', fs:13, c:RGB.white});\n      });\n      addBooksDark(sid, 9.1, 4.85);\n      break;\n    }\n    case 'four_column_timeline': {\n      const t = gid('t'); tb(sid, t, 0.5, 0.3, 9.0, 1.1); ins(t, slide.title || '');\n      sty(t, {ff:'Cardo', fs:34, b:true, c:RGB.black});\n      const qx = [0.6, 2.8, 5.0, 7.2]; const qc = [RGB.horizon, RGB.plum, RGB.ember, RGB.navy];\n      (slide.quarters || []).slice(0,4).forEach((q, i) => {\n        const ql = gid('t'); tb(sid, ql, qx[i], 1.45, 2.0, 0.45); ins(ql, q.label || '');\n        sty(ql, {ff:'Roboto', fs:15, b:true, c:RGB.black}); align(ql, 'CENTER');\n        rect(sid, gid('r'), qx[i], 1.95, 2.0, 2.9, qc[i]);\n        const fl = gid('t'); tb(sid, fl, qx[i], 2.1, 2.0, 0.32); ins(fl, 'Focus Area');\n        sty(fl, {ff:'Roboto', fs:10, c:RGB.white}); align(fl, 'CENTER');\n        const fv = gid('t'); tb(sid, fv, qx[i], 2.45, 2.0, 0.85); ins(fv, q.focus || q.value || '');\n        sty(fv, {ff:'Cardo', fs:16, b:true, c:RGB.white}); align(fv, 'CENTER');\n        if (q.note) {\n          const n = gid('t'); tb(sid, n, qx[i], 3.95, 2.0, 0.4); ins(n, q.note);\n          sty(n, {ff:'Roboto', fs:11, c:RGB.white}); align(n, 'CENTER');\n        }\n      });\n      addBooksDark(sid, 9.1, 4.85);\n      break;\n    }\n    case 'roadmap_placeholder': {\n      // Cinder warning banner across top\n      banner(sid, RGB.cinder);\n      const bt = gid('t'); tb(sid, bt, 0.25, 0.12, 9.5, 0.35);\n      ins(bt, '\\u26A0\\uFE0F  PLACEHOLDER \\u2014 Insert relevant roadmap slides here before presenting');\n      sty(bt, {ff:'Roboto', fs:13, b:true, c:RGB.white});\n      // Title\n      const t = gid('t'); tb(sid, t, 0.5, 0.75, 8.5, 0.9); ins(t, slide.title || 'Product Roadmap');\n      sty(t, {ff:'Cardo', fs:34, b:true, c:RGB.black});\n      // Body\n      const b = gid('t'); tb(sid, b, 0.5, 1.75, 9.0, 3.5); ins(b, slide.body || '');\n      sty(b, {ff:'Roboto', fs:15, c:RGB.graphite});\n      addBooksDark(sid, 8.85, 4.65);\n      break;\n    }\n    case 'thank_you': {\n      const t = gid('t'); tb(sid, t, 0.5, 1.8, 9, 1.5);\n      ins(t, (slide.title || 'THANK YOU').toUpperCase());\n      sty(t, {ff:'Cardo', fs:72, b:true, c:RGB.black}); align(t, 'CENTER');\n      addWordmark(sid, 3.5, 3.5, 3.0, 0.5);\n      colorStripe(sid, 5.1);\n      break;\n    }\n    default: {\n      const t = gid('t'); tb(sid, t, 0.5, 0.3, 8.5, 1.1); ins(t, slide.title || '');\n      sty(t, {ff:'Cardo', fs:34, b:true, c:RGB.black});\n      if (slide.body) {\n        const b = gid('t'); tb(sid, b, 0.5, 1.6, 9, 3.5); ins(b, slide.body);\n        sty(b, {ff:'Roboto', fs:18, c:RGB.graphite});\n      }\n      addBooksDark(sid, 8.85, 4.65);\n      break;\n    }\n  }\n});\n\nreturn [{ json: { requests: reqs, imageRequests: imgReqs, presentationId: presId } }];"
+      }
+    },
+    {
+      "id": "09c0ae60-6444-413a-a7c4-dbb55f3ae031",
+      "name": "Populate BBR Slides",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1540,
+        300
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "=https://slides.googleapis.com/v1/presentations/{{ $json.presentationId }}:batchUpdate",
+        "authentication": "predefinedCredentialType",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({requests: $('Build BBR Slides').first().json.requests}) }}",
+        "options": {},
+        "nodeCredentialType": "googleSlidesOAuth2Api"
+      },
+      "credentials": {
+        "googleSlidesOAuth2Api": {
+          "id": "frrumderFcESHZN5",
+          "name": "Google Slides account"
+        }
+      }
+    },
+    {
+      "id": "d563991b-ff41-4ebe-a112-a793fb082cd6",
+      "name": "BBR Add Images",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1800,
+        300
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "=https://slides.googleapis.com/v1/presentations/{{ $('Build BBR Slides').first().json.presentationId }}:batchUpdate",
+        "authentication": "predefinedCredentialType",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({requests: $('Build BBR Slides').first().json.imageRequests}) }}",
+        "options": {},
+        "nodeCredentialType": "googleSlidesOAuth2Api"
+      },
+      "credentials": {
+        "googleSlidesOAuth2Api": {
+          "id": "frrumderFcESHZN5",
+          "name": "Google Slides account"
+        }
+      },
+      "continueOnFail": true
+    },
+    {
+      "id": "28d871ea-0fcc-40ef-9cc4-370c730ee9a8",
+      "name": "Share BBR Presentation",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2060,
+        300
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "=https://www.googleapis.com/drive/v3/files/{{ $('Build BBR Slides').first().json.presentationId }}/permissions",
+        "authentication": "predefinedCredentialType",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "{\"role\": \"writer\", \"type\": \"domain\", \"domain\": \"people.ai\"}",
+        "options": {},
+        "nodeCredentialType": "googleDriveOAuth2Api"
+      },
+      "credentials": {
+        "googleDriveOAuth2Api": {
+          "id": "sWK7WcHJvWMTBPSQ",
+          "name": "Google Drive account"
+        }
+      }
+    },
+    {
+      "id": "fc67546d-64d0-4dc1-8b3d-fbfbbb65e695",
+      "name": "BBR Update Thinking",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2320,
+        300
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "https://slack.com/api/chat.update",
+        "authentication": "genericCredentialType",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ channel: $('BBR Trigger').first().json.channelId, ts: $('BBR Trigger').first().json.thinkingTs, text: $('BBR Trigger').first().json.assistantEmoji + ' Your *BBR for ' + $('Parse BBR Data').first().json.accountName + '* is ready!\\n\\n<https://docs.google.com/presentation/d/' + $('Build BBR Slides').first().json.presentationId + '/edit|\\u{1F4CA} Open BBR in Google Slides>', unfurl_links: false }) }}",
+        "options": {},
+        "genericAuthType": "httpHeaderAuth"
+      },
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "LluVuiMJ8NUbAiG7",
+          "name": "Slackbot Auth Token"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "BBR Trigger": {
+      "main": [
+        [
+          {
+            "node": "BBR Research Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "BBR Research Agent": {
+      "main": [
+        [
+          {
+            "node": "Parse BBR Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "BBR Anthropic Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "BBR Research Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "BBR People.ai MCP": {
+      "ai_tool": [
+        [
+          {
+            "node": "BBR Research Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse BBR Data": {
+      "main": [
+        [
+          {
+            "node": "Create BBR Presentation",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create BBR Presentation": {
+      "main": [
+        [
+          {
+            "node": "Build BBR Slides",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build BBR Slides": {
+      "main": [
+        [
+          {
+            "node": "Populate BBR Slides",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Populate BBR Slides": {
+      "main": [
+        [
+          {
+            "node": "BBR Add Images",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "BBR Add Images": {
+      "main": [
+        [
+          {
+            "node": "Share BBR Presentation",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Share BBR Presentation": {
+      "main": [
+        [
+          {
+            "node": "BBR Update Thinking",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "callerPolicy": "workflowsFromSameOwner",
+    "availableInMCP": false
+  },
+  "staticData": null,
+  "meta": null,
+  "pinData": null,
+  "versionId": "7a7946bb-1d52-4d8a-8b39-e679ccda3a76",
+  "activeVersionId": "7a7946bb-1d52-4d8a-8b39-e679ccda3a76",
+  "versionCounter": 10,
+  "triggerCount": 0,
+  "tags": [],
+  "activeVersion": {
+    "updatedAt": "2026-03-01T04:50:17.982Z",
+    "createdAt": "2026-03-01T04:50:17.982Z",
+    "versionId": "7a7946bb-1d52-4d8a-8b39-e679ccda3a76",
+    "workflowId": "iQFcam5ePPFCp3QO",
+    "nodes": [
+      {
+        "id": "0cbf4da5-0843-4f3a-9cff-9077372ef360",
+        "name": "BBR Trigger",
+        "type": "n8n-nodes-base.executeWorkflowTrigger",
+        "typeVersion": 1.1,
+        "position": [
+          240,
+          300
+        ],
+        "parameters": {
+          "inputSource": "passthrough"
+        }
+      },
+      {
+        "id": "f3780cc6-9761-4dfc-a75d-0cd45e9b454a",
+        "name": "BBR Research Agent",
+        "type": "@n8n/n8n-nodes-langchain.agent",
+        "typeVersion": 1.7,
+        "position": [
+          500,
+          300
+        ],
+        "parameters": {
+          "promptType": "define",
+          "text": "={{ 'Research \"' + $('BBR Trigger').first().json.bbrAccount + '\" for a Backstory Business Review using People.ai tools. Use get_account_status then ask_sales_ai_about_account. Return ONLY a valid JSON object with: accountName, engagementScore, engagementTrend, opportunities (array: name/amount/stage/closeDate), keyContacts (array: name/title/lastActivity), wins (array of strings), gaps (array of strings), whyBackstory (array of 3 strings), enablementTimeline (array of 3-5 strings), stats (array of up to 4: value/label/change), actionItems (array: action/owner/targetDate).' }}",
+          "options": {
+            "systemMessage": "You are a data research assistant. Your ONLY job is to gather account data from People.ai tools and return it as a single valid JSON object with no surrounding text or markdown. Call get_account_status first, then ask_sales_ai_about_account. Return the raw JSON object only."
+          }
+        }
+      },
+      {
+        "id": "cd274e49-cdc3-45e3-ae53-60ddcc32ec2d",
+        "name": "BBR Anthropic Model",
+        "type": "@n8n/n8n-nodes-langchain.lmChatAnthropic",
+        "typeVersion": 1.3,
+        "position": [
+          380,
+          500
+        ],
+        "credentials": {
+          "anthropicApi": {
+            "id": "rlAz7ZSl4y6AwRUq",
+            "name": "Anthropic account 2"
+          }
+        },
+        "parameters": {
+          "model": {
+            "__rl": true,
+            "mode": "list",
+            "value": "claude-haiku-4-5-20251001",
+            "cachedResultName": "Claude Haiku 4.5"
+          },
+          "options": {}
+        }
+      },
+      {
+        "id": "36117f38-72e5-429b-b6f1-61cb38750051",
+        "name": "BBR People.ai MCP",
+        "type": "@n8n/n8n-nodes-langchain.mcpClientTool",
+        "typeVersion": 1.2,
+        "position": [
+          620,
+          500
+        ],
+        "credentials": {
+          "httpMultipleHeadersAuth": {
+            "id": "wvV5pwBeIL7f2vLG",
+            "name": "People.ai MCP Multi-Header"
+          }
+        },
+        "parameters": {
+          "endpointUrl": "https://mcp.people.ai/mcp",
+          "authentication": "multipleHeadersAuth",
+          "options": {}
+        }
+      },
+      {
+        "id": "660790da-fd02-4add-ae7a-af9f4ce0af2a",
+        "name": "Parse BBR Data",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          760,
+          300
+        ],
+        "parameters": {
+          "jsCode": "const trig = $('BBR Trigger').first().json;\nconst agentOutput = $('BBR Research Agent').first().json;\nconst rawText = agentOutput.output || agentOutput.text || JSON.stringify(agentOutput);\n\nlet d = {};\ntry { d = JSON.parse(rawText); } catch(e) {}\nif (!d.accountName) {\n  const m = rawText.match(/```(?:json)?\\s*([\\s\\S]*?)```/);\n  if (m) try { d = JSON.parse(m[1].trim()); } catch(e) {}\n}\nif (!d.accountName) {\n  const m = rawText.match(/\\{[\\s\\S]*\\}/);\n  if (m) try { d = JSON.parse(m[0]); } catch(e) {}\n}\n\nconst accountName = d.accountName || trig.bbrAccount || 'Customer';\nconst today = new Date().toLocaleDateString('en-US', { year:'numeric', month:'long', day:'numeric' });\n\nconst slides = [];\n\n// 1. Title\nslides.push({ type:'title', title:'Backstory Business Review\\n' + accountName, subtitle: today });\n\n// 2. Agenda\nslides.push({ type:'agenda', title:'Agenda', items:[\n  { text:'Account at a Glance', subitems:['Engagement health','Pipeline overview'] },\n  { text:'Wins & Gaps' },\n  { text:'Why Backstory' },\n  { text:'Enablement Plan' },\n  { text:'Next Steps & Roadmap' }\n]});\n\n// 3. Stats\nconst stats = (d.stats || []).slice(0,3);\nif (stats.length === 0 && d.engagementScore) {\n  stats.push({ value: String(d.engagementScore), label:'Engagement Score', change: d.engagementTrend || '' });\n}\nif (stats.length > 0) {\n  slides.push({ type:'stats', title:'Account at a Glance', stats });\n}\n\n// 4. Section: Account Intelligence\nslides.push({ type:'section_divider', title:'Account Intelligence' });\n\n// 5. Wins vs Gaps\nslides.push({ type:'two_column', title:'Wins & Gaps',\n  left:  { header:\"What's Working\",   items:(d.wins || ['Established relationship','Product engagement']).slice(0,5) },\n  right: { header:'Gaps to Address',  items:(d.gaps || ['Expand adoption','Executive alignment']).slice(0,5) }\n});\n\n// 6. Why Backstory\nconst whyItems = (d.whyBackstory || []).slice(0,3);\nif (whyItems.length > 0) {\n  const labels = ['Value Driver 1','Value Driver 2','Value Driver 3'];\n  slides.push({ type:'three_column_cards', title:'Why Backstory',\n    cards: whyItems.map((why, i) => ({ title: labels[i], items:[why] }))\n  });\n}\n\n// 7. Enablement Plan\nconst timeline = (d.enablementTimeline || []).slice(0,4);\nif (timeline.length >= 2) {\n  slides.push({ type:'four_column_timeline', title:'Enablement Plan',\n    quarters: timeline.map((t, i) => ({\n      label: 'Phase ' + (i+1),\n      focus: t.split(' ').slice(0,4).join(' '),\n      value: t,\n      note: ''\n    }))\n  });\n}\n\n// 8. Section: Next Steps\nslides.push({ type:'section_divider', title:'Next Steps' });\n\n// 9. Actions + Contacts\nconst actionItems = (d.actionItems || []).slice(0,5)\n  .map(a => a.action + (a.owner ? ' \\u2014 ' + a.owner : ''));\nconst contacts = (d.keyContacts || []).slice(0,5)\n  .map(c => c.name + (c.title ? ', ' + c.title : ''));\nslides.push({ type:'two_column', title:'Next Steps',\n  left:  { header:'Actions',      items: actionItems.length > 0 ? actionItems : ['Schedule follow-up','Align on success metrics'] },\n  right: { header:'Key Contacts', items: contacts.length > 0 ? contacts : ['See People.ai for details'] }\n});\n\n// 10. Roadmap Placeholder\nslides.push({ type:'roadmap_placeholder', title:'Product Roadmap',\n  body: 'PLACEHOLDER \\u2014 Insert relevant slides from the Backstory Product Roadmap.\\n\\nRoadmap deck:\\nhttps://docs.google.com/presentation/d/1pw5YAQkmw3Xqey9bA-UYa6lyDGl5behoAbHOu9Zi7ag/edit\\n\\nTo complete this slide:\\n1. Open the roadmap link above\\n2. Copy slides relevant to this account\\u2019s use case\\n3. Paste them in place of this placeholder and delete it'\n});\n\n// 11. Thank You\nslides.push({ type:'thank_you', title:'Thank You' });\n\nreturn [{ json:{\n  title: 'BBR: ' + accountName,\n  slides,\n  accountName,\n  channelId: trig.channelId,\n  assistantName: trig.assistantName || 'Aria',\n  assistantEmoji: trig.assistantEmoji || ':robot_face:',\n  thinkingTs: trig.thinkingTs\n}}];"
+        }
+      },
+      {
+        "id": "082c1f97-6c0b-4f7c-9d7d-100cc84152fd",
+        "name": "Create BBR Presentation",
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.2,
+        "position": [
+          1020,
+          300
+        ],
+        "parameters": {
+          "method": "POST",
+          "url": "https://slides.googleapis.com/v1/presentations",
+          "authentication": "predefinedCredentialType",
+          "sendHeaders": true,
+          "headerParameters": {
+            "parameters": [
+              {
+                "name": "Content-Type",
+                "value": "application/json"
+              }
+            ]
+          },
+          "sendBody": true,
+          "specifyBody": "json",
+          "jsonBody": "={{ JSON.stringify({title: $('Parse BBR Data').first().json.title || 'BBR Presentation'}) }}",
+          "options": {},
+          "nodeCredentialType": "googleSlidesOAuth2Api"
+        },
+        "credentials": {
+          "googleSlidesOAuth2Api": {
+            "id": "frrumderFcESHZN5",
+            "name": "Google Slides account"
+          }
+        }
+      },
+      {
+        "id": "03a81411-5b02-4414-9347-fca7e5dbf931",
+        "name": "Build BBR Slides",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          1280,
+          300
+        ],
+        "parameters": {
+          "jsCode": "const slides = $('Parse BBR Data').first().json.slides;\nconst presId = $('Create BBR Presentation').first().json.presentationId;\nconst defaultSlideId = $('Create BBR Presentation').first().json.slides[0].objectId;\n\nconst EMU = (inches) => Math.round(inches * 914400);\n\nconst RGB = {\n  black:       {red:0, green:0, blue:0},\n  graphite:    {red:0.090, green:0.090, blue:0.129},\n  surfaceGray: {red:0.733, green:0.737, blue:0.737},\n  horizon:     {red:0.384, green:0.588, blue:0.678},\n  white:       {red:1, green:1, blue:1},\n  plum:        {red:0.667, green:0.561, blue:0.627},\n  mint:        {red:0.812, green:0.980, blue:0.847},\n  ember:       {red:0.816, green:0.286, blue:0.067},\n  navy:        {red:0.004, green:0.173, blue:0.282},\n  sky:         {red:0.131, green:0.710, blue:1},\n  salmon:      {red:0.910, green:0.627, blue:0.565},\n  cinder:      {red:0.753, green:0.333, blue:0.153}\n};\n\nconst IMG = {\n  wordmark:   'https://lh3.googleusercontent.com/d/1GMUqmxGqOLoMqsxpiUSduo2hUzE4ei_J',\n  booksDark:  'https://lh3.googleusercontent.com/d/1pA1og8eOMnQE4yBT8h9z2oeGneMqCyii',\n  booksWhite: 'https://lh3.googleusercontent.com/d/1cL8RmMHzCscyLIdd3Y83RaM_yVXZI6SS',\n  gradient:   'https://lh3.googleusercontent.com/d/1edNwnzGIyQPv3v0D0JzpqRllAfmkIIwY'\n};\n\nconst reqs = [];\nconst imgReqs = [];\nlet idC = 0;\nconst gid = (p) => 'bs_' + p + '_' + (idC++);\n\nreqs.push({deleteObject: {objectId: defaultSlideId}});\n\nfunction tb(sid, id, x, y, w, h) {\n  reqs.push({createShape: {\n    objectId: id, shapeType: 'TEXT_BOX',\n    elementProperties: {\n      pageObjectId: sid,\n      size: {width: {magnitude: EMU(w), unit: 'EMU'}, height: {magnitude: EMU(h), unit: 'EMU'}},\n      transform: {scaleX: 1, scaleY: 1, translateX: EMU(x), translateY: EMU(y), unit: 'EMU'}\n    }\n  }});\n}\n\nfunction ins(id, text) {\n  if (!text) return;\n  reqs.push({insertText: {objectId: id, text: String(text), insertionIndex: 0}});\n}\n\nfunction sty(id, s) {\n  const ts = {};\n  const f = [];\n  if (s.ff) { ts.fontFamily = s.ff; f.push('fontFamily'); }\n  if (s.fs) { ts.fontSize = {magnitude: s.fs, unit: 'PT'}; f.push('fontSize'); }\n  if (s.b !== undefined) { ts.bold = s.b; f.push('bold'); }\n  if (s.i !== undefined) { ts.italic = s.i; f.push('italic'); }\n  if (s.c) { ts.foregroundColor = {opaqueColor: {rgbColor: s.c}}; f.push('foregroundColor'); }\n  if (f.length === 0) return;\n  reqs.push({updateTextStyle: {objectId: id, style: ts, fields: f.join(','), textRange: {type: 'ALL'}}});\n}\n\nfunction align(id, a) {\n  reqs.push({updateParagraphStyle: {objectId: id, style: {alignment: a}, fields: 'alignment', textRange: {type: 'ALL'}}});\n}\n\nfunction rect(sid, id, x, y, w, h, color) {\n  reqs.push({createShape: {\n    objectId: id, shapeType: 'ROUND_RECTANGLE',\n    elementProperties: {\n      pageObjectId: sid,\n      size: {width: {magnitude: EMU(w), unit: 'EMU'}, height: {magnitude: EMU(h), unit: 'EMU'}},\n      transform: {scaleX: 1, scaleY: 1, translateX: EMU(x), translateY: EMU(y), unit: 'EMU'}\n    }\n  }});\n  reqs.push({updateShapeProperties: {\n    objectId: id,\n    shapeProperties: {\n      shapeBackgroundFill: {solidFill: {color: {rgbColor: color}}},\n      outline: {propertyState: 'NOT_RENDERED'}\n    },\n    fields: 'shapeBackgroundFill,outline'\n  }});\n}\n\nfunction banner(sid, color) {\n  const id = gid('ban');\n  reqs.push({createShape: {\n    objectId: id, shapeType: 'RECTANGLE',\n    elementProperties: {\n      pageObjectId: sid,\n      size: {width: {magnitude: EMU(10), unit: 'EMU'}, height: {magnitude: EMU(0.55), unit: 'EMU'}},\n      transform: {scaleX: 1, scaleY: 1, translateX: EMU(0), translateY: EMU(0), unit: 'EMU'}\n    }\n  }});\n  reqs.push({updateShapeProperties: {\n    objectId: id,\n    shapeProperties: {\n      shapeBackgroundFill: {solidFill: {color: {rgbColor: color}}},\n      outline: {propertyState: 'NOT_RENDERED'}\n    },\n    fields: 'shapeBackgroundFill,outline'\n  }});\n  return id;\n}\n\nfunction colorStripe(sid, y) {\n  const cs = [RGB.surfaceGray, RGB.plum, RGB.horizon, RGB.salmon, RGB.surfaceGray];\n  cs.forEach((c, i) => {\n    const id = gid('cs');\n    reqs.push({createShape: {\n      objectId: id, shapeType: 'RECTANGLE',\n      elementProperties: {\n        pageObjectId: sid,\n        size: {width: {magnitude: EMU(2), unit: 'EMU'}, height: {magnitude: EMU(0.525), unit: 'EMU'}},\n        transform: {scaleX: 1, scaleY: 1, translateX: EMU(i * 2), translateY: EMU(y), unit: 'EMU'}\n      }\n    }});\n    reqs.push({updateShapeProperties: {\n      objectId: id,\n      shapeProperties: {shapeBackgroundFill: {solidFill: {color: {rgbColor: c}}}, outline: {propertyState: 'NOT_RENDERED'}},\n      fields: 'shapeBackgroundFill,outline'\n    }});\n  });\n}\n\nfunction addWordmark(sid, x, y, w, h) {\n  imgReqs.push({createImage: {objectId: gid('wm'), url: IMG.wordmark,\n    elementProperties: {pageObjectId: sid,\n      size: {width: {magnitude: EMU(w), unit: 'EMU'}, height: {magnitude: EMU(h), unit: 'EMU'}},\n      transform: {scaleX: 1, scaleY: 1, translateX: EMU(x), translateY: EMU(y), unit: 'EMU'}}}});\n}\n\nfunction addBooksDark(sid, x, y) {\n  imgReqs.push({createImage: {objectId: gid('bd'), url: IMG.booksDark,\n    elementProperties: {pageObjectId: sid,\n      size: {width: {magnitude: EMU(0.7), unit: 'EMU'}, height: {magnitude: EMU(0.55), unit: 'EMU'}},\n      transform: {scaleX: 1, scaleY: 1, translateX: EMU(x), translateY: EMU(y), unit: 'EMU'}}}});\n}\n\nslides.forEach((slide, idx) => {\n  const sid = 'slide_' + idx;\n  reqs.push({createSlide: {objectId: sid, insertionIndex: idx}});\n  reqs.push({updatePageProperties: {objectId: sid,\n    pageProperties: {pageBackgroundFill: {solidFill: {color: {rgbColor: RGB.white}}}},\n    fields: 'pageBackgroundFill'}});\n\n  switch (slide.type) {\n    case 'title': {\n      const t = gid('t'); tb(sid, t, 0.5, 0.7, 9, 2.2); ins(t, slide.title || '');\n      sty(t, {ff:'Cardo', fs:52, b:true, c:RGB.black}); align(t, 'CENTER');\n      if (slide.subtitle) {\n        const s = gid('t'); tb(sid, s, 0.5, 3.0, 9, 0.65); ins(s, slide.subtitle);\n        sty(s, {ff:'Cardo', fs:22, i:true, c:RGB.graphite}); align(s, 'CENTER');\n      }\n      addWordmark(sid, 3.5, 3.8, 3.0, 0.5);\n      colorStripe(sid, 5.1);\n      break;\n    }\n    case 'agenda': {\n      const t = gid('t'); tb(sid, t, 0.5, 0.3, 8.5, 1.1); ins(t, slide.title || 'Agenda');\n      sty(t, {ff:'Cardo', fs:34, b:true, c:RGB.black});\n      const cid = gid('t');\n      tb(sid, cid, 0.6, 1.5, 8.2, 4.0);\n      const lines = [];\n      const ranges = [];\n      let pos = 0;\n      (slide.items || []).forEach(item => {\n        const text = typeof item === 'string' ? item : item.text;\n        const line = '\\u25CF  ' + text + '\\n';\n        ranges.push({start: pos, end: pos + line.length, bold: true, fs: 17, c: RGB.black});\n        lines.push(line);\n        pos += line.length;\n        if (item.subitems) {\n          item.subitems.forEach(sub => {\n            const sub_line = '    \\u2013  ' + sub + '\\n';\n            ranges.push({start: pos, end: pos + sub_line.length, bold: false, fs: 14, c: RGB.graphite});\n            lines.push(sub_line);\n            pos += sub_line.length;\n          });\n        }\n      });\n      reqs.push({insertText: {objectId: cid, text: lines.join(''), insertionIndex: 0}});\n      ranges.forEach(r => {\n        reqs.push({updateTextStyle: {\n          objectId: cid,\n          style: {fontFamily: 'Roboto', fontSize: {magnitude: r.fs, unit: 'PT'}, bold: r.bold,\n                  foregroundColor: {opaqueColor: {rgbColor: r.c}}},\n          fields: 'fontFamily,fontSize,bold,foregroundColor',\n          textRange: {type: 'FIXED_RANGE', startIndex: r.start, endIndex: r.end}\n        }});\n      });\n      addBooksDark(sid, 8.8, 4.6);\n      break;\n    }\n    case 'section_divider': {\n      const t = gid('t'); tb(sid, t, 0.5, 1.4, 9, 2.0); ins(t, slide.title || '');\n      sty(t, {ff:'Cardo', fs:52, b:true, c:RGB.black}); align(t, 'CENTER');\n      addWordmark(sid, 3.5, 3.8, 3.0, 0.5);\n      colorStripe(sid, 5.1);\n      break;\n    }\n    case 'stats': {\n      const t = gid('t'); tb(sid, t, 0.5, 0.3, 8.5, 1.1); ins(t, slide.title || 'Key Metrics');\n      sty(t, {ff:'Cardo', fs:34, b:true, c:RGB.black});\n      const pos = [0.4, 3.5, 6.6];\n      (slide.stats || []).slice(0,3).forEach((st, i) => {\n        const cid = gid('t');\n        tb(sid, cid, pos[i], 1.6, 3.0, 3.5);\n        const vLine = (st.value || '') + '\\n';\n        const lLine = (st.label || '') + '\\n';\n        const cLine = st.change || '';\n        const full = vLine + lLine + cLine;\n        reqs.push({insertText: {objectId: cid, text: full, insertionIndex: 0}});\n        reqs.push({updateTextStyle: {objectId: cid,\n          style: {fontFamily: 'Cardo', fontSize: {magnitude: 28, unit: 'PT'}, bold: true,\n                  foregroundColor: {opaqueColor: {rgbColor: RGB.navy}}},\n          fields: 'fontFamily,fontSize,bold,foregroundColor',\n          textRange: {type: 'FIXED_RANGE', startIndex: 0, endIndex: vLine.length}}});\n        reqs.push({updateTextStyle: {objectId: cid,\n          style: {fontFamily: 'Roboto', fontSize: {magnitude: 15, unit: 'PT'}, bold: false,\n                  foregroundColor: {opaqueColor: {rgbColor: RGB.graphite}}},\n          fields: 'fontFamily,fontSize,bold,foregroundColor',\n          textRange: {type: 'FIXED_RANGE', startIndex: vLine.length, endIndex: vLine.length + lLine.length}}});\n        if (st.change) {\n          reqs.push({updateTextStyle: {objectId: cid,\n            style: {fontFamily: 'Roboto', fontSize: {magnitude: 14, unit: 'PT'}, bold: true,\n                    foregroundColor: {opaqueColor: {rgbColor: RGB.horizon}}},\n            fields: 'fontFamily,fontSize,bold,foregroundColor',\n            textRange: {type: 'FIXED_RANGE', startIndex: vLine.length + lLine.length, endIndex: full.length}}});\n        }\n        reqs.push({updateParagraphStyle: {objectId: cid,\n          style: {alignment: 'CENTER'}, fields: 'alignment', textRange: {type: 'ALL'}}});\n      });\n      addBooksDark(sid, 8.8, 4.6);\n      break;\n    }\n    case 'two_column': {\n      const t = gid('t'); tb(sid, t, 0.5, 0.3, 8.5, 1.1); ins(t, slide.title || '');\n      sty(t, {ff:'Cardo', fs:34, b:true, c:RGB.black});\n      [{d:slide.left, x:0.5, clr:RGB.horizon}, {d:slide.right, x:5.2, clr:RGB.ember}].forEach(col => {\n        if (!col.d) return;\n        const h = gid('t'); tb(sid, h, col.x, 1.5, 4.2, 0.55); ins(h, col.d.header || '');\n        sty(h, {ff:'Roboto', fs:22, b:true, c:col.clr});\n        const items = (col.d.items || []).map(it => '\\u2022 ' + it).join('\\n');\n        const b = gid('t'); tb(sid, b, col.x, 2.1, 4.2, 3.1); ins(b, items);\n        sty(b, {ff:'Roboto', fs:16, c:RGB.graphite});\n      });\n      addBooksDark(sid, 8.85, 4.65);\n      break;\n    }\n    case 'three_column_cards': {\n      const t = gid('t'); tb(sid, t, 0.5, 0.3, 9.0, 1.1); ins(t, slide.title || '');\n      sty(t, {ff:'Cardo', fs:34, b:true, c:RGB.black});\n      const cx = [0.7, 3.7, 6.7]; const cc = [RGB.horizon, RGB.plum, RGB.ember];\n      (slide.cards || []).slice(0,3).forEach((card, i) => {\n        const ct = gid('t'); tb(sid, ct, cx[i], 1.45, 2.6, 0.45); ins(ct, card.title || '');\n        sty(ct, {ff:'Roboto', fs:15, b:true, c:RGB.black});\n        rect(sid, gid('r'), cx[i], 1.92, 2.6, 3.35, cc[i]);\n        const items = (card.items || []).map(it => '\\u2022 ' + it).join('\\n');\n        const ci = gid('t'); tb(sid, ci, cx[i]+0.15, 2.05, 2.3, 3.1); ins(ci, items);\n        sty(ci, {ff:'Roboto', fs:13, c:RGB.white});\n      });\n      addBooksDark(sid, 9.1, 4.85);\n      break;\n    }\n    case 'four_column_timeline': {\n      const t = gid('t'); tb(sid, t, 0.5, 0.3, 9.0, 1.1); ins(t, slide.title || '');\n      sty(t, {ff:'Cardo', fs:34, b:true, c:RGB.black});\n      const qx = [0.6, 2.8, 5.0, 7.2]; const qc = [RGB.horizon, RGB.plum, RGB.ember, RGB.navy];\n      (slide.quarters || []).slice(0,4).forEach((q, i) => {\n        const ql = gid('t'); tb(sid, ql, qx[i], 1.45, 2.0, 0.45); ins(ql, q.label || '');\n        sty(ql, {ff:'Roboto', fs:15, b:true, c:RGB.black}); align(ql, 'CENTER');\n        rect(sid, gid('r'), qx[i], 1.95, 2.0, 2.9, qc[i]);\n        const fl = gid('t'); tb(sid, fl, qx[i], 2.1, 2.0, 0.32); ins(fl, 'Focus Area');\n        sty(fl, {ff:'Roboto', fs:10, c:RGB.white}); align(fl, 'CENTER');\n        const fv = gid('t'); tb(sid, fv, qx[i], 2.45, 2.0, 0.85); ins(fv, q.focus || q.value || '');\n        sty(fv, {ff:'Cardo', fs:16, b:true, c:RGB.white}); align(fv, 'CENTER');\n        if (q.note) {\n          const n = gid('t'); tb(sid, n, qx[i], 3.95, 2.0, 0.4); ins(n, q.note);\n          sty(n, {ff:'Roboto', fs:11, c:RGB.white}); align(n, 'CENTER');\n        }\n      });\n      addBooksDark(sid, 9.1, 4.85);\n      break;\n    }\n    case 'roadmap_placeholder': {\n      // Cinder warning banner across top\n      banner(sid, RGB.cinder);\n      const bt = gid('t'); tb(sid, bt, 0.25, 0.12, 9.5, 0.35);\n      ins(bt, '\\u26A0\\uFE0F  PLACEHOLDER \\u2014 Insert relevant roadmap slides here before presenting');\n      sty(bt, {ff:'Roboto', fs:13, b:true, c:RGB.white});\n      // Title\n      const t = gid('t'); tb(sid, t, 0.5, 0.75, 8.5, 0.9); ins(t, slide.title || 'Product Roadmap');\n      sty(t, {ff:'Cardo', fs:34, b:true, c:RGB.black});\n      // Body\n      const b = gid('t'); tb(sid, b, 0.5, 1.75, 9.0, 3.5); ins(b, slide.body || '');\n      sty(b, {ff:'Roboto', fs:15, c:RGB.graphite});\n      addBooksDark(sid, 8.85, 4.65);\n      break;\n    }\n    case 'thank_you': {\n      const t = gid('t'); tb(sid, t, 0.5, 1.8, 9, 1.5);\n      ins(t, (slide.title || 'THANK YOU').toUpperCase());\n      sty(t, {ff:'Cardo', fs:72, b:true, c:RGB.black}); align(t, 'CENTER');\n      addWordmark(sid, 3.5, 3.5, 3.0, 0.5);\n      colorStripe(sid, 5.1);\n      break;\n    }\n    default: {\n      const t = gid('t'); tb(sid, t, 0.5, 0.3, 8.5, 1.1); ins(t, slide.title || '');\n      sty(t, {ff:'Cardo', fs:34, b:true, c:RGB.black});\n      if (slide.body) {\n        const b = gid('t'); tb(sid, b, 0.5, 1.6, 9, 3.5); ins(b, slide.body);\n        sty(b, {ff:'Roboto', fs:18, c:RGB.graphite});\n      }\n      addBooksDark(sid, 8.85, 4.65);\n      break;\n    }\n  }\n});\n\nreturn [{ json: { requests: reqs, imageRequests: imgReqs, presentationId: presId } }];"
+        }
+      },
+      {
+        "id": "09c0ae60-6444-413a-a7c4-dbb55f3ae031",
+        "name": "Populate BBR Slides",
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.2,
+        "position": [
+          1540,
+          300
+        ],
+        "parameters": {
+          "method": "POST",
+          "url": "=https://slides.googleapis.com/v1/presentations/{{ $json.presentationId }}:batchUpdate",
+          "authentication": "predefinedCredentialType",
+          "sendHeaders": true,
+          "headerParameters": {
+            "parameters": [
+              {
+                "name": "Content-Type",
+                "value": "application/json"
+              }
+            ]
+          },
+          "sendBody": true,
+          "specifyBody": "json",
+          "jsonBody": "={{ JSON.stringify({requests: $('Build BBR Slides').first().json.requests}) }}",
+          "options": {},
+          "nodeCredentialType": "googleSlidesOAuth2Api"
+        },
+        "credentials": {
+          "googleSlidesOAuth2Api": {
+            "id": "frrumderFcESHZN5",
+            "name": "Google Slides account"
+          }
+        }
+      },
+      {
+        "id": "d563991b-ff41-4ebe-a112-a793fb082cd6",
+        "name": "BBR Add Images",
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.2,
+        "position": [
+          1800,
+          300
+        ],
+        "parameters": {
+          "method": "POST",
+          "url": "=https://slides.googleapis.com/v1/presentations/{{ $('Build BBR Slides').first().json.presentationId }}:batchUpdate",
+          "authentication": "predefinedCredentialType",
+          "sendHeaders": true,
+          "headerParameters": {
+            "parameters": [
+              {
+                "name": "Content-Type",
+                "value": "application/json"
+              }
+            ]
+          },
+          "sendBody": true,
+          "specifyBody": "json",
+          "jsonBody": "={{ JSON.stringify({requests: $('Build BBR Slides').first().json.imageRequests}) }}",
+          "options": {},
+          "nodeCredentialType": "googleSlidesOAuth2Api"
+        },
+        "credentials": {
+          "googleSlidesOAuth2Api": {
+            "id": "frrumderFcESHZN5",
+            "name": "Google Slides account"
+          }
+        },
+        "continueOnFail": true
+      },
+      {
+        "id": "28d871ea-0fcc-40ef-9cc4-370c730ee9a8",
+        "name": "Share BBR Presentation",
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.2,
+        "position": [
+          2060,
+          300
+        ],
+        "parameters": {
+          "method": "POST",
+          "url": "=https://www.googleapis.com/drive/v3/files/{{ $('Build BBR Slides').first().json.presentationId }}/permissions",
+          "authentication": "predefinedCredentialType",
+          "sendHeaders": true,
+          "headerParameters": {
+            "parameters": [
+              {
+                "name": "Content-Type",
+                "value": "application/json"
+              }
+            ]
+          },
+          "sendBody": true,
+          "specifyBody": "json",
+          "jsonBody": "{\"role\": \"writer\", \"type\": \"domain\", \"domain\": \"people.ai\"}",
+          "options": {},
+          "nodeCredentialType": "googleDriveOAuth2Api"
+        },
+        "credentials": {
+          "googleDriveOAuth2Api": {
+            "id": "sWK7WcHJvWMTBPSQ",
+            "name": "Google Drive account"
+          }
+        }
+      },
+      {
+        "id": "fc67546d-64d0-4dc1-8b3d-fbfbbb65e695",
+        "name": "BBR Update Thinking",
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.2,
+        "position": [
+          2320,
+          300
+        ],
+        "parameters": {
+          "method": "POST",
+          "url": "https://slack.com/api/chat.update",
+          "authentication": "genericCredentialType",
+          "sendHeaders": true,
+          "headerParameters": {
+            "parameters": [
+              {
+                "name": "Content-Type",
+                "value": "application/json"
+              }
+            ]
+          },
+          "sendBody": true,
+          "specifyBody": "json",
+          "jsonBody": "={{ JSON.stringify({ channel: $('BBR Trigger').first().json.channelId, ts: $('BBR Trigger').first().json.thinkingTs, text: $('BBR Trigger').first().json.assistantEmoji + ' Your *BBR for ' + $('Parse BBR Data').first().json.accountName + '* is ready!\\n\\n<https://docs.google.com/presentation/d/' + $('Build BBR Slides').first().json.presentationId + '/edit|\\u{1F4CA} Open BBR in Google Slides>', unfurl_links: false }) }}",
+          "options": {},
+          "genericAuthType": "httpHeaderAuth"
+        },
+        "credentials": {
+          "httpHeaderAuth": {
+            "id": "LluVuiMJ8NUbAiG7",
+            "name": "Slackbot Auth Token"
+          }
+        }
+      }
+    ],
+    "connections": {
+      "BBR Trigger": {
+        "main": [
+          [
+            {
+              "node": "BBR Research Agent",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "BBR Research Agent": {
+        "main": [
+          [
+            {
+              "node": "Parse BBR Data",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "BBR Anthropic Model": {
+        "ai_languageModel": [
+          [
+            {
+              "node": "BBR Research Agent",
+              "type": "ai_languageModel",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "BBR People.ai MCP": {
+        "ai_tool": [
+          [
+            {
+              "node": "BBR Research Agent",
+              "type": "ai_tool",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Parse BBR Data": {
+        "main": [
+          [
+            {
+              "node": "Create BBR Presentation",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Create BBR Presentation": {
+        "main": [
+          [
+            {
+              "node": "Build BBR Slides",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Build BBR Slides": {
+        "main": [
+          [
+            {
+              "node": "Populate BBR Slides",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Populate BBR Slides": {
+        "main": [
+          [
+            {
+              "node": "BBR Add Images",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "BBR Add Images": {
+        "main": [
+          [
+            {
+              "node": "Share BBR Presentation",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Share BBR Presentation": {
+        "main": [
+          [
+            {
+              "node": "BBR Update Thinking",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      }
+    },
+    "authors": "Scott Metcalf",
+    "name": null,
+    "description": null,
+    "autosaved": false
+  }
+}

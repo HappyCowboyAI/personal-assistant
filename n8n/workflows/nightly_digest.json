@@ -1,0 +1,311 @@
+{
+  "name": "Nightly Digest",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "triggerAtHour": 6
+            }
+          ]
+        }
+      },
+      "id": "cron-trigger",
+      "name": "6am Daily Trigger",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1,
+      "position": [250, 300]
+    },
+    {
+      "parameters": {
+        "operation": "select",
+        "tableId": "users",
+        "filterByFormula": "AND({digest_enabled} = TRUE(), {slack_user_id} != '')"
+      },
+      "id": "get-users",
+      "name": "Get Users with Digest Enabled",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [450, 300],
+      "credentials": {
+        "supabaseApi": {
+          "id": "SUPABASE_CREDENTIAL_ID",
+          "name": "Supabase"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "batchSize": 1,
+        "options": {}
+      },
+      "id": "split-batches",
+      "name": "Process One User at a Time",
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 1,
+      "position": [650, 300]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "https://api.people.ai/v1/opportunities",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "httpHeaderAuth",
+        "options": {
+          "qs": {
+            "owner_id": "={{ $json.peopleai_user_id }}",
+            "status": "open"
+          }
+        }
+      },
+      "id": "get-opportunities",
+      "name": "Get Open Opportunities from People.ai",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [850, 300],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "PEOPLEAI_CREDENTIAL_ID",
+          "name": "People.ai API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "https://api.people.ai/v1/engagement-scores",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "httpHeaderAuth",
+        "options": {
+          "qs": {
+            "owner_id": "={{ $('Get Users with Digest Enabled').item.json.peopleai_user_id }}",
+            "changed_since": "={{ $now.minus({days: 1}).toISO() }}"
+          }
+        }
+      },
+      "id": "get-engagement-changes",
+      "name": "Get Engagement Score Changes",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [850, 500],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "PEOPLEAI_CREDENTIAL_ID",
+          "name": "People.ai API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Combine data for Claude prompt\nconst user = $('Get Users with Digest Enabled').item.json;\nconst opportunities = $('Get Open Opportunities from People.ai').item.json;\nconst engagementChanges = $('Get Engagement Score Changes').item.json;\n\n// Get assistant name (user override or org default)\nconst assistantName = user.assistant_name || user.org_default_assistant_name || 'Aria';\n\n// Get assistant emoji (user override or org default)\nconst assistantEmoji = user.assistant_emoji || user.org_default_assistant_emoji || ':robot_face:';\n\n// Format pipeline data for the prompt\nconst pipelineData = opportunities.data?.map(opp => {\n  const engagement = engagementChanges.data?.find(e => e.opportunity_id === opp.id);\n  return {\n    account_name: opp.account_name,\n    opportunity_name: opp.name,\n    stage: opp.stage,\n    close_date: opp.close_date,\n    amount: opp.amount,\n    engagement_score: opp.engagement_score,\n    engagement_change: engagement?.change || 0,\n    last_activity: opp.last_activity_date,\n    days_in_stage: opp.days_in_current_stage,\n    champion: opp.champion_name,\n    champion_last_engagement: opp.champion_last_engagement_date,\n    risks: opp.risk_signals || []\n  };\n}).sort((a, b) => {\n  // Sort by urgency: engagement drops first, then by close date\n  if (a.engagement_change < -10 && b.engagement_change >= -10) return -1;\n  if (b.engagement_change < -10 && a.engagement_change >= -10) return 1;\n  return new Date(a.close_date) - new Date(b.close_date);\n});\n\nreturn {\n  user_id: user.id,\n  slack_user_id: user.slack_user_id,\n  rep_name: user.email.split('@')[0], // TODO: Get actual name\n  assistant_name: assistantName,\n  timezone: user.timezone || 'America/Los_Angeles',\n  pipeline_data: JSON.stringify(pipelineData, null, 2),\n  current_date: new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }),\n  assistant_emoji: assistantEmoji\n};"
+      },
+      "id": "prepare-prompt-data",
+      "name": "Prepare Data for Claude",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1050, 400]
+    },
+    {
+      "parameters": {
+        "resource": "chat",
+        "model": "claude-sonnet-4-20250514",
+        "messages": {
+          "values": [
+            {
+              "role": "user",
+              "content": "={{ $json.prompt }}"
+            }
+          ]
+        },
+        "options": {
+          "systemMessage": "You are {{ $json.assistant_name }}, a personal sales assistant for {{ $json.rep_name }}. You work exclusively for them and know their pipeline intimately.\n\n## Your Personality\n- Direct and action-oriented — no fluff\n- Confident but not arrogant\n- Speak like a trusted colleague, not a corporate tool\n- Use \"I\" and \"we\" naturally\n- Keep it conversational but professional\n\n## Context\nToday is {{ $json.current_date }}. {{ $json.rep_name }} is starting their day in {{ $json.timezone }}.\n\n## Pipeline Data\n{{ $json.pipeline_data }}\n\n## Your Task\nWrite a morning briefing that {{ $json.rep_name }} can read in 60 seconds. Structure it as:\n\n### 1. The Lead (1-2 sentences)\nStart with the single most important thing they need to know today.\n\n### 2. Today's Priorities (2-4 bullets)\nWhat specifically needs action today? For each:\n- Name the account and what to do\n- Why it matters\n- Be specific\n\n### 3. Pipeline Pulse (brief)\nQuick health check on engagement changes and stage movements.\n\n### 4. One Thing I'm Watching\nOne forward-looking observation.\n\n## Formatting Rules\n- Use Slack formatting: *bold* for emphasis\n- Keep under 300 words\n- Don't say \"Good morning\" — jump straight into insight\n- Sign off with just your name"
+        }
+      },
+      "id": "generate-digest",
+      "name": "Generate Digest with Claude",
+      "type": "@n8n/n8n-nodes-langchain.anthropic",
+      "typeVersion": 1,
+      "position": [1250, 400],
+      "credentials": {
+        "anthropicApi": {
+          "id": "ANTHROPIC_CREDENTIAL_ID",
+          "name": "Anthropic"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "channel": "={{ $('Prepare Data for Claude').item.json.slack_user_id }}",
+        "text": "={{ $json.message.content }}",
+        "otherOptions": {
+          "username": "={{ $('Prepare Data for Claude').item.json.assistant_name }}",
+          "icon_emoji": "={{ $('Prepare Data for Claude').item.json.assistant_emoji }}"
+        }
+      },
+      "id": "send-slack",
+      "name": "Send to Slack DM",
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 2,
+      "position": [1450, 400],
+      "credentials": {
+        "slackApi": {
+          "id": "SLACK_CREDENTIAL_ID",
+          "name": "Slack"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "insert",
+        "tableId": "messages",
+        "dataToSend": "autoMapInputData",
+        "options": {
+          "additionalFields": {
+            "user_id": "={{ $('Prepare Data for Claude').item.json.user_id }}",
+            "message_type": "digest",
+            "channel": "slack",
+            "content": "={{ $('Generate Digest with Claude').item.json.message.content }}"
+          }
+        }
+      },
+      "id": "log-message",
+      "name": "Log Message to DB",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [1650, 400],
+      "credentials": {
+        "supabaseApi": {
+          "id": "SUPABASE_CREDENTIAL_ID",
+          "name": "Supabase"
+        }
+      }
+    },
+    {
+      "parameters": {},
+      "id": "loop-back",
+      "name": "Loop Back",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [1850, 400]
+    }
+  ],
+  "connections": {
+    "6am Daily Trigger": {
+      "main": [
+        [
+          {
+            "node": "Get Users with Digest Enabled",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Users with Digest Enabled": {
+      "main": [
+        [
+          {
+            "node": "Process One User at a Time",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Process One User at a Time": {
+      "main": [
+        [
+          {
+            "node": "Get Open Opportunities from People.ai",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Get Engagement Score Changes",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Loop Back",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Open Opportunities from People.ai": {
+      "main": [
+        [
+          {
+            "node": "Prepare Data for Claude",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Engagement Score Changes": {
+      "main": [
+        [
+          {
+            "node": "Prepare Data for Claude",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Data for Claude": {
+      "main": [
+        [
+          {
+            "node": "Generate Digest with Claude",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generate Digest with Claude": {
+      "main": [
+        [
+          {
+            "node": "Send to Slack DM",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send to Slack DM": {
+      "main": [
+        [
+          {
+            "node": "Log Message to DB",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Log Message to DB": {
+      "main": [
+        [
+          {
+            "node": "Process One User at a Time",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "saveExecutionProgress": true,
+    "saveManualExecutions": true,
+    "timezone": "America/Los_Angeles"
+  }
+}

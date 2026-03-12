@@ -1,0 +1,2731 @@
+{
+  "updatedAt": "2026-03-10T23:54:44.810Z",
+  "createdAt": "2026-02-20T00:43:49.127Z",
+  "id": "Yg5GB1byqB0qD-5wVDOAn",
+  "name": "Backstory Slack Bot",
+  "description": null,
+  "active": true,
+  "isArchived": false,
+  "nodes": [
+    {
+      "parameters": {
+        "operation": "getAll",
+        "tableId": "users",
+        "limit": 1,
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "slack_user_id",
+              "condition": "eq",
+              "keyValue": "={{ $json.userId }}"
+            }
+          ]
+        }
+      },
+      "id": "375d4a6e-9f02-4523-9506-07a78fa06942",
+      "name": "Lookup User",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        2784,
+        2396
+      ],
+      "alwaysOutputData": true,
+      "credentials": {
+        "supabaseApi": {
+          "id": "ASRWWkQ0RSMOpNF1",
+          "name": "Supabase account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const slackData = $('Extract Slash Command Data').first().json;\nconst lookupResult = $('Lookup User').first().json;\n\n// Resolve assistant identity (user override -> defaults)\nlet assistantName = 'Backstory';\nlet assistantEmoji = ':robot_face:';\nlet assistantPersona = 'direct, action-oriented, conversational';\nlet dbUserId = null;\n\nif (lookupResult && lookupResult.id) {\n  if (lookupResult.assistant_name) assistantName = lookupResult.assistant_name;\n  if (lookupResult.assistant_emoji) assistantEmoji = lookupResult.assistant_emoji;\n  if (lookupResult.assistant_persona) assistantPersona = lookupResult.assistant_persona;\n  dbUserId = lookupResult.id;\n}\n\n\n// BBR/PBR detection \u2014 extract account name\nconst commandText = slackData.commandText || '';\nconst commandLower = commandText.toLowerCase();\nconst bbrPatterns = [/\\bbbr\\b/, /\\bpbr\\b/, /business review/i, /backstory business review/i, /people\\.?ai business review/i];\nconst isBBR = bbrPatterns.some(p => p.test(commandLower));\nlet bbrAccount = null;\nif (isBBR) {\n  bbrAccount = commandText\n    .replace(/\\b(bbr|pbr|business\\s+review|backstory\\s+business\\s+review|people\\.?ai\\s+business\\s+review|for|with|about|on|create|make|generate|build|a|the|presentation|deck|slide|slides)\\b/gi, ' ')\n    .replace(/\\s+/g, ' ')\n    .trim();\n}\n\n// Presentation detection\nconst presPatterns = [/^presentation\\b/i, /^pres\\b/i, /^slides?\\b/i, /^deck\\b/i];\nconst isPresentation = presPatterns.some(p => p.test(commandLower));\nlet presentationPrompt = null;\nif (isPresentation) {\n  presentationPrompt = commandText\n    .replace(/^(presentation|pres|slides?|deck)\\s*/i, '')\n    .trim();\n}\n\n// Build system prompt\nconst systemPrompt = [\n  'You are ' + assistantName + ', a personal sales assistant for ' + slackData.userName + '. You work exclusively for them.',\n  '',\n  'Your personality: ' + assistantPersona,\n  '',\n  'You have access to People.ai MCP tools which give you CRM data, account activity, opportunity details, engagement scores, and communication summaries.',\n  '',\n  '**INSTRUCTIONS:**',\n  '- Use the People.ai MCP tools to answer the user\\'s question with real data.',\n  '- Be concise and actionable \u2014 this response will be posted in Slack.',\n  '- Format your response using Slack markdown: *bold*, _italic_, `code`.',\n  '- Use bullet points sparingly and keep them short.',\n  '- If the question is about a specific account or opportunity, include key metrics (engagement level, amount, stage, etc.).',\n  '- If you can\\'t find the requested data, say so clearly rather than guessing.',\n  '- Keep your total response under 3000 characters so it displays well in Slack.',\n  '- Do NOT use headers with ### or ** section headers ** \u2014 just use *bold* for emphasis.',\n  '- End with a brief actionable recommendation when relevant.',\n\n  '',\n  '## PRESENTATIONS',\n  'If the user asks you to create a presentation, slides, or deck, respond:',\n  '\"I\\'ll create that presentation for you now! Building your Backstory deck...\"',\n  'Do NOT generate pptxgenjs code or any code. The presentation system handles this automatically.',\n].join('\\n');\n\n// Pre-format Slack messages\nconst headerText = assistantEmoji + ' ' + assistantName + '  \u2014  @' + slackData.userName + '\\'s personal assistant:';\nconst thinkingText = headerText + '\\n\\n\u23f3 Thinking...';\nconst answeredText = headerText + '\\n\\n\u2705 Answered in thread';\n\nreturn [{\n  json: {\n    ...slackData,\n    assistantName,\n    assistantEmoji,\n    assistantPersona,\n    dbUserId,\n    systemPrompt,\n    isBBR,\n    bbrAccount,\n    isPresentation,\n    presentationPrompt,\n    headerText,\n    thinkingText,\n    answeredText\n  }\n}];"
+      },
+      "id": "616db660-dbeb-4d69-8117-e1e48cbd382b",
+      "name": "Resolve Assistant Identity",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3008,
+        2396
+      ]
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "bs",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        2112,
+        2396
+      ],
+      "id": "649a2ccf-a6d4-43ae-850b-c5a44dbb34bf",
+      "name": "Slash Command Webhook",
+      "webhookId": "bs-webhook"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={\n  \"response_type\": \"in_channel\"\n}",
+        "options": {
+          "responseCode": 200
+        }
+      },
+      "id": "b9701869-74dd-408a-976d-25217b469329",
+      "name": "Acknowledge Slash Command",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        2336,
+        2396
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "/**\n * Extract Slash Command Data\n */\nconst webhookData = $('Slash Command Webhook').first().json;\n\nfunction findField(fieldName) {\n  if (webhookData[fieldName] !== undefined && webhookData[fieldName] !== '') {\n    return String(webhookData[fieldName]);\n  }\n  if (webhookData.body && typeof webhookData.body === 'object' && webhookData.body[fieldName] !== undefined) {\n    return String(webhookData.body[fieldName]);\n  }\n  if (webhookData.body && typeof webhookData.body === 'string') {\n    const params = new URLSearchParams(webhookData.body);\n    const val = params.get(fieldName);\n    if (val) return val;\n  }\n  if (webhookData.query && webhookData.query[fieldName]) {\n    return String(webhookData.query[fieldName]);\n  }\n  return '';\n}\n\nconst userId = findField('user_id');\nconst userName = findField('user_name');\nconst channelId = findField('channel_id');\nconst responseUrl = findField('response_url');\nconst commandText = findField('text');\n\nreturn [{\n  json: {\n    userId,\n    userName,\n    channelId,\n    responseUrl,\n    commandText\n  }\n}];\n"
+      },
+      "id": "e688c05f-9c96-43d5-ad0d-4845e5e9e540",
+      "name": "Extract Slash Command Data",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2560,
+        2396
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "check-empty-text",
+              "leftValue": "={{ $json.commandText }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEquals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "30f6a696-15ef-417d-8689-7f73c88ea46b",
+      "name": "Has Question?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        3680,
+        2204
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $('Resolve Assistant Identity').first().json.responseUrl }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ response_type: 'ephemeral', text: '\u2753 Please provide a question. Usage: `/bs What is the status of the Acme Corp account?`', unfurl_links: false, unfurl_media: false }) }}",
+        "options": {}
+      },
+      "id": "04dae063-68e5-49cf-b5d7-c10f39b352d0",
+      "name": "Post Usage Help",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        3904,
+        2352
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "check-dm-channel",
+              "leftValue": "={{ $json.channelId.startsWith('D') }}",
+              "rightValue": "true",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "80e9a04b-3e94-48bc-a016-de66be0b7dd4",
+      "name": "Is DM?1",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        3904,
+        2108
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://slack.com/api/chat.postMessage",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ channel: $('Open Bot DM').first().json.channel.id, text: $('Resolve Assistant Identity').first().json.thinkingText, username: $('Resolve Assistant Identity').first().json.assistantName, icon_emoji: $('Resolve Assistant Identity').first().json.assistantEmoji, unfurl_links: false, unfurl_media: false }) }}",
+        "options": {}
+      },
+      "id": "6e7a43b3-9ef1-4001-bbcf-0758a83186b0",
+      "name": "DM Post Thinking1",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        4416,
+        2256
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "LluVuiMJ8NUbAiG7",
+          "name": "Slackbot Auth Token"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $('Resolve Assistant Identity').first().json.commandText }}",
+        "options": {
+          "systemMessage": "={{ $('Resolve Assistant Identity').first().json.systemPrompt }}"
+        }
+      },
+      "id": "d784dd0f-8a7e-4f34-877d-1523a61a88fb",
+      "name": "Backstory Agent DM1",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 1.7,
+      "position": [
+        4704,
+        2256
+      ]
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "mode": "list",
+          "value": "claude-sonnet-4-5-20250929",
+          "cachedResultName": "Claude Sonnet 4.5"
+        },
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatAnthropic",
+      "typeVersion": 1.3,
+      "position": [
+        4712,
+        2480
+      ],
+      "id": "b2bd7d77-209b-4bf0-badc-5d1b51924488",
+      "name": "Anthropic Chat Model DM1",
+      "credentials": {
+        "anthropicApi": {
+          "id": "rlAz7ZSl4y6AwRUq",
+          "name": "Anthropic account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "endpointUrl": "https://mcp.people.ai/mcp",
+        "authentication": "multipleHeadersAuth",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.mcpClientTool",
+      "typeVersion": 1.2,
+      "position": [
+        4840,
+        2480
+      ],
+      "id": "887479dd-4362-4a5e-bba9-68e4808fc0c8",
+      "name": "People.ai MCP DM1",
+      "credentials": {
+        "httpMultipleHeadersAuth": {
+          "id": "wvV5pwBeIL7f2vLG",
+          "name": "People.ai MCP Multi-Header"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://slack.com/api/chat.update",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ channel: $('Open Bot DM').first().json.channel.id, ts: $('DM Post Thinking1').first().json.ts, text: $('Resolve Assistant Identity').first().json.headerText + '\\n\\n' + ($json.output || $json.text || 'Sorry, I was unable to generate a response. Please try again.') }) }}",
+        "options": {}
+      },
+      "id": "17dd26da-a6e6-4d53-8073-3ea02aef09aa",
+      "name": "DM Post Answer1",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        5056,
+        2256
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "LluVuiMJ8NUbAiG7",
+          "name": "Slackbot Auth Token"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://slack.com/api/chat.postMessage",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ channel: $('Resolve Assistant Identity').first().json.channelId, username: $('Resolve Assistant Identity').first().json.assistantName, icon_emoji: $('Resolve Assistant Identity').first().json.assistantEmoji, text: $('Resolve Assistant Identity').first().json.thinkingText, unfurl_links: false, unfurl_media: false }) }}",
+        "options": {}
+      },
+      "id": "1fa5abf0-612e-480b-b1c0-11a4836a5d9f",
+      "name": "Post Question to Channel",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        4128,
+        1960
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "LluVuiMJ8NUbAiG7",
+          "name": "Slackbot Auth Token"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $('Resolve Assistant Identity').first().json.commandText }}",
+        "options": {
+          "systemMessage": "={{ $('Resolve Assistant Identity').first().json.systemPrompt }}"
+        }
+      },
+      "id": "92e55fcc-27b1-4a09-9b1f-b248f963ebd1",
+      "name": "Backstory Agent",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 1.7,
+      "position": [
+        4352,
+        1856
+      ]
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "mode": "list",
+          "value": "claude-sonnet-4-5-20250929",
+          "cachedResultName": "Claude Sonnet 4.5"
+        },
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatAnthropic",
+      "typeVersion": 1.3,
+      "position": [
+        4360,
+        2080
+      ],
+      "id": "7542e5d6-11da-401e-96f8-1115d14c7a1e",
+      "name": "Anthropic Chat Model",
+      "credentials": {
+        "anthropicApi": {
+          "id": "rlAz7ZSl4y6AwRUq",
+          "name": "Anthropic account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "endpointUrl": "https://mcp.people.ai/mcp",
+        "authentication": "multipleHeadersAuth",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.mcpClientTool",
+      "typeVersion": 1.2,
+      "position": [
+        4488,
+        2080
+      ],
+      "id": "f0b2dfc5-8073-4aa8-b413-f6c81a6c6abd",
+      "name": "People.ai MCP",
+      "credentials": {
+        "httpMultipleHeadersAuth": {
+          "id": "wvV5pwBeIL7f2vLG",
+          "name": "People.ai MCP Multi-Header"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://slack.com/api/chat.postMessage",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "channel",
+              "value": "={{ $('Resolve Assistant Identity').first().json.channelId }}"
+            },
+            {
+              "name": "thread_ts",
+              "value": "={{ $('Post Question to Channel').first().json.ts }}"
+            },
+            {
+              "name": "text",
+              "value": "={{ $json.output || $json.text || 'Sorry, I was unable to generate a response. Please try again.' }}"
+            },
+            {
+              "name": "username",
+              "value": "={{ $('Resolve Assistant Identity').first().json.assistantName }}"
+            },
+            {
+              "name": "icon_emoji",
+              "value": "={{ $('Resolve Assistant Identity').first().json.assistantEmoji }}"
+            },
+            {
+              "name": "unfurl_links",
+              "value": "false"
+            },
+            {
+              "name": "unfurl_media",
+              "value": "false"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "b3fac0bd-dad2-43cd-9696-bf4023a0070f",
+      "name": "Post Reply in Thread",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        4768,
+        1960
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "LluVuiMJ8NUbAiG7",
+          "name": "Slackbot Auth Token"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://slack.com/api/chat.update",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "channel",
+              "value": "={{ $('Resolve Assistant Identity').first().json.channelId }}"
+            },
+            {
+              "name": "ts",
+              "value": "={{ $('Post Question to Channel').first().json.ts }}"
+            },
+            {
+              "name": "text",
+              "value": "={{ $('Resolve Assistant Identity').first().json.answeredText }}"
+            },
+            {
+              "name": "unfurl_links",
+              "value": "false"
+            },
+            {
+              "name": "unfurl_media",
+              "value": "false"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "94d8239d-77c2-4fa4-9982-4149754fc0ee",
+      "name": "Update Original Message",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        5056,
+        1960
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "LluVuiMJ8NUbAiG7",
+          "name": "Slackbot Auth Token"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://slack.com/api/conversations.open",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ users: $('Resolve Assistant Identity').first().json.userId }) }}",
+        "options": {}
+      },
+      "id": "f003a2bd-0c88-44f1-a9da-85f1340ea861",
+      "name": "Open Bot DM",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        4128,
+        2256
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "LluVuiMJ8NUbAiG7",
+          "name": "Slackbot Auth Token"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "982d6eed-6d43-41cf-a238-a3ff6653464c",
+              "leftValue": "={{ $json.isBBR }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "4fef21df-7c00-4a0f-82e9-80a2c365dcd3",
+      "name": "Is BBR?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        3232,
+        2396
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://slack.com/api/conversations.open",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ users: $('Resolve Assistant Identity').first().json.userId }) }}",
+        "options": {}
+      },
+      "id": "e01f5e36-053b-4523-9149-68de61ec5619",
+      "name": "BBR Open DM",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        3456,
+        2736
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "LluVuiMJ8NUbAiG7",
+          "name": "Slackbot Auth Token"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://slack.com/api/chat.postMessage",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({\n  channel: $('Resolve Assistant Identity').first().json.channelId,\n  text: $('Resolve Assistant Identity').first().json.assistantEmoji + ' ' + $('Resolve Assistant Identity').first().json.assistantName + '\\n\\n\u23f3 Researching ' + $('Resolve Assistant Identity').first().json.bbrAccount + ' for your BBR \u2014 this takes about 30 seconds...',\n  username: $('Resolve Assistant Identity').first().json.assistantName,\n  icon_emoji: $('Resolve Assistant Identity').first().json.assistantEmoji,\n  unfurl_links: false\n}) }}",
+        "options": {}
+      },
+      "id": "f3f6eda5-13fb-4a27-a1e3-4d3085f2a0b9",
+      "name": "BBR Post Thinking",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        3680,
+        2736
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "LluVuiMJ8NUbAiG7",
+          "name": "Slackbot Auth Token"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "return [{ json: {\n  channelId: $('Resolve Assistant Identity').first().json.channelId,\n  bbrAccount: $('Resolve Assistant Identity').first().json.bbrAccount,\n  assistantName: $('Resolve Assistant Identity').first().json.assistantName,\n  assistantEmoji: $('Resolve Assistant Identity').first().json.assistantEmoji,\n  thinkingTs: $('BBR Post Thinking').first().json.ts\n}}];"
+      },
+      "id": "d49d0efa-433e-42e3-a1ee-f03b515cfabc",
+      "name": "Prepare BBR Input",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3904,
+        2736
+      ]
+    },
+    {
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "iQFcam5ePPFCp3QO"
+        },
+        "options": {
+          "waitForSubWorkflow": true
+        }
+      },
+      "id": "48e171f2-ab8f-49f3-b72a-97296bd6e78d",
+      "name": "Execute BBR Workflow",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.1,
+      "position": [
+        4128,
+        2736
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Gather data for conversation record and message logging.\n// This node is reached by BOTH Channel and DM paths, so we use\n// try/catch to handle whichever upstream nodes are available.\n\nconst identity = $('Resolve Assistant Identity').first().json;\nconst extract = $('Extract Slash Command Data').first().json;\nconst user = $('Lookup User').first().json;\n\n// Get agent output \u2014 try channel agent first, then DM agent\nlet agentOutput = '';\ntry { agentOutput = $('Backstory Agent').first().json.output || ''; } catch(e) {}\nif (!agentOutput) {\n  try { agentOutput = $('Backstory Agent DM1').first().json.output || ''; } catch(e) {}\n}\n\n// Get thread_ts \u2014 channel path uses Post Question to Channel ts,\n// DM path uses DM Post Thinking1 ts\nlet threadTs = '';\ntry { threadTs = $('Post Question to Channel').first().json.ts || ''; } catch(e) {}\nif (!threadTs) {\n  try { threadTs = $('DM Post Thinking1').first().json.ts || ''; } catch(e) {}\n}\n\n// Get the channel ID \u2014 for DM path it's the opened DM channel, for channel path it's from extract\nlet channelId = extract.channelId || '';\ntry {\n  const dmChannel = $('Open Bot DM').first().json.channel;\n  if (dmChannel && dmChannel.id) channelId = dmChannel.id;\n} catch(e) {\n  // Channel path \u2014 use extract.channelId (already set)\n}\n\n// Build agent_config for the conversation record\nconst agentConfig = {\n  systemPrompt: identity.systemPrompt,\n  model: 'claude-sonnet-4-5-20250929',\n  mcpEndpoint: 'https://mcp.people.ai/mcp',\n  assistantName: identity.assistantName || 'Backstory',\n  assistantEmoji: identity.assistantEmoji || ':robot_face:'\n};\n\n// Expiry: 4 hours from now\nconst expiresAt = new Date(Date.now() + 4 * 60 * 60 * 1000).toISOString();\n\nreturn [{\n  json: {\n    organizationId: user.organization_id || null,\n    userId: user.id || null,\n    channelId: channelId,\n    threadTs: threadTs,\n    workflowType: 'backstory',\n    agentConfig: agentConfig,\n    expiresAt: expiresAt,\n    userMessage: extract.commandText || '',\n    assistantMessage: agentOutput\n  }\n}];\n"
+      },
+      "id": "dcef98d3-1565-4f7d-aa98-a3fa0edaedb2",
+      "name": "Prepare Conversation Data",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        5504,
+        2108
+      ],
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://rhrlnkbphxntxxxcrgvv.supabase.co/rest/v1/conversations",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "supabaseApi",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Prefer",
+              "value": "return=representation"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({\n  organization_id: $json.organizationId,\n  user_id: $json.userId,\n  slack_channel_id: $json.channelId,\n  slack_thread_ts: $json.threadTs,\n  workflow_type: $json.workflowType,\n  agent_config: $json.agentConfig,\n  status: \"active\",\n  expires_at: $json.expiresAt\n}) }}",
+        "options": {}
+      },
+      "id": "29456e1a-525b-49b6-a209-0762f63f756c",
+      "name": "Create Conversation",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        5728,
+        2108
+      ],
+      "credentials": {
+        "supabaseApi": {
+          "id": "ASRWWkQ0RSMOpNF1",
+          "name": "Supabase account"
+        }
+      },
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://rhrlnkbphxntxxxcrgvv.supabase.co/rest/v1/messages",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "supabaseApi",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Prefer",
+              "value": "return=representation"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({\n  user_id: $(\"Prepare Conversation Data\").first().json.userId,\n  message_type: \"conversation\",\n  channel: \"slack\",\n  direction: \"inbound\",\n  content: $(\"Prepare Conversation Data\").first().json.userMessage,\n  conversation_id: $json.id,\n  slack_thread_ts: $(\"Prepare Conversation Data\").first().json.threadTs,\n  role: \"user\"\n}) }}",
+        "options": {}
+      },
+      "id": "11ad13b1-9148-4fbe-b7ad-cfa618b3691f",
+      "name": "Log User Message",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        5952,
+        2108
+      ],
+      "credentials": {
+        "supabaseApi": {
+          "id": "ASRWWkQ0RSMOpNF1",
+          "name": "Supabase account"
+        }
+      },
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://rhrlnkbphxntxxxcrgvv.supabase.co/rest/v1/messages",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "supabaseApi",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Prefer",
+              "value": "return=representation"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({\n  user_id: $(\"Prepare Conversation Data\").first().json.userId,\n  message_type: \"conversation\",\n  channel: \"slack\",\n  direction: \"outbound\",\n  content: $(\"Prepare Conversation Data\").first().json.assistantMessage,\n  conversation_id: $(\"Create Conversation\").first().json.id,\n  slack_thread_ts: $(\"Prepare Conversation Data\").first().json.threadTs,\n  role: \"assistant\"\n}) }}",
+        "options": {}
+      },
+      "id": "ecb1042c-005c-410c-a0b6-e9b3ec7a60ca",
+      "name": "Log Assistant Message",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        6176,
+        2108
+      ],
+      "credentials": {
+        "supabaseApi": {
+          "id": "ASRWWkQ0RSMOpNF1",
+          "name": "Supabase account"
+        }
+      },
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://rhrlnkbphxntxxxcrgvv.supabase.co/rest/v1/rpc/track_feature_usage",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "supabaseApi",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ p_user_id: $(\"Resolve Assistant Identity\").first().json.dbUserId, p_feature_id: \"backstory\" }) }}",
+        "options": {}
+      },
+      "id": "d9e33015-2795-4cea-afdc-4d70146add2e",
+      "name": "Track Backstory Usage",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        5280,
+        2108
+      ],
+      "credentials": {
+        "supabaseApi": {
+          "id": "ASRWWkQ0RSMOpNF1",
+          "name": "Supabase account"
+        }
+      },
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "9e0e04f8-df56-4a6d-8f54-2a8166579d67",
+              "leftValue": "={{ $json.isPresentation }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "50f60e19-ca13-4489-8ca9-d7aae8800508",
+      "name": "Is Presentation?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        3456,
+        2300
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://slack.com/api/chat.postMessage",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ channel: $('Resolve Assistant Identity').first().json.channelId, text: $('Resolve Assistant Identity').first().json.assistantEmoji + ' Building your Backstory presentation... this takes about 2 minutes.', username: $('Resolve Assistant Identity').first().json.assistantName, icon_emoji: $('Resolve Assistant Identity').first().json.assistantEmoji, unfurl_links: false, unfurl_media: false }) }}",
+        "options": {}
+      },
+      "id": "47b5cd89-c2b2-4ed2-a2b9-7876b6925df9",
+      "name": "Pres Post Thinking",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        3680,
+        2544
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "LluVuiMJ8NUbAiG7",
+          "name": "Slackbot Auth Token"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const identity = $('Resolve Assistant Identity').first().json;\nreturn [{ json: {\n  channelId: identity.channelId,\n  presentationPrompt: identity.presentationPrompt || identity.commandText,\n  assistantName: identity.assistantName,\n  assistantEmoji: identity.assistantEmoji\n}}];"
+      },
+      "id": "1f555682-303a-4319-a70f-38580b6bae40",
+      "name": "Prepare Pres Input",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3904,
+        2544
+      ]
+    },
+    {
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "lJypxYaw0BmUsTV8"
+        },
+        "options": {
+          "waitForSubWorkflow": true
+        }
+      },
+      "id": "c4b449c9-cd6e-40d2-82ad-253b8e545e16",
+      "name": "Execute Presentation",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.1,
+      "position": [
+        4128,
+        2544
+      ]
+    }
+  ],
+  "connections": {
+    "Lookup User": {
+      "main": [
+        [
+          {
+            "node": "Resolve Assistant Identity",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Resolve Assistant Identity": {
+      "main": [
+        [
+          {
+            "node": "Is BBR?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Slash Command Webhook": {
+      "main": [
+        [
+          {
+            "node": "Acknowledge Slash Command",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Acknowledge Slash Command": {
+      "main": [
+        [
+          {
+            "node": "Extract Slash Command Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract Slash Command Data": {
+      "main": [
+        [
+          {
+            "node": "Lookup User",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Has Question?": {
+      "main": [
+        [
+          {
+            "node": "Is DM?1",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Post Usage Help",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Is DM?1": {
+      "main": [
+        [
+          {
+            "node": "Open Bot DM",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Post Question to Channel",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "DM Post Thinking1": {
+      "main": [
+        [
+          {
+            "node": "Backstory Agent DM1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Backstory Agent DM1": {
+      "main": [
+        [
+          {
+            "node": "DM Post Answer1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Anthropic Chat Model DM1": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Backstory Agent DM1",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "People.ai MCP DM1": {
+      "ai_tool": [
+        [
+          {
+            "node": "Backstory Agent DM1",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Post Question to Channel": {
+      "main": [
+        [
+          {
+            "node": "Backstory Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Backstory Agent": {
+      "main": [
+        [
+          {
+            "node": "Post Reply in Thread",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Anthropic Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Backstory Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "People.ai MCP": {
+      "ai_tool": [
+        [
+          {
+            "node": "Backstory Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Post Reply in Thread": {
+      "main": [
+        [
+          {
+            "node": "Update Original Message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Open Bot DM": {
+      "main": [
+        [
+          {
+            "node": "DM Post Thinking1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Is BBR?": {
+      "main": [
+        [
+          {
+            "node": "BBR Post Thinking",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Is Presentation?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "BBR Post Thinking": {
+      "main": [
+        [
+          {
+            "node": "Prepare BBR Input",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare BBR Input": {
+      "main": [
+        [
+          {
+            "node": "Execute BBR Workflow",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update Original Message": {
+      "main": [
+        [
+          {
+            "node": "Track Backstory Usage",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "DM Post Answer1": {
+      "main": [
+        [
+          {
+            "node": "Track Backstory Usage",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Conversation Data": {
+      "main": [
+        [
+          {
+            "node": "Create Conversation",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create Conversation": {
+      "main": [
+        [
+          {
+            "node": "Log User Message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Log User Message": {
+      "main": [
+        [
+          {
+            "node": "Log Assistant Message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Track Backstory Usage": {
+      "main": [
+        [
+          {
+            "node": "Prepare Conversation Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Is Presentation?": {
+      "main": [
+        [
+          {
+            "node": "Pres Post Thinking",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Has Question?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Pres Post Thinking": {
+      "main": [
+        [
+          {
+            "node": "Prepare Pres Input",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Pres Input": {
+      "main": [
+        [
+          {
+            "node": "Execute Presentation",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "availableInMCP": false,
+    "callerPolicy": "workflowsFromSameOwner"
+  },
+  "staticData": null,
+  "meta": {
+    "templateCredsSetupCompleted": true
+  },
+  "pinData": {},
+  "versionId": "de42f5e5-4990-4b57-ba9c-85c1165b0c6c",
+  "activeVersionId": "de42f5e5-4990-4b57-ba9c-85c1165b0c6c",
+  "versionCounter": 139,
+  "triggerCount": 1,
+  "shared": [
+    {
+      "updatedAt": "2026-02-20T00:43:49.130Z",
+      "createdAt": "2026-02-20T00:43:49.130Z",
+      "role": "workflow:owner",
+      "workflowId": "Yg5GB1byqB0qD-5wVDOAn",
+      "projectId": "85jtzrEPriGDXgHV",
+      "project": {
+        "updatedAt": "2025-11-24T07:01:19.205Z",
+        "createdAt": "2025-11-24T06:56:53.862Z",
+        "id": "85jtzrEPriGDXgHV",
+        "name": "Scott Metcalf <metcalf.scott@gmail.com>",
+        "type": "personal",
+        "icon": null,
+        "description": null,
+        "creatorId": "bfa163c1-bd53-4c0f-b0ba-8dc3626f7c79"
+      }
+    }
+  ],
+  "tags": [],
+  "activeVersion": {
+    "updatedAt": "2026-03-10T23:54:44.811Z",
+    "createdAt": "2026-03-10T23:54:44.811Z",
+    "versionId": "de42f5e5-4990-4b57-ba9c-85c1165b0c6c",
+    "workflowId": "Yg5GB1byqB0qD-5wVDOAn",
+    "nodes": [
+      {
+        "parameters": {
+          "operation": "getAll",
+          "tableId": "users",
+          "limit": 1,
+          "filters": {
+            "conditions": [
+              {
+                "keyName": "slack_user_id",
+                "condition": "eq",
+                "keyValue": "={{ $json.userId }}"
+              }
+            ]
+          }
+        },
+        "id": "375d4a6e-9f02-4523-9506-07a78fa06942",
+        "name": "Lookup User",
+        "type": "n8n-nodes-base.supabase",
+        "typeVersion": 1,
+        "position": [
+          2784,
+          2396
+        ],
+        "alwaysOutputData": true,
+        "credentials": {
+          "supabaseApi": {
+            "id": "ASRWWkQ0RSMOpNF1",
+            "name": "Supabase account"
+          }
+        }
+      },
+      {
+        "parameters": {
+          "jsCode": "const slackData = $('Extract Slash Command Data').first().json;\nconst lookupResult = $('Lookup User').first().json;\n\n// Resolve assistant identity (user override -> defaults)\nlet assistantName = 'Backstory';\nlet assistantEmoji = ':robot_face:';\nlet assistantPersona = 'direct, action-oriented, conversational';\nlet dbUserId = null;\n\nif (lookupResult && lookupResult.id) {\n  if (lookupResult.assistant_name) assistantName = lookupResult.assistant_name;\n  if (lookupResult.assistant_emoji) assistantEmoji = lookupResult.assistant_emoji;\n  if (lookupResult.assistant_persona) assistantPersona = lookupResult.assistant_persona;\n  dbUserId = lookupResult.id;\n}\n\n\n// BBR/PBR detection \u2014 extract account name\nconst commandText = slackData.commandText || '';\nconst commandLower = commandText.toLowerCase();\nconst bbrPatterns = [/\\bbbr\\b/, /\\bpbr\\b/, /business review/i, /backstory business review/i, /people\\.?ai business review/i];\nconst isBBR = bbrPatterns.some(p => p.test(commandLower));\nlet bbrAccount = null;\nif (isBBR) {\n  bbrAccount = commandText\n    .replace(/\\b(bbr|pbr|business\\s+review|backstory\\s+business\\s+review|people\\.?ai\\s+business\\s+review|for|with|about|on|create|make|generate|build|a|the|presentation|deck|slide|slides)\\b/gi, ' ')\n    .replace(/\\s+/g, ' ')\n    .trim();\n}\n\n// Presentation detection\nconst presPatterns = [/^presentation\\b/i, /^pres\\b/i, /^slides?\\b/i, /^deck\\b/i];\nconst isPresentation = presPatterns.some(p => p.test(commandLower));\nlet presentationPrompt = null;\nif (isPresentation) {\n  presentationPrompt = commandText\n    .replace(/^(presentation|pres|slides?|deck)\\s*/i, '')\n    .trim();\n}\n\n// Build system prompt\nconst systemPrompt = [\n  'You are ' + assistantName + ', a personal sales assistant for ' + slackData.userName + '. You work exclusively for them.',\n  '',\n  'Your personality: ' + assistantPersona,\n  '',\n  'You have access to People.ai MCP tools which give you CRM data, account activity, opportunity details, engagement scores, and communication summaries.',\n  '',\n  '**INSTRUCTIONS:**',\n  '- Use the People.ai MCP tools to answer the user\\'s question with real data.',\n  '- Be concise and actionable \u2014 this response will be posted in Slack.',\n  '- Format your response using Slack markdown: *bold*, _italic_, `code`.',\n  '- Use bullet points sparingly and keep them short.',\n  '- If the question is about a specific account or opportunity, include key metrics (engagement level, amount, stage, etc.).',\n  '- If you can\\'t find the requested data, say so clearly rather than guessing.',\n  '- Keep your total response under 3000 characters so it displays well in Slack.',\n  '- Do NOT use headers with ### or ** section headers ** \u2014 just use *bold* for emphasis.',\n  '- End with a brief actionable recommendation when relevant.',\n\n  '',\n  '## PRESENTATIONS',\n  'If the user asks you to create a presentation, slides, or deck, respond:',\n  '\"I\\'ll create that presentation for you now! Building your Backstory deck...\"',\n  'Do NOT generate pptxgenjs code or any code. The presentation system handles this automatically.',\n].join('\\n');\n\n// Pre-format Slack messages\nconst headerText = assistantEmoji + ' ' + assistantName + '  \u2014  @' + slackData.userName + '\\'s personal assistant:';\nconst thinkingText = headerText + '\\n\\n\u23f3 Thinking...';\nconst answeredText = headerText + '\\n\\n\u2705 Answered in thread';\n\nreturn [{\n  json: {\n    ...slackData,\n    assistantName,\n    assistantEmoji,\n    assistantPersona,\n    dbUserId,\n    systemPrompt,\n    isBBR,\n    bbrAccount,\n    isPresentation,\n    presentationPrompt,\n    headerText,\n    thinkingText,\n    answeredText\n  }\n}];"
+        },
+        "id": "616db660-dbeb-4d69-8117-e1e48cbd382b",
+        "name": "Resolve Assistant Identity",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          3008,
+          2396
+        ]
+      },
+      {
+        "parameters": {
+          "httpMethod": "POST",
+          "path": "bs",
+          "responseMode": "responseNode",
+          "options": {}
+        },
+        "type": "n8n-nodes-base.webhook",
+        "typeVersion": 2.1,
+        "position": [
+          2112,
+          2396
+        ],
+        "id": "649a2ccf-a6d4-43ae-850b-c5a44dbb34bf",
+        "name": "Slash Command Webhook",
+        "webhookId": "bs-webhook"
+      },
+      {
+        "parameters": {
+          "respondWith": "json",
+          "responseBody": "={\n  \"response_type\": \"in_channel\"\n}",
+          "options": {
+            "responseCode": 200
+          }
+        },
+        "id": "b9701869-74dd-408a-976d-25217b469329",
+        "name": "Acknowledge Slash Command",
+        "type": "n8n-nodes-base.respondToWebhook",
+        "typeVersion": 1.1,
+        "position": [
+          2336,
+          2396
+        ]
+      },
+      {
+        "parameters": {
+          "jsCode": "/**\n * Extract Slash Command Data\n */\nconst webhookData = $('Slash Command Webhook').first().json;\n\nfunction findField(fieldName) {\n  if (webhookData[fieldName] !== undefined && webhookData[fieldName] !== '') {\n    return String(webhookData[fieldName]);\n  }\n  if (webhookData.body && typeof webhookData.body === 'object' && webhookData.body[fieldName] !== undefined) {\n    return String(webhookData.body[fieldName]);\n  }\n  if (webhookData.body && typeof webhookData.body === 'string') {\n    const params = new URLSearchParams(webhookData.body);\n    const val = params.get(fieldName);\n    if (val) return val;\n  }\n  if (webhookData.query && webhookData.query[fieldName]) {\n    return String(webhookData.query[fieldName]);\n  }\n  return '';\n}\n\nconst userId = findField('user_id');\nconst userName = findField('user_name');\nconst channelId = findField('channel_id');\nconst responseUrl = findField('response_url');\nconst commandText = findField('text');\n\nreturn [{\n  json: {\n    userId,\n    userName,\n    channelId,\n    responseUrl,\n    commandText\n  }\n}];\n"
+        },
+        "id": "e688c05f-9c96-43d5-ad0d-4845e5e9e540",
+        "name": "Extract Slash Command Data",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          2560,
+          2396
+        ]
+      },
+      {
+        "parameters": {
+          "conditions": {
+            "options": {
+              "caseSensitive": true,
+              "leftValue": "",
+              "typeValidation": "strict"
+            },
+            "conditions": [
+              {
+                "id": "check-empty-text",
+                "leftValue": "={{ $json.commandText }}",
+                "rightValue": "",
+                "operator": {
+                  "type": "string",
+                  "operation": "notEquals"
+                }
+              }
+            ],
+            "combinator": "and"
+          },
+          "options": {}
+        },
+        "id": "30f6a696-15ef-417d-8689-7f73c88ea46b",
+        "name": "Has Question?",
+        "type": "n8n-nodes-base.if",
+        "typeVersion": 2.2,
+        "position": [
+          3680,
+          2204
+        ]
+      },
+      {
+        "parameters": {
+          "method": "POST",
+          "url": "={{ $('Resolve Assistant Identity').first().json.responseUrl }}",
+          "sendHeaders": true,
+          "headerParameters": {
+            "parameters": [
+              {
+                "name": "Content-Type",
+                "value": "application/json"
+              }
+            ]
+          },
+          "sendBody": true,
+          "specifyBody": "json",
+          "jsonBody": "={{ JSON.stringify({ response_type: 'ephemeral', text: '\u2753 Please provide a question. Usage: `/bs What is the status of the Acme Corp account?`', unfurl_links: false, unfurl_media: false }) }}",
+          "options": {}
+        },
+        "id": "04dae063-68e5-49cf-b5d7-c10f39b352d0",
+        "name": "Post Usage Help",
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.2,
+        "position": [
+          3904,
+          2352
+        ]
+      },
+      {
+        "parameters": {
+          "conditions": {
+            "options": {
+              "caseSensitive": true,
+              "leftValue": "",
+              "typeValidation": "strict",
+              "version": 2
+            },
+            "conditions": [
+              {
+                "id": "check-dm-channel",
+                "leftValue": "={{ $json.channelId.startsWith('D') }}",
+                "rightValue": "true",
+                "operator": {
+                  "type": "boolean",
+                  "operation": "true",
+                  "singleValue": true
+                }
+              }
+            ],
+            "combinator": "and"
+          },
+          "options": {}
+        },
+        "id": "80e9a04b-3e94-48bc-a016-de66be0b7dd4",
+        "name": "Is DM?1",
+        "type": "n8n-nodes-base.if",
+        "typeVersion": 2.2,
+        "position": [
+          3904,
+          2108
+        ]
+      },
+      {
+        "parameters": {
+          "method": "POST",
+          "url": "https://slack.com/api/chat.postMessage",
+          "authentication": "genericCredentialType",
+          "genericAuthType": "httpHeaderAuth",
+          "sendHeaders": true,
+          "headerParameters": {
+            "parameters": [
+              {
+                "name": "Content-Type",
+                "value": "application/json"
+              }
+            ]
+          },
+          "sendBody": true,
+          "specifyBody": "json",
+          "jsonBody": "={{ JSON.stringify({ channel: $('Open Bot DM').first().json.channel.id, text: $('Resolve Assistant Identity').first().json.thinkingText, username: $('Resolve Assistant Identity').first().json.assistantName, icon_emoji: $('Resolve Assistant Identity').first().json.assistantEmoji, unfurl_links: false, unfurl_media: false }) }}",
+          "options": {}
+        },
+        "id": "6e7a43b3-9ef1-4001-bbcf-0758a83186b0",
+        "name": "DM Post Thinking1",
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.2,
+        "position": [
+          4416,
+          2256
+        ],
+        "credentials": {
+          "httpHeaderAuth": {
+            "id": "LluVuiMJ8NUbAiG7",
+            "name": "Slackbot Auth Token"
+          }
+        }
+      },
+      {
+        "parameters": {
+          "promptType": "define",
+          "text": "={{ $('Resolve Assistant Identity').first().json.commandText }}",
+          "options": {
+            "systemMessage": "={{ $('Resolve Assistant Identity').first().json.systemPrompt }}"
+          }
+        },
+        "id": "d784dd0f-8a7e-4f34-877d-1523a61a88fb",
+        "name": "Backstory Agent DM1",
+        "type": "@n8n/n8n-nodes-langchain.agent",
+        "typeVersion": 1.7,
+        "position": [
+          4704,
+          2256
+        ]
+      },
+      {
+        "parameters": {
+          "model": {
+            "__rl": true,
+            "mode": "list",
+            "value": "claude-sonnet-4-5-20250929",
+            "cachedResultName": "Claude Sonnet 4.5"
+          },
+          "options": {}
+        },
+        "type": "@n8n/n8n-nodes-langchain.lmChatAnthropic",
+        "typeVersion": 1.3,
+        "position": [
+          4712,
+          2480
+        ],
+        "id": "b2bd7d77-209b-4bf0-badc-5d1b51924488",
+        "name": "Anthropic Chat Model DM1",
+        "credentials": {
+          "anthropicApi": {
+            "id": "rlAz7ZSl4y6AwRUq",
+            "name": "Anthropic account 2"
+          }
+        }
+      },
+      {
+        "parameters": {
+          "endpointUrl": "https://mcp.people.ai/mcp",
+          "authentication": "multipleHeadersAuth",
+          "options": {}
+        },
+        "type": "@n8n/n8n-nodes-langchain.mcpClientTool",
+        "typeVersion": 1.2,
+        "position": [
+          4840,
+          2480
+        ],
+        "id": "887479dd-4362-4a5e-bba9-68e4808fc0c8",
+        "name": "People.ai MCP DM1",
+        "credentials": {
+          "httpMultipleHeadersAuth": {
+            "id": "wvV5pwBeIL7f2vLG",
+            "name": "People.ai MCP Multi-Header"
+          }
+        }
+      },
+      {
+        "parameters": {
+          "method": "POST",
+          "url": "https://slack.com/api/chat.update",
+          "authentication": "genericCredentialType",
+          "genericAuthType": "httpHeaderAuth",
+          "sendHeaders": true,
+          "headerParameters": {
+            "parameters": [
+              {
+                "name": "Content-Type",
+                "value": "application/json"
+              }
+            ]
+          },
+          "sendBody": true,
+          "specifyBody": "json",
+          "jsonBody": "={{ JSON.stringify({ channel: $('Open Bot DM').first().json.channel.id, ts: $('DM Post Thinking1').first().json.ts, text: $('Resolve Assistant Identity').first().json.headerText + '\\n\\n' + ($json.output || $json.text || 'Sorry, I was unable to generate a response. Please try again.') }) }}",
+          "options": {}
+        },
+        "id": "17dd26da-a6e6-4d53-8073-3ea02aef09aa",
+        "name": "DM Post Answer1",
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.2,
+        "position": [
+          5056,
+          2256
+        ],
+        "credentials": {
+          "httpHeaderAuth": {
+            "id": "LluVuiMJ8NUbAiG7",
+            "name": "Slackbot Auth Token"
+          }
+        }
+      },
+      {
+        "parameters": {
+          "method": "POST",
+          "url": "https://slack.com/api/chat.postMessage",
+          "authentication": "genericCredentialType",
+          "genericAuthType": "httpHeaderAuth",
+          "sendHeaders": true,
+          "headerParameters": {
+            "parameters": [
+              {
+                "name": "Content-Type",
+                "value": "application/json"
+              }
+            ]
+          },
+          "sendBody": true,
+          "specifyBody": "json",
+          "jsonBody": "={{ JSON.stringify({ channel: $('Resolve Assistant Identity').first().json.channelId, username: $('Resolve Assistant Identity').first().json.assistantName, icon_emoji: $('Resolve Assistant Identity').first().json.assistantEmoji, text: $('Resolve Assistant Identity').first().json.thinkingText, unfurl_links: false, unfurl_media: false }) }}",
+          "options": {}
+        },
+        "id": "1fa5abf0-612e-480b-b1c0-11a4836a5d9f",
+        "name": "Post Question to Channel",
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.2,
+        "position": [
+          4128,
+          1960
+        ],
+        "credentials": {
+          "httpHeaderAuth": {
+            "id": "LluVuiMJ8NUbAiG7",
+            "name": "Slackbot Auth Token"
+          }
+        }
+      },
+      {
+        "parameters": {
+          "promptType": "define",
+          "text": "={{ $('Resolve Assistant Identity').first().json.commandText }}",
+          "options": {
+            "systemMessage": "={{ $('Resolve Assistant Identity').first().json.systemPrompt }}"
+          }
+        },
+        "id": "92e55fcc-27b1-4a09-9b1f-b248f963ebd1",
+        "name": "Backstory Agent",
+        "type": "@n8n/n8n-nodes-langchain.agent",
+        "typeVersion": 1.7,
+        "position": [
+          4352,
+          1856
+        ]
+      },
+      {
+        "parameters": {
+          "model": {
+            "__rl": true,
+            "mode": "list",
+            "value": "claude-sonnet-4-5-20250929",
+            "cachedResultName": "Claude Sonnet 4.5"
+          },
+          "options": {}
+        },
+        "type": "@n8n/n8n-nodes-langchain.lmChatAnthropic",
+        "typeVersion": 1.3,
+        "position": [
+          4360,
+          2080
+        ],
+        "id": "7542e5d6-11da-401e-96f8-1115d14c7a1e",
+        "name": "Anthropic Chat Model",
+        "credentials": {
+          "anthropicApi": {
+            "id": "rlAz7ZSl4y6AwRUq",
+            "name": "Anthropic account 2"
+          }
+        }
+      },
+      {
+        "parameters": {
+          "endpointUrl": "https://mcp.people.ai/mcp",
+          "authentication": "multipleHeadersAuth",
+          "options": {}
+        },
+        "type": "@n8n/n8n-nodes-langchain.mcpClientTool",
+        "typeVersion": 1.2,
+        "position": [
+          4488,
+          2080
+        ],
+        "id": "f0b2dfc5-8073-4aa8-b413-f6c81a6c6abd",
+        "name": "People.ai MCP",
+        "credentials": {
+          "httpMultipleHeadersAuth": {
+            "id": "wvV5pwBeIL7f2vLG",
+            "name": "People.ai MCP Multi-Header"
+          }
+        }
+      },
+      {
+        "parameters": {
+          "method": "POST",
+          "url": "https://slack.com/api/chat.postMessage",
+          "authentication": "genericCredentialType",
+          "genericAuthType": "httpHeaderAuth",
+          "sendHeaders": true,
+          "headerParameters": {
+            "parameters": [
+              {
+                "name": "Content-Type",
+                "value": "application/json"
+              }
+            ]
+          },
+          "sendBody": true,
+          "bodyParameters": {
+            "parameters": [
+              {
+                "name": "channel",
+                "value": "={{ $('Resolve Assistant Identity').first().json.channelId }}"
+              },
+              {
+                "name": "thread_ts",
+                "value": "={{ $('Post Question to Channel').first().json.ts }}"
+              },
+              {
+                "name": "text",
+                "value": "={{ $json.output || $json.text || 'Sorry, I was unable to generate a response. Please try again.' }}"
+              },
+              {
+                "name": "username",
+                "value": "={{ $('Resolve Assistant Identity').first().json.assistantName }}"
+              },
+              {
+                "name": "icon_emoji",
+                "value": "={{ $('Resolve Assistant Identity').first().json.assistantEmoji }}"
+              },
+              {
+                "name": "unfurl_links",
+                "value": "false"
+              },
+              {
+                "name": "unfurl_media",
+                "value": "false"
+              }
+            ]
+          },
+          "options": {}
+        },
+        "id": "b3fac0bd-dad2-43cd-9696-bf4023a0070f",
+        "name": "Post Reply in Thread",
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.2,
+        "position": [
+          4768,
+          1960
+        ],
+        "credentials": {
+          "httpHeaderAuth": {
+            "id": "LluVuiMJ8NUbAiG7",
+            "name": "Slackbot Auth Token"
+          }
+        }
+      },
+      {
+        "parameters": {
+          "method": "POST",
+          "url": "https://slack.com/api/chat.update",
+          "authentication": "genericCredentialType",
+          "genericAuthType": "httpHeaderAuth",
+          "sendHeaders": true,
+          "headerParameters": {
+            "parameters": [
+              {
+                "name": "Content-Type",
+                "value": "application/json"
+              }
+            ]
+          },
+          "sendBody": true,
+          "bodyParameters": {
+            "parameters": [
+              {
+                "name": "channel",
+                "value": "={{ $('Resolve Assistant Identity').first().json.channelId }}"
+              },
+              {
+                "name": "ts",
+                "value": "={{ $('Post Question to Channel').first().json.ts }}"
+              },
+              {
+                "name": "text",
+                "value": "={{ $('Resolve Assistant Identity').first().json.answeredText }}"
+              },
+              {
+                "name": "unfurl_links",
+                "value": "false"
+              },
+              {
+                "name": "unfurl_media",
+                "value": "false"
+              }
+            ]
+          },
+          "options": {}
+        },
+        "id": "94d8239d-77c2-4fa4-9982-4149754fc0ee",
+        "name": "Update Original Message",
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.2,
+        "position": [
+          5056,
+          1960
+        ],
+        "credentials": {
+          "httpHeaderAuth": {
+            "id": "LluVuiMJ8NUbAiG7",
+            "name": "Slackbot Auth Token"
+          }
+        }
+      },
+      {
+        "parameters": {
+          "method": "POST",
+          "url": "https://slack.com/api/conversations.open",
+          "authentication": "genericCredentialType",
+          "genericAuthType": "httpHeaderAuth",
+          "sendHeaders": true,
+          "headerParameters": {
+            "parameters": [
+              {
+                "name": "Content-Type",
+                "value": "application/json"
+              }
+            ]
+          },
+          "sendBody": true,
+          "specifyBody": "json",
+          "jsonBody": "={{ JSON.stringify({ users: $('Resolve Assistant Identity').first().json.userId }) }}",
+          "options": {}
+        },
+        "id": "f003a2bd-0c88-44f1-a9da-85f1340ea861",
+        "name": "Open Bot DM",
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.2,
+        "position": [
+          4128,
+          2256
+        ],
+        "credentials": {
+          "httpHeaderAuth": {
+            "id": "LluVuiMJ8NUbAiG7",
+            "name": "Slackbot Auth Token"
+          }
+        }
+      },
+      {
+        "parameters": {
+          "conditions": {
+            "options": {
+              "caseSensitive": true,
+              "leftValue": "",
+              "typeValidation": "strict",
+              "version": 2
+            },
+            "conditions": [
+              {
+                "id": "982d6eed-6d43-41cf-a238-a3ff6653464c",
+                "leftValue": "={{ $json.isBBR }}",
+                "rightValue": true,
+                "operator": {
+                  "type": "boolean",
+                  "operation": "true"
+                }
+              }
+            ],
+            "combinator": "and"
+          },
+          "options": {}
+        },
+        "id": "4fef21df-7c00-4a0f-82e9-80a2c365dcd3",
+        "name": "Is BBR?",
+        "type": "n8n-nodes-base.if",
+        "typeVersion": 2.2,
+        "position": [
+          3232,
+          2396
+        ]
+      },
+      {
+        "parameters": {
+          "method": "POST",
+          "url": "https://slack.com/api/conversations.open",
+          "authentication": "genericCredentialType",
+          "genericAuthType": "httpHeaderAuth",
+          "sendHeaders": true,
+          "headerParameters": {
+            "parameters": [
+              {
+                "name": "Content-Type",
+                "value": "application/json"
+              }
+            ]
+          },
+          "sendBody": true,
+          "specifyBody": "json",
+          "jsonBody": "={{ JSON.stringify({ users: $('Resolve Assistant Identity').first().json.userId }) }}",
+          "options": {}
+        },
+        "id": "e01f5e36-053b-4523-9149-68de61ec5619",
+        "name": "BBR Open DM",
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.2,
+        "position": [
+          3456,
+          2736
+        ],
+        "credentials": {
+          "httpHeaderAuth": {
+            "id": "LluVuiMJ8NUbAiG7",
+            "name": "Slackbot Auth Token"
+          }
+        }
+      },
+      {
+        "parameters": {
+          "method": "POST",
+          "url": "https://slack.com/api/chat.postMessage",
+          "authentication": "genericCredentialType",
+          "genericAuthType": "httpHeaderAuth",
+          "sendHeaders": true,
+          "headerParameters": {
+            "parameters": [
+              {
+                "name": "Content-Type",
+                "value": "application/json"
+              }
+            ]
+          },
+          "sendBody": true,
+          "specifyBody": "json",
+          "jsonBody": "={{ JSON.stringify({\n  channel: $('Resolve Assistant Identity').first().json.channelId,\n  text: $('Resolve Assistant Identity').first().json.assistantEmoji + ' ' + $('Resolve Assistant Identity').first().json.assistantName + '\\n\\n\u23f3 Researching ' + $('Resolve Assistant Identity').first().json.bbrAccount + ' for your BBR \u2014 this takes about 30 seconds...',\n  username: $('Resolve Assistant Identity').first().json.assistantName,\n  icon_emoji: $('Resolve Assistant Identity').first().json.assistantEmoji,\n  unfurl_links: false\n}) }}",
+          "options": {}
+        },
+        "id": "f3f6eda5-13fb-4a27-a1e3-4d3085f2a0b9",
+        "name": "BBR Post Thinking",
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.2,
+        "position": [
+          3680,
+          2736
+        ],
+        "credentials": {
+          "httpHeaderAuth": {
+            "id": "LluVuiMJ8NUbAiG7",
+            "name": "Slackbot Auth Token"
+          }
+        }
+      },
+      {
+        "parameters": {
+          "jsCode": "return [{ json: {\n  channelId: $('Resolve Assistant Identity').first().json.channelId,\n  bbrAccount: $('Resolve Assistant Identity').first().json.bbrAccount,\n  assistantName: $('Resolve Assistant Identity').first().json.assistantName,\n  assistantEmoji: $('Resolve Assistant Identity').first().json.assistantEmoji,\n  thinkingTs: $('BBR Post Thinking').first().json.ts\n}}];"
+        },
+        "id": "d49d0efa-433e-42e3-a1ee-f03b515cfabc",
+        "name": "Prepare BBR Input",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          3904,
+          2736
+        ]
+      },
+      {
+        "parameters": {
+          "workflowId": {
+            "__rl": true,
+            "mode": "id",
+            "value": "iQFcam5ePPFCp3QO"
+          },
+          "options": {
+            "waitForSubWorkflow": true
+          }
+        },
+        "id": "48e171f2-ab8f-49f3-b72a-97296bd6e78d",
+        "name": "Execute BBR Workflow",
+        "type": "n8n-nodes-base.executeWorkflow",
+        "typeVersion": 1.1,
+        "position": [
+          4128,
+          2736
+        ]
+      },
+      {
+        "parameters": {
+          "jsCode": "// Gather data for conversation record and message logging.\n// This node is reached by BOTH Channel and DM paths, so we use\n// try/catch to handle whichever upstream nodes are available.\n\nconst identity = $('Resolve Assistant Identity').first().json;\nconst extract = $('Extract Slash Command Data').first().json;\nconst user = $('Lookup User').first().json;\n\n// Get agent output \u2014 try channel agent first, then DM agent\nlet agentOutput = '';\ntry { agentOutput = $('Backstory Agent').first().json.output || ''; } catch(e) {}\nif (!agentOutput) {\n  try { agentOutput = $('Backstory Agent DM1').first().json.output || ''; } catch(e) {}\n}\n\n// Get thread_ts \u2014 channel path uses Post Question to Channel ts,\n// DM path uses DM Post Thinking1 ts\nlet threadTs = '';\ntry { threadTs = $('Post Question to Channel').first().json.ts || ''; } catch(e) {}\nif (!threadTs) {\n  try { threadTs = $('DM Post Thinking1').first().json.ts || ''; } catch(e) {}\n}\n\n// Get the channel ID \u2014 for DM path it's the opened DM channel, for channel path it's from extract\nlet channelId = extract.channelId || '';\ntry {\n  const dmChannel = $('Open Bot DM').first().json.channel;\n  if (dmChannel && dmChannel.id) channelId = dmChannel.id;\n} catch(e) {\n  // Channel path \u2014 use extract.channelId (already set)\n}\n\n// Build agent_config for the conversation record\nconst agentConfig = {\n  systemPrompt: identity.systemPrompt,\n  model: 'claude-sonnet-4-5-20250929',\n  mcpEndpoint: 'https://mcp.people.ai/mcp',\n  assistantName: identity.assistantName || 'Backstory',\n  assistantEmoji: identity.assistantEmoji || ':robot_face:'\n};\n\n// Expiry: 4 hours from now\nconst expiresAt = new Date(Date.now() + 4 * 60 * 60 * 1000).toISOString();\n\nreturn [{\n  json: {\n    organizationId: user.organization_id || null,\n    userId: user.id || null,\n    channelId: channelId,\n    threadTs: threadTs,\n    workflowType: 'backstory',\n    agentConfig: agentConfig,\n    expiresAt: expiresAt,\n    userMessage: extract.commandText || '',\n    assistantMessage: agentOutput\n  }\n}];\n"
+        },
+        "id": "dcef98d3-1565-4f7d-aa98-a3fa0edaedb2",
+        "name": "Prepare Conversation Data",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          5504,
+          2108
+        ],
+        "continueOnFail": true
+      },
+      {
+        "parameters": {
+          "method": "POST",
+          "url": "https://rhrlnkbphxntxxxcrgvv.supabase.co/rest/v1/conversations",
+          "authentication": "predefinedCredentialType",
+          "nodeCredentialType": "supabaseApi",
+          "sendHeaders": true,
+          "headerParameters": {
+            "parameters": [
+              {
+                "name": "Prefer",
+                "value": "return=representation"
+              },
+              {
+                "name": "Content-Type",
+                "value": "application/json"
+              }
+            ]
+          },
+          "sendBody": true,
+          "specifyBody": "json",
+          "jsonBody": "={{ JSON.stringify({\n  organization_id: $json.organizationId,\n  user_id: $json.userId,\n  slack_channel_id: $json.channelId,\n  slack_thread_ts: $json.threadTs,\n  workflow_type: $json.workflowType,\n  agent_config: $json.agentConfig,\n  status: \"active\",\n  expires_at: $json.expiresAt\n}) }}",
+          "options": {}
+        },
+        "id": "29456e1a-525b-49b6-a209-0762f63f756c",
+        "name": "Create Conversation",
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.2,
+        "position": [
+          5728,
+          2108
+        ],
+        "credentials": {
+          "supabaseApi": {
+            "id": "ASRWWkQ0RSMOpNF1",
+            "name": "Supabase account"
+          }
+        },
+        "continueOnFail": true
+      },
+      {
+        "parameters": {
+          "method": "POST",
+          "url": "https://rhrlnkbphxntxxxcrgvv.supabase.co/rest/v1/messages",
+          "authentication": "predefinedCredentialType",
+          "nodeCredentialType": "supabaseApi",
+          "sendHeaders": true,
+          "headerParameters": {
+            "parameters": [
+              {
+                "name": "Prefer",
+                "value": "return=representation"
+              },
+              {
+                "name": "Content-Type",
+                "value": "application/json"
+              }
+            ]
+          },
+          "sendBody": true,
+          "specifyBody": "json",
+          "jsonBody": "={{ JSON.stringify({\n  user_id: $(\"Prepare Conversation Data\").first().json.userId,\n  message_type: \"conversation\",\n  channel: \"slack\",\n  direction: \"inbound\",\n  content: $(\"Prepare Conversation Data\").first().json.userMessage,\n  conversation_id: $json.id,\n  slack_thread_ts: $(\"Prepare Conversation Data\").first().json.threadTs,\n  role: \"user\"\n}) }}",
+          "options": {}
+        },
+        "id": "11ad13b1-9148-4fbe-b7ad-cfa618b3691f",
+        "name": "Log User Message",
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.2,
+        "position": [
+          5952,
+          2108
+        ],
+        "credentials": {
+          "supabaseApi": {
+            "id": "ASRWWkQ0RSMOpNF1",
+            "name": "Supabase account"
+          }
+        },
+        "continueOnFail": true
+      },
+      {
+        "parameters": {
+          "method": "POST",
+          "url": "https://rhrlnkbphxntxxxcrgvv.supabase.co/rest/v1/messages",
+          "authentication": "predefinedCredentialType",
+          "nodeCredentialType": "supabaseApi",
+          "sendHeaders": true,
+          "headerParameters": {
+            "parameters": [
+              {
+                "name": "Prefer",
+                "value": "return=representation"
+              },
+              {
+                "name": "Content-Type",
+                "value": "application/json"
+              }
+            ]
+          },
+          "sendBody": true,
+          "specifyBody": "json",
+          "jsonBody": "={{ JSON.stringify({\n  user_id: $(\"Prepare Conversation Data\").first().json.userId,\n  message_type: \"conversation\",\n  channel: \"slack\",\n  direction: \"outbound\",\n  content: $(\"Prepare Conversation Data\").first().json.assistantMessage,\n  conversation_id: $(\"Create Conversation\").first().json.id,\n  slack_thread_ts: $(\"Prepare Conversation Data\").first().json.threadTs,\n  role: \"assistant\"\n}) }}",
+          "options": {}
+        },
+        "id": "ecb1042c-005c-410c-a0b6-e9b3ec7a60ca",
+        "name": "Log Assistant Message",
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.2,
+        "position": [
+          6176,
+          2108
+        ],
+        "credentials": {
+          "supabaseApi": {
+            "id": "ASRWWkQ0RSMOpNF1",
+            "name": "Supabase account"
+          }
+        },
+        "continueOnFail": true
+      },
+      {
+        "parameters": {
+          "method": "POST",
+          "url": "https://rhrlnkbphxntxxxcrgvv.supabase.co/rest/v1/rpc/track_feature_usage",
+          "authentication": "predefinedCredentialType",
+          "nodeCredentialType": "supabaseApi",
+          "sendHeaders": true,
+          "headerParameters": {
+            "parameters": [
+              {
+                "name": "Content-Type",
+                "value": "application/json"
+              }
+            ]
+          },
+          "sendBody": true,
+          "specifyBody": "json",
+          "jsonBody": "={{ JSON.stringify({ p_user_id: $(\"Resolve Assistant Identity\").first().json.dbUserId, p_feature_id: \"backstory\" }) }}",
+          "options": {}
+        },
+        "id": "d9e33015-2795-4cea-afdc-4d70146add2e",
+        "name": "Track Backstory Usage",
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.2,
+        "position": [
+          5280,
+          2108
+        ],
+        "credentials": {
+          "supabaseApi": {
+            "id": "ASRWWkQ0RSMOpNF1",
+            "name": "Supabase account"
+          }
+        },
+        "continueOnFail": true
+      },
+      {
+        "parameters": {
+          "conditions": {
+            "options": {
+              "caseSensitive": true,
+              "leftValue": "",
+              "typeValidation": "strict",
+              "version": 2
+            },
+            "conditions": [
+              {
+                "id": "9e0e04f8-df56-4a6d-8f54-2a8166579d67",
+                "leftValue": "={{ $json.isPresentation }}",
+                "rightValue": true,
+                "operator": {
+                  "type": "boolean",
+                  "operation": "true"
+                }
+              }
+            ],
+            "combinator": "and"
+          },
+          "options": {}
+        },
+        "id": "50f60e19-ca13-4489-8ca9-d7aae8800508",
+        "name": "Is Presentation?",
+        "type": "n8n-nodes-base.if",
+        "typeVersion": 2.2,
+        "position": [
+          3456,
+          2300
+        ]
+      },
+      {
+        "parameters": {
+          "method": "POST",
+          "url": "https://slack.com/api/chat.postMessage",
+          "authentication": "genericCredentialType",
+          "genericAuthType": "httpHeaderAuth",
+          "sendHeaders": true,
+          "headerParameters": {
+            "parameters": [
+              {
+                "name": "Content-Type",
+                "value": "application/json"
+              }
+            ]
+          },
+          "sendBody": true,
+          "specifyBody": "json",
+          "jsonBody": "={{ JSON.stringify({ channel: $('Resolve Assistant Identity').first().json.channelId, text: $('Resolve Assistant Identity').first().json.assistantEmoji + ' Building your Backstory presentation... this takes about 2 minutes.', username: $('Resolve Assistant Identity').first().json.assistantName, icon_emoji: $('Resolve Assistant Identity').first().json.assistantEmoji, unfurl_links: false, unfurl_media: false }) }}",
+          "options": {}
+        },
+        "id": "47b5cd89-c2b2-4ed2-a2b9-7876b6925df9",
+        "name": "Pres Post Thinking",
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.2,
+        "position": [
+          3680,
+          2544
+        ],
+        "credentials": {
+          "httpHeaderAuth": {
+            "id": "LluVuiMJ8NUbAiG7",
+            "name": "Slackbot Auth Token"
+          }
+        }
+      },
+      {
+        "parameters": {
+          "jsCode": "const identity = $('Resolve Assistant Identity').first().json;\nreturn [{ json: {\n  channelId: identity.channelId,\n  presentationPrompt: identity.presentationPrompt || identity.commandText,\n  assistantName: identity.assistantName,\n  assistantEmoji: identity.assistantEmoji\n}}];"
+        },
+        "id": "1f555682-303a-4319-a70f-38580b6bae40",
+        "name": "Prepare Pres Input",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          3904,
+          2544
+        ]
+      },
+      {
+        "parameters": {
+          "workflowId": {
+            "__rl": true,
+            "mode": "id",
+            "value": "lJypxYaw0BmUsTV8"
+          },
+          "options": {
+            "waitForSubWorkflow": true
+          }
+        },
+        "id": "c4b449c9-cd6e-40d2-82ad-253b8e545e16",
+        "name": "Execute Presentation",
+        "type": "n8n-nodes-base.executeWorkflow",
+        "typeVersion": 1.1,
+        "position": [
+          4128,
+          2544
+        ]
+      }
+    ],
+    "connections": {
+      "Lookup User": {
+        "main": [
+          [
+            {
+              "node": "Resolve Assistant Identity",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Resolve Assistant Identity": {
+        "main": [
+          [
+            {
+              "node": "Is BBR?",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Slash Command Webhook": {
+        "main": [
+          [
+            {
+              "node": "Acknowledge Slash Command",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Acknowledge Slash Command": {
+        "main": [
+          [
+            {
+              "node": "Extract Slash Command Data",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Extract Slash Command Data": {
+        "main": [
+          [
+            {
+              "node": "Lookup User",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Has Question?": {
+        "main": [
+          [
+            {
+              "node": "Is DM?1",
+              "type": "main",
+              "index": 0
+            }
+          ],
+          [
+            {
+              "node": "Post Usage Help",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Is DM?1": {
+        "main": [
+          [
+            {
+              "node": "Open Bot DM",
+              "type": "main",
+              "index": 0
+            }
+          ],
+          [
+            {
+              "node": "Post Question to Channel",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "DM Post Thinking1": {
+        "main": [
+          [
+            {
+              "node": "Backstory Agent DM1",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Backstory Agent DM1": {
+        "main": [
+          [
+            {
+              "node": "DM Post Answer1",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Anthropic Chat Model DM1": {
+        "ai_languageModel": [
+          [
+            {
+              "node": "Backstory Agent DM1",
+              "type": "ai_languageModel",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "People.ai MCP DM1": {
+        "ai_tool": [
+          [
+            {
+              "node": "Backstory Agent DM1",
+              "type": "ai_tool",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Post Question to Channel": {
+        "main": [
+          [
+            {
+              "node": "Backstory Agent",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Backstory Agent": {
+        "main": [
+          [
+            {
+              "node": "Post Reply in Thread",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Anthropic Chat Model": {
+        "ai_languageModel": [
+          [
+            {
+              "node": "Backstory Agent",
+              "type": "ai_languageModel",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "People.ai MCP": {
+        "ai_tool": [
+          [
+            {
+              "node": "Backstory Agent",
+              "type": "ai_tool",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Post Reply in Thread": {
+        "main": [
+          [
+            {
+              "node": "Update Original Message",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Open Bot DM": {
+        "main": [
+          [
+            {
+              "node": "DM Post Thinking1",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Is BBR?": {
+        "main": [
+          [
+            {
+              "node": "BBR Post Thinking",
+              "type": "main",
+              "index": 0
+            }
+          ],
+          [
+            {
+              "node": "Is Presentation?",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "BBR Post Thinking": {
+        "main": [
+          [
+            {
+              "node": "Prepare BBR Input",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Prepare BBR Input": {
+        "main": [
+          [
+            {
+              "node": "Execute BBR Workflow",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Update Original Message": {
+        "main": [
+          [
+            {
+              "node": "Track Backstory Usage",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "DM Post Answer1": {
+        "main": [
+          [
+            {
+              "node": "Track Backstory Usage",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Prepare Conversation Data": {
+        "main": [
+          [
+            {
+              "node": "Create Conversation",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Create Conversation": {
+        "main": [
+          [
+            {
+              "node": "Log User Message",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Log User Message": {
+        "main": [
+          [
+            {
+              "node": "Log Assistant Message",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Track Backstory Usage": {
+        "main": [
+          [
+            {
+              "node": "Prepare Conversation Data",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Is Presentation?": {
+        "main": [
+          [
+            {
+              "node": "Pres Post Thinking",
+              "type": "main",
+              "index": 0
+            }
+          ],
+          [
+            {
+              "node": "Has Question?",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Pres Post Thinking": {
+        "main": [
+          [
+            {
+              "node": "Prepare Pres Input",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Prepare Pres Input": {
+        "main": [
+          [
+            {
+              "node": "Execute Presentation",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      }
+    },
+    "authors": "Scott Metcalf",
+    "name": null,
+    "description": null,
+    "autosaved": false,
+    "workflowPublishHistory": [
+      {
+        "createdAt": "2026-03-10T23:54:44.892Z",
+        "id": 936,
+        "workflowId": "Yg5GB1byqB0qD-5wVDOAn",
+        "versionId": "de42f5e5-4990-4b57-ba9c-85c1165b0c6c",
+        "event": "activated",
+        "userId": "bfa163c1-bd53-4c0f-b0ba-8dc3626f7c79"
+      },
+      {
+        "createdAt": "2026-03-10T23:54:44.870Z",
+        "id": 935,
+        "workflowId": "Yg5GB1byqB0qD-5wVDOAn",
+        "versionId": "de42f5e5-4990-4b57-ba9c-85c1165b0c6c",
+        "event": "deactivated",
+        "userId": "bfa163c1-bd53-4c0f-b0ba-8dc3626f7c79"
+      }
+    ]
+  }
+}

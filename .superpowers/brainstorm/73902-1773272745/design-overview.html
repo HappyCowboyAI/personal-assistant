@@ -1,0 +1,299 @@
+<h2>OppAssistant Admin Dashboard — Design Overview</h2>
+<p class="subtitle">Streamlit app with sidebar navigation, 6 pages, Supabase-backed</p>
+
+<!-- System Health Page -->
+<div class="section">
+  <h3>Page 1: System Health</h3>
+  <div class="mockup">
+    <div class="mockup-header">System Health — Operational Overview</div>
+    <div class="mockup-body" style="font-size: 12px;">
+      <div style="display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 8px; margin-bottom: 16px;">
+        <div style="background: #0f172a; border-radius: 8px; padding: 12px; text-align: center; border-left: 3px solid #34d399;">
+          <div style="font-size: 10px; color: #94a3b8;">Active Workflows</div>
+          <div style="font-size: 22px; font-weight: bold; color: #34d399;">12/14</div>
+        </div>
+        <div style="background: #0f172a; border-radius: 8px; padding: 12px; text-align: center; border-left: 3px solid #60a5fa;">
+          <div style="font-size: 10px; color: #94a3b8;">Executions (24h)</div>
+          <div style="font-size: 22px; font-weight: bold; color: #60a5fa;">1,247</div>
+        </div>
+        <div style="background: #0f172a; border-radius: 8px; padding: 12px; text-align: center; border-left: 3px solid #fbbf24;">
+          <div style="font-size: 10px; color: #94a3b8;">Errors (24h)</div>
+          <div style="font-size: 22px; font-weight: bold; color: #fbbf24;">3</div>
+        </div>
+        <div style="background: #0f172a; border-radius: 8px; padding: 12px; text-align: center; border-left: 3px solid #34d399;">
+          <div style="font-size: 10px; color: #94a3b8;">Messages Delivered</div>
+          <div style="font-size: 22px; font-weight: bold; color: #34d399;">847</div>
+        </div>
+      </div>
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+        <div style="background: #0f172a; border-radius: 8px; padding: 12px;">
+          <div style="font-size: 11px; color: #94a3b8; margin-bottom: 8px; font-weight: bold;">Workflow Status</div>
+          <div style="font-size: 11px;">
+            <div style="display: flex; justify-content: space-between; padding: 5px 0; border-bottom: 1px solid #1e293b;">
+              <span>Sales Digest</span><span style="color: #34d399;">● Active</span><span style="color: #64748b;">Last: 6:02am</span>
+            </div>
+            <div style="display: flex; justify-content: space-between; padding: 5px 0; border-bottom: 1px solid #1e293b;">
+              <span>Meeting Prep Cron</span><span style="color: #34d399;">● Active</span><span style="color: #64748b;">Last: 5:45am</span>
+            </div>
+            <div style="display: flex; justify-content: space-between; padding: 5px 0; border-bottom: 1px solid #1e293b;">
+              <span>Follow-up Cron</span><span style="color: #34d399;">● Active</span><span style="color: #64748b;">Last: 5:30am</span>
+            </div>
+            <div style="display: flex; justify-content: space-between; padding: 5px 0; border-bottom: 1px solid #1e293b;">
+              <span>Silence Contract Monitor</span><span style="color: #34d399;">● Active</span><span style="color: #64748b;">Last: 6:30am</span>
+            </div>
+            <div style="display: flex; justify-content: space-between; padding: 5px 0;">
+              <span>Deal Watch Cron</span><span style="color: #34d399;">● Active</span><span style="color: #64748b;">Last: 7:00am</span>
+            </div>
+          </div>
+        </div>
+        <div style="background: #0f172a; border-radius: 8px; padding: 12px;">
+          <div style="font-size: 11px; color: #94a3b8; margin-bottom: 8px; font-weight: bold;">Recent Errors</div>
+          <div style="font-size: 11px;">
+            <div style="padding: 5px 0; border-bottom: 1px solid #1e293b;">
+              <div style="color: #fbbf24;">Follow-up Cron — NodeOperationError</div>
+              <div style="color: #64748b; font-size: 10px;">2026-03-11 5:30am · Execution #18502</div>
+            </div>
+            <div style="padding: 5px 0; border-bottom: 1px solid #1e293b;">
+              <div style="color: #fbbf24;">Meeting Brief — Timeout</div>
+              <div style="color: #64748b; font-size: 10px;">2026-03-11 4:45am · Execution #18497</div>
+            </div>
+            <div style="padding: 5px 0;">
+              <div style="color: #fbbf24;">Slack Events Handler — Rate Limited</div>
+              <div style="color: #64748b; font-size: 10px;">2026-03-10 2:15pm · Execution #18411</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Message Activity Page -->
+<div class="section">
+  <h3>Page 3: Message Activity</h3>
+  <div class="mockup">
+    <div class="mockup-header">Message Activity — Volume & Trends</div>
+    <div class="mockup-body" style="font-size: 12px;">
+      <div style="display: flex; gap: 8px; margin-bottom: 12px; align-items: center;">
+        <div style="background: #0f172a; border: 1px solid #334155; border-radius: 4px; padding: 6px 12px; font-size: 11px;">
+          Date range: <span style="color: #60a5fa;">Last 7 days ▾</span>
+        </div>
+        <div style="background: #0f172a; border: 1px solid #334155; border-radius: 4px; padding: 6px 12px; font-size: 11px;">
+          Type: <span style="color: #60a5fa;">All ▾</span>
+        </div>
+        <div style="background: #0f172a; border: 1px solid #334155; border-radius: 4px; padding: 6px 12px; font-size: 11px;">
+          User: <span style="color: #60a5fa;">All Users ▾</span>
+        </div>
+      </div>
+      <div style="display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 8px; margin-bottom: 12px;">
+        <div style="background: #0f172a; border-radius: 6px; padding: 10px; text-align: center;">
+          <div style="font-size: 18px; font-weight: bold; color: #60a5fa;">847</div>
+          <div style="font-size: 10px; color: #94a3b8;">Total Messages</div>
+        </div>
+        <div style="background: #0f172a; border-radius: 6px; padding: 10px; text-align: center;">
+          <div style="font-size: 18px; font-weight: bold; color: #34d399;">121</div>
+          <div style="font-size: 10px; color: #94a3b8;">Avg/Day</div>
+        </div>
+        <div style="background: #0f172a; border-radius: 6px; padding: 10px; text-align: center;">
+          <div style="font-size: 18px; font-weight: bold; color: #c084fc;">12</div>
+          <div style="font-size: 10px; color: #94a3b8;">Active Users</div>
+        </div>
+        <div style="background: #0f172a; border-radius: 6px; padding: 10px; text-align: center;">
+          <div style="font-size: 18px; font-weight: bold; color: #fbbf24;">3.2</div>
+          <div style="font-size: 10px; color: #94a3b8;">Avg Turns/Convo</div>
+        </div>
+      </div>
+      <div style="background: #0f172a; border-radius: 8px; padding: 12px; margin-bottom: 12px;">
+        <div style="font-size: 11px; color: #94a3b8; margin-bottom: 8px;">Daily Volume by Type</div>
+        <div style="display: flex; align-items: flex-end; gap: 6px; height: 60px;">
+          <div style="width: 13%; display: flex; flex-direction: column; gap: 1px; align-self: flex-end;">
+            <div style="background: #3b82f6; height: 20px; border-radius: 2px 2px 0 0;"></div>
+            <div style="background: #34d399; height: 12px;"></div>
+            <div style="background: #fbbf24; height: 8px;"></div>
+            <div style="background: #c084fc; height: 6px; border-radius: 0 0 2px 2px;"></div>
+          </div>
+          <div style="width: 13%; display: flex; flex-direction: column; gap: 1px; align-self: flex-end;">
+            <div style="background: #3b82f6; height: 24px; border-radius: 2px 2px 0 0;"></div>
+            <div style="background: #34d399; height: 14px;"></div>
+            <div style="background: #fbbf24; height: 10px;"></div>
+            <div style="background: #c084fc; height: 8px; border-radius: 0 0 2px 2px;"></div>
+          </div>
+          <div style="width: 13%; display: flex; flex-direction: column; gap: 1px; align-self: flex-end;">
+            <div style="background: #3b82f6; height: 18px; border-radius: 2px 2px 0 0;"></div>
+            <div style="background: #34d399; height: 10px;"></div>
+            <div style="background: #fbbf24; height: 6px;"></div>
+            <div style="background: #c084fc; height: 4px; border-radius: 0 0 2px 2px;"></div>
+          </div>
+          <div style="width: 13%; display: flex; flex-direction: column; gap: 1px; align-self: flex-end;">
+            <div style="background: #3b82f6; height: 28px; border-radius: 2px 2px 0 0;"></div>
+            <div style="background: #34d399; height: 16px;"></div>
+            <div style="background: #fbbf24; height: 12px;"></div>
+            <div style="background: #c084fc; height: 10px; border-radius: 0 0 2px 2px;"></div>
+          </div>
+          <div style="width: 13%; display: flex; flex-direction: column; gap: 1px; align-self: flex-end;">
+            <div style="background: #3b82f6; height: 22px; border-radius: 2px 2px 0 0;"></div>
+            <div style="background: #34d399; height: 14px;"></div>
+            <div style="background: #fbbf24; height: 8px;"></div>
+            <div style="background: #c084fc; height: 6px; border-radius: 0 0 2px 2px;"></div>
+          </div>
+          <div style="width: 13%; display: flex; flex-direction: column; gap: 1px; align-self: flex-end;">
+            <div style="background: #3b82f6; height: 30px; border-radius: 2px 2px 0 0;"></div>
+            <div style="background: #34d399; height: 18px;"></div>
+            <div style="background: #fbbf24; height: 10px;"></div>
+            <div style="background: #c084fc; height: 8px; border-radius: 0 0 2px 2px;"></div>
+          </div>
+          <div style="width: 13%; display: flex; flex-direction: column; gap: 1px; align-self: flex-end;">
+            <div style="background: #3b82f680; height: 16px; border-radius: 2px 2px 0 0;"></div>
+            <div style="background: #34d39980; height: 8px;"></div>
+            <div style="background: #fbbf2480; height: 4px;"></div>
+            <div style="background: #c084fc80; height: 4px; border-radius: 0 0 2px 2px;"></div>
+          </div>
+        </div>
+        <div style="display: flex; gap: 16px; margin-top: 8px; font-size: 10px; color: #94a3b8;">
+          <span><span style="color: #3b82f6;">■</span> Digest</span>
+          <span><span style="color: #34d399;">■</span> Meeting Prep</span>
+          <span><span style="color: #fbbf24;">■</span> Alerts</span>
+          <span><span style="color: #c084fc;">■</span> Conversations</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Message Inspector Detail View -->
+<div class="section">
+  <h3>Page 3b: Message Inspector (Detail View)</h3>
+  <div class="mockup">
+    <div class="mockup-header">Message Inspector — Scott Metcalf</div>
+    <div class="mockup-body" style="font-size: 12px;">
+      <div style="display: flex; gap: 8px; margin-bottom: 12px; align-items: center;">
+        <div style="background: #0f172a; border: 1px solid #334155; border-radius: 4px; padding: 6px 12px; font-size: 11px;">
+          User: <span style="color: #60a5fa;">Scott Metcalf ▾</span>
+        </div>
+        <div style="background: #0f172a; border: 1px solid #334155; border-radius: 4px; padding: 6px 12px; font-size: 11px;">
+          Type: <span style="color: #60a5fa;">All ▾</span>
+        </div>
+        <div style="background: #0f172a; border: 1px solid #334155; border-radius: 4px; padding: 6px 12px; font-size: 11px;">
+          Date: <span style="color: #60a5fa;">Today ▾</span>
+        </div>
+      </div>
+      <div style="background: #0f172a; border-radius: 8px; padding: 12px;">
+        <!-- Conversation thread -->
+        <div style="margin-bottom: 12px; padding-bottom: 12px; border-bottom: 1px solid #1e293b;">
+          <div style="display: flex; justify-content: space-between; margin-bottom: 6px;">
+            <span style="color: #60a5fa; font-weight: bold; font-size: 11px;">🗣️ User Prompt</span>
+            <span style="color: #64748b; font-size: 10px;">2:47 PM · conversation</span>
+          </div>
+          <div style="background: #1e293b; border-radius: 6px; padding: 10px; color: #e2e8f0; font-size: 11px;">
+            meet mitel
+          </div>
+        </div>
+        <div style="margin-bottom: 12px; padding-bottom: 12px; border-bottom: 1px solid #1e293b;">
+          <div style="display: flex; justify-content: space-between; margin-bottom: 6px;">
+            <span style="color: #34d399; font-weight: bold; font-size: 11px;">🤖 Assistant Response</span>
+            <span style="color: #64748b; font-size: 10px;">2:47 PM · meeting_prep</span>
+          </div>
+          <div style="background: #1e293b; border-radius: 6px; padding: 10px; color: #e2e8f0; font-size: 11px;">
+            ⚡ Meeting Prep — Mitel Networks — People.ai / Mitel - MCP discussion<br><br>
+            ✅ Strong momentum with UK expansion meeting tomorrow...<br>
+            <span style="color: #64748b;">[truncated — click to expand]</span>
+          </div>
+        </div>
+        <div style="margin-bottom: 12px; padding-bottom: 12px; border-bottom: 1px solid #1e293b;">
+          <div style="display: flex; justify-content: space-between; margin-bottom: 6px;">
+            <span style="color: #60a5fa; font-weight: bold; font-size: 11px;">🗣️ User Prompt</span>
+            <span style="color: #64748b; font-size: 10px;">1:15 PM · conversation</span>
+          </div>
+          <div style="background: #1e293b; border-radius: 6px; padding: 10px; color: #e2e8f0; font-size: 11px;">
+            what's happening with the DHL deal?
+          </div>
+        </div>
+        <div style="margin-bottom: 12px; padding-bottom: 12px; border-bottom: 1px solid #1e293b;">
+          <div style="display: flex; justify-content: space-between; margin-bottom: 6px;">
+            <span style="color: #34d399; font-weight: bold; font-size: 11px;">🤖 Assistant Response</span>
+            <span style="color: #64748b; font-size: 10px;">1:15 PM · conversation</span>
+          </div>
+          <div style="background: #1e293b; border-radius: 6px; padding: 10px; color: #e2e8f0; font-size: 11px;">
+            DHL's CSI deal ($180K) is in Negotiation stage with strong engagement...<br>
+            <span style="color: #64748b;">[truncated — click to expand]</span>
+          </div>
+        </div>
+        <div>
+          <div style="display: flex; justify-content: space-between; margin-bottom: 6px;">
+            <span style="color: #34d399; font-weight: bold; font-size: 11px;">🤖 Scheduled Message</span>
+            <span style="color: #64748b; font-size: 10px;">6:02 AM · digest</span>
+          </div>
+          <div style="background: #1e293b; border-radius: 6px; padding: 10px; color: #e2e8f0; font-size: 11px;">
+            🚀 Good morning, Scott! Your Tuesday pipeline check...<br>
+            <span style="color: #64748b;">[truncated — click to expand]</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- User Adoption Page -->
+<div class="section">
+  <h3>Page 2: User Adoption</h3>
+  <div class="mockup">
+    <div class="mockup-header">User Adoption — Onboarding & Engagement</div>
+    <div class="mockup-body" style="font-size: 12px;">
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px;">
+        <div style="background: #0f172a; border-radius: 8px; padding: 12px;">
+          <div style="font-size: 11px; color: #94a3b8; margin-bottom: 8px; font-weight: bold;">Onboarding Funnel</div>
+          <div style="font-size: 11px;">
+            <div style="margin-bottom: 6px;">
+              <div style="display: flex; justify-content: space-between; margin-bottom: 2px;"><span>New</span><span>18</span></div>
+              <div style="background: #334155; border-radius: 2px; height: 6px;"><div style="background: #60a5fa; height: 100%; width: 100%; border-radius: 2px;"></div></div>
+            </div>
+            <div style="margin-bottom: 6px;">
+              <div style="display: flex; justify-content: space-between; margin-bottom: 2px;"><span>Awaiting Name</span><span>3</span></div>
+              <div style="background: #334155; border-radius: 2px; height: 6px;"><div style="background: #fbbf24; height: 100%; width: 17%; border-radius: 2px;"></div></div>
+            </div>
+            <div style="margin-bottom: 6px;">
+              <div style="display: flex; justify-content: space-between; margin-bottom: 2px;"><span>Awaiting Emoji</span><span>1</span></div>
+              <div style="background: #334155; border-radius: 2px; height: 6px;"><div style="background: #fbbf24; height: 100%; width: 6%; border-radius: 2px;"></div></div>
+            </div>
+            <div>
+              <div style="display: flex; justify-content: space-between; margin-bottom: 2px;"><span>Complete</span><span>14</span></div>
+              <div style="background: #334155; border-radius: 2px; height: 6px;"><div style="background: #34d399; height: 100%; width: 78%; border-radius: 2px;"></div></div>
+            </div>
+          </div>
+        </div>
+        <div style="background: #0f172a; border-radius: 8px; padding: 12px;">
+          <div style="font-size: 11px; color: #94a3b8; margin-bottom: 8px; font-weight: bold;">Users Table</div>
+          <div style="font-size: 10px;">
+            <div style="display: grid; grid-template-columns: 2fr 1fr 1fr 1fr; gap: 4px; padding: 4px 0; border-bottom: 1px solid #334155; color: #64748b; font-weight: bold;">
+              <span>Name</span><span>State</span><span>Scope</span><span>Last Active</span>
+            </div>
+            <div style="display: grid; grid-template-columns: 2fr 1fr 1fr 1fr; gap: 4px; padding: 4px 0; border-bottom: 1px solid #1e293b;">
+              <span style="color: #60a5fa;">Scott Metcalf</span><span style="color: #34d399;">complete</span><span>my_deals</span><span>Today</span>
+            </div>
+            <div style="display: grid; grid-template-columns: 2fr 1fr 1fr 1fr; gap: 4px; padding: 4px 0; border-bottom: 1px solid #1e293b;">
+              <span style="color: #60a5fa;">Bo Holden</span><span style="color: #34d399;">complete</span><span>my_deals</span><span>Today</span>
+            </div>
+            <div style="display: grid; grid-template-columns: 2fr 1fr 1fr 1fr; gap: 4px; padding: 4px 0; border-bottom: 1px solid #1e293b;">
+              <span style="color: #60a5fa;">Kole Franklin</span><span style="color: #34d399;">complete</span><span>my_deals</span><span>Yesterday</span>
+            </div>
+            <div style="display: grid; grid-template-columns: 2fr 1fr 1fr 1fr; gap: 4px; padding: 4px 0;">
+              <span style="color: #60a5fa;">Jeff Palin</span><span style="color: #fbbf24;">awaiting_name</span><span>—</span><span>Mar 8</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div style="margin-top: 24px; padding: 16px; background: #1e293b; border-radius: 8px;">
+  <h3 style="margin-top: 0;">Technical Summary</h3>
+  <div style="font-size: 13px; color: #cbd5e1;">
+    <div style="margin-bottom: 8px;"><strong style="color: #60a5fa;">Stack:</strong> Python + Streamlit + Supabase Python client</div>
+    <div style="margin-bottom: 8px;"><strong style="color: #60a5fa;">Layout:</strong> Sidebar navigation with 6 pages</div>
+    <div style="margin-bottom: 8px;"><strong style="color: #60a5fa;">Data:</strong> Direct Supabase queries (service role key, local only)</div>
+    <div style="margin-bottom: 8px;"><strong style="color: #60a5fa;">n8n Health:</strong> n8n REST API for workflow status + execution history</div>
+    <div style="margin-bottom: 8px;"><strong style="color: #60a5fa;">Charts:</strong> Streamlit native charts (st.bar_chart, st.line_chart) + Plotly for richer viz</div>
+    <div><strong style="color: #60a5fa;">Run:</strong> <code style="background: #0f172a; padding: 2px 6px; border-radius: 3px;">streamlit run admin/dashboard.py</code></div>
+  </div>
+</div>

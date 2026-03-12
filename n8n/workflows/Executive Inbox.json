@@ -1,0 +1,3204 @@
+{
+  "updatedAt": "2026-03-02T18:30:03.910Z",
+  "createdAt": "2026-03-01T20:42:59.804Z",
+  "id": "Wgjmfu82wyuwipVN",
+  "name": "Executive Inbox",
+  "description": null,
+  "active": true,
+  "isArchived": false,
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "minutes",
+              "minutesInterval": 15
+            }
+          ]
+        }
+      },
+      "id": "bc8328a2-c145-4068-b61e-c7cf9d302a53",
+      "name": "Schedule Trigger",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        -1136,
+        336
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "returnAll": true,
+        "simple": false,
+        "filters": {
+          "q": "to:scott.metcalf+assistant@people.ai in:inbox",
+          "readStatus": "unread"
+        },
+        "options": {}
+      },
+      "id": "9b14907c-0205-4a49-9a14-cc8cd43235a3",
+      "name": "Get Unread Emails",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [
+        -912,
+        336
+      ],
+      "webhookId": "ee1d1607-89e8-4391-bb24-b46f3d4523da",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "YizHiiClW81mlB3Q",
+          "name": "Gmail scott.metcalf@people.ai"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "id": "afd82f6c-dd7a-4923-9310-c405aeaea512",
+      "name": "Process Each Email",
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        -688,
+        336
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// \u2500\u2500 Parse Entry Point \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n// simple:false -> n8n provides email.subject, email.from, email.to, email.text\n// email.from and email.to are nodemailer objects: {value:[{address,name}], text}\nconst email = $input.first().json;\n\nconst subject = email.subject || '';\n\n// \u2500\u2500 helpers: handle both string and nodemailer object format \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\nfunction extractAddr(field) {\n  if (!field) return '';\n  if (typeof field === 'string') {\n    const m = field.match(/<([^>]+)>/);\n    return (m ? m[1] : field).trim();\n  }\n  // nodemailer object: {value:[{address,name}], text}\n  if (field.value && field.value[0] && field.value[0].address) return field.value[0].address.trim();\n  if (field.text) {\n    const m = field.text.match(/<([^>]+)>/);\n    return (m ? m[1] : field.text).trim();\n  }\n  return String(field).trim();\n}\nfunction extractName(field) {\n  if (!field) return '';\n  if (typeof field === 'string') {\n    const m = field.match(/^([^<]+)</);\n    return m ? m[1].trim() : '';\n  }\n  if (field.value && field.value[0] && field.value[0].name) return field.value[0].name.trim();\n  if (field.text) {\n    const m = field.text.match(/^([^<]+)</);\n    return m ? m[1].trim() : '';\n  }\n  return '';\n}\n\nconst SCOTT    = ['scott.metcalf@people.ai', 'metcalf.scott@gmail.com'];\nconst PERSONAL = ['gmail.com','google.com','googlemail.com','icloud.com',\n                  'yahoo.com','hotmail.com','outlook.com','live.com'];\n\nconst fromEmail = extractAddr(email.from);\nconst fromName  = extractName(email.from);\nconst toEmail   = extractAddr(email.to).toLowerCase();\n\n// Body is decoded by n8n with simple:false\nfunction cleanHtml(h) {\n  if (!h || typeof h !== 'string') return '';\n  return h.replace(/&nbsp;/g,' ').replace(/&amp;/g,'&').replace(/&lt;/g,'<').replace(/&gt;/g,'>')\n    .replace(/<br\\s*\\/?>/gi,'\\n').replace(/<\\/(p|div)>/gi,'\\n').replace(/<[^>]+>/g,'')\n    .replace(/\\n{3,}/g,'\\n\\n').trim();\n}\nconst body = email.text || cleanHtml(email.textAsHtml || email.html) || email.snippet || '';\n\nconst isFromScott   = SCOTT.some(e => fromEmail.toLowerCase() === e.toLowerCase());\n// Primary: Scott emailing his own +assistant alias = unambiguous self-forward\nconst isSelfForward = isFromScott && toEmail.includes('+assistant@');\n// Fallback: subject/body patterns for edge cases\nconst isFwdSubject  = /^fw[d]?\\s*:/i.test(subject);\nconst isFwdBody     = /-{4,}\\s*forwarded\\s+message|begin\\s+forwarded\\s+message/i.test(body);\nconst isForwarded   = isSelfForward || (isFromScott && (isFwdSubject || isFwdBody));\n\nlet senderEmail = fromEmail, senderName = fromName;\nlet senderDomain = (fromEmail.split('@')[1] || '').toLowerCase();\nlet originalMessageId = null, originalSubject = subject, originalBody = body;\nlet originalSenderEmail = '', ccRecipients = '', originalCcLine = '';\n\nif (isForwarded) {\n  const fwdIdx = body.search(/-{4,}\\s*forwarded\\s+message|begin\\s+forwarded\\s+message/i);\n  const fwdBlock = fwdIdx >= 0 ? body.substring(fwdIdx) : body;\n\n  // From: \"Name\" <email> \u2014 stop at newline\n  const fm = fwdBlock.match(/From:\\s*(?:\"?([^\"<\\n\\r]+?)\"?\\s*)?<([^>\\n\\r]+)>/i);\n  if (fm) {\n    senderName          = (fm[1] || '').trim();\n    senderEmail         = fm[2].trim();\n    senderDomain        = (senderEmail.split('@')[1] || '').toLowerCase();\n    originalSenderEmail = senderEmail;\n  }\n\n  // Message-ID \u2014 stop at newline\n  const mm = fwdBlock.match(/Message-ID:\\s*<([^>\\n\\r]+)>/i);\n  if (mm) originalMessageId = mm[1].trim();\n\n  // Subject \u2014 stop at end-of-line only (no consuming next header fields)\n  const sm = fwdBlock.match(/Subject:\\s*([^\\n\\r]+)/i);\n  if (sm) originalSubject = sm[1].trim().replace(/^fw[d]?\\s*:/i, '').trim();\n\n  // Body = everything after the blank-line separator in the forwarded block\n  const bodyStart = fwdBlock.indexOf('\\n\\n');\n  originalBody = (bodyStart >= 0 ? fwdBlock.substring(bodyStart) : fwdBlock).trim();\n\n  // Parse all participants from To: and Cc: lines in the forwarded block\n  // Filter out Scott's own addresses \u2014 the remaining are CC recipients in the reply\n  function parseAddressList(line) {\n    if (!line) return [];\n    const addrs = [];\n    const re = /(?:\"?([^\"<,\\n\\r]*?)\"?\\s*)?<([^>\\n\\r]+)>|([\\w._%+\\-]+@[\\w.\\-]+\\.[a-zA-Z]{2,})/g;\n    let m;\n    while ((m = re.exec(line)) !== null) {\n      const email = (m[2] || m[3] || '').trim().toLowerCase();\n      const name  = (m[1] || '').trim();\n      if (email) addrs.push({ name, email });\n    }\n    return addrs;\n  }\n  // Headers may be indented with spaces; handle both Cc: and CC:\n  const fwdToLine = (fwdBlock.match(/^\\s*To:\\s*([^\\n\\r]+)/im) || [])[1] || '';\n  const fwdCcLine = (fwdBlock.match(/^\\s*CC?:\\s*([^\\n\\r]+)/im) || [])[1] || '';\n  originalCcLine = fwdCcLine;\n  const fwdAllParticipants = [...parseAddressList(fwdToLine), ...parseAddressList(fwdCcLine)];\n  ccRecipients = fwdAllParticipants\n    .filter(a => !SCOTT.some(s => a.email === s.toLowerCase()))\n    .filter(a => a.email !== senderEmail.toLowerCase())\n    .map(a => a.name ? a.name + ' <' + a.email + '>' : a.email)\n    .join(', ');\n}\n\nconst isAssistantAlias = toEmail.includes('+assistant@');\nconst isCustomer = !PERSONAL.includes(senderDomain);\n\n// forwardedMessageId = Gmail message ID of the +assistant copy (to archive from INBOX)\nlet forwardedMessageId = null, forwardedThreadId = null, originalThreadId = email.threadId;\nif (isForwarded) {\n  forwardedMessageId = email.id;       // the +assistant email's own Gmail message ID\n  forwardedThreadId  = email.threadId;\n  originalThreadId   = null;\n}\n\nreturn [{\n  json: {\n    ...email,\n    subject: originalSubject || subject,\n    isForwarded,\n    isAssistantAlias,\n    isCustomer,\n    senderEmail,\n    senderName,\n    senderDomain,\n    originalSenderEmail,\n    originalMessageId,\n    originalSubject,\n    originalBody,\n    ccRecipients,\n    originalCcLine,\n    forwardedMessageId,\n    forwardedThreadId,\n    originalThreadId,\n  }\n}];\n"
+      },
+      "id": "5faf4133-3e0d-403b-bc84-63876436f99d",
+      "name": "Parse Entry Point",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -464,
+        -512
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "aa5cb7ee-6123-4e20-bca0-fbb50d4eda2e",
+              "leftValue": "={{ $json.isForwarded }}",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "612ccab6-e96a-4133-be2a-11b024f3346a",
+      "name": "Is Forwarded?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        208,
+        -140
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "2a8ca0a7-1a59-4c00-b611-8baedd40e663",
+              "leftValue": "={{ $json.isCustomer }}",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "36d5573b-93fd-45eb-abc7-50b57fa58781",
+      "name": "Is Customer Email?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1008,
+        -224
+      ]
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=Identify the People.ai account for this email sender.\n\nSender: {{ $json.senderEmail }}\nDomain: {{ $json.senderDomain }}\n\nUse find_account to search by domain. Return ONLY JSON:\n- Found: {\"accountFound\":true,\"accountName\":\"...\",\"accountId\":12345,\"accountDomain\":\"...\"}\n- Not found: {\"accountFound\":false,\"accountName\":\"Unknown\",\"accountId\":null,\"accountDomain\":\"{{ $json.senderDomain }}\"}",
+        "hasOutputParser": true,
+        "options": {}
+      },
+      "id": "a51aa467-dbf7-40c6-9f45-6667d5f1524b",
+      "name": "Customer Account Lookup",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 2.2,
+      "position": [
+        1288,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "value": "claude-sonnet-4-6",
+          "mode": "list",
+          "cachedResultName": "Claude Sonnet 4.6"
+        },
+        "options": {}
+      },
+      "id": "60be3f1e-23ea-4efb-9da0-aa0ba94f9264",
+      "name": "Lookup Model",
+      "type": "@n8n/n8n-nodes-langchain.lmChatAnthropic",
+      "typeVersion": 1.3,
+      "position": [
+        1232,
+        224
+      ],
+      "credentials": {
+        "anthropicApi": {
+          "id": "rlAz7ZSl4y6AwRUq",
+          "name": "Anthropic account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "schemaType": "manual",
+        "inputSchema": "[{\"accountFound\":\"boolean\",\"accountName\":\"string\",\"accountId\":\"number\",\"accountDomain\":\"string\"}]",
+        "autoFix": true
+      },
+      "id": "0d01aa30-3248-450b-8f8f-be61c05a6bf3",
+      "name": "Lookup Parser",
+      "type": "@n8n/n8n-nodes-langchain.outputParserStructured",
+      "typeVersion": 1.3,
+      "position": [
+        1488,
+        224
+      ]
+    },
+    {
+      "parameters": {
+        "endpointUrl": "https://mcp.people.ai/mcp",
+        "authentication": "multipleHeadersAuth",
+        "options": {
+          "timeout": 30000
+        }
+      },
+      "id": "a99b6f4f-1a9e-4657-b757-4e8257a1426d",
+      "name": "People.ai MCP: Lookup",
+      "type": "@n8n/n8n-nodes-langchain.mcpClientTool",
+      "typeVersion": 1.2,
+      "position": [
+        1360,
+        224
+      ],
+      "credentials": {
+        "httpMultipleHeadersAuth": {
+          "id": "wvV5pwBeIL7f2vLG",
+          "name": "People.ai MCP Multi-Header"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "\nconst emailData    = $('Is Customer Email?').item.json;\nconst customerData = $json.output || {};\nreturn [{ json: {\n  ...emailData,\n  customerAccount: {\n    found:  customerData.accountFound || false,\n    name:   customerData.accountName  || 'Unknown',\n    id:     customerData.accountId    || null,\n    domain: customerData.accountDomain || emailData.senderDomain,\n  }\n}}];\n"
+      },
+      "id": "bac5a433-7eca-4f93-8261-c0ee80643eec",
+      "name": "Merge Customer Data",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1856,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "\n// \u2500\u2500 Prepare Email Text \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\nconst email = $input.first().json;\n\nfunction cleanHtml(h) {\n  if (!h || typeof h !== 'string') return '';\n  return h\n    .replace(/&nbsp;/g,' ').replace(/&amp;/g,'&').replace(/&lt;/g,'<').replace(/&gt;/g,'>')\n    .replace(/<li[^>]*>/gi,'\\n\u2022 ').replace(/<br\\s*\\/?>/gi,'\\n')\n    .replace(/<\\/(p|div)>/gi,'\\n').replace(/<[^>]+>/g,'')\n    .replace(/\\n{3,}/g,'\\n\\n').trim();\n}\n\n// Prefer pre-parsed originalBody (set by Parse Entry Point for forwarded emails),\n// then fall back to textPlain/text, then clean HTML, then snippet.\nconst body = email.originalBody\n  || email.textPlain || email.text\n  || cleanHtml(email.textAsHtml || email.html)\n  || email.snippet || '';\n\nreturn [{ json: { ...email, text: body } }];\n"
+      },
+      "id": "dd1b7596-0073-49cb-9c31-3374ed710e0f",
+      "name": "Prepare Email Text",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2080,
+        -224
+      ]
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=You are drafting an email reply in Scott Metcalf's voice.\n\nEMAIL TO REPLY TO:\nFrom: {{ $json.senderName ? $json.senderName + ' <' + $json.senderEmail + '>' : $json.senderEmail }}\nSubject: {{ $json.subject }}\n{{ $json.isForwarded ? 'Note: Scott forwarded this \u2014 he wants a draft reply.' : '' }}\n\n{{ $json.text }}\n\n---\n\n{{ $json.customerAccount?.found && $json.customerAccount?.id ?\n  'STEP 1 \u2014 Pull CRM context (required):\\n'\n  + 'Account ID: ' + $json.customerAccount.id + '\\n'\n  + '\u2022 get_account_status \u2014 health, risks, engagement\\n'\n  + '\u2022 ask_sales_ai_about_account \u2014 relationship history, recent concerns\\n'\n  + '\u2022 get_recent_account_activity \u2014 latest touchpoints\\n\\n'\n  + 'STEP 2 \u2014 Draft using that context. Reference specific CRM data naturally.\\n'\n  : 'No CRM lookup needed. Draft based on email content only.\\n' }}\n\nDraft guidelines:\n- Address the core ask directly, 2-3 paragraphs max\n- Business casual, warm but concise\n- No signature (added automatically), no markdown\n\nOutput JSON: {\"subject\": \"Re: {{ $json.subject }}\", \"message\": \"...\"}",
+        "hasOutputParser": true,
+        "options": {}
+      },
+      "id": "f4f7aa2b-eed6-4440-95ee-4cd6592c6f6f",
+      "name": "AI Draft Agent",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 2.2,
+      "position": [
+        2424,
+        -224
+      ]
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "value": "claude-sonnet-4-6",
+          "mode": "list",
+          "cachedResultName": "Claude Sonnet 4.6"
+        },
+        "options": {
+          "topP": 1
+        }
+      },
+      "id": "631dccdf-2f25-4706-b0d0-40802351d387",
+      "name": "Draft Model",
+      "type": "@n8n/n8n-nodes-langchain.lmChatAnthropic",
+      "typeVersion": 1.3,
+      "position": [
+        2304,
+        0
+      ],
+      "credentials": {
+        "anthropicApi": {
+          "id": "rlAz7ZSl4y6AwRUq",
+          "name": "Anthropic account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "schemaType": "manual",
+        "inputSchema": "[{\"subject\":\"string\",\"message\":\"string\"}]",
+        "autoFix": true
+      },
+      "id": "74af6908-60ac-421f-a847-0e87a643266e",
+      "name": "Draft Output Parser",
+      "type": "@n8n/n8n-nodes-langchain.outputParserStructured",
+      "typeVersion": 1.3,
+      "position": [
+        2688,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "endpointUrl": "https://mcp.people.ai/mcp",
+        "authentication": "multipleHeadersAuth",
+        "options": {
+          "timeout": 30000
+        }
+      },
+      "id": "60993611-8388-41dd-bf12-d83739974c9a",
+      "name": "People.ai MCP: Agent",
+      "type": "@n8n/n8n-nodes-langchain.mcpClientTool",
+      "typeVersion": 1.2,
+      "position": [
+        2432,
+        0
+      ],
+      "credentials": {
+        "httpMultipleHeadersAuth": {
+          "id": "wvV5pwBeIL7f2vLG",
+          "name": "People.ai MCP Multi-Header"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// \u2500\u2500 Add Signature \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n// Agent only outputs {output} \u2014 get email context from Prepare Email Text\nconst emailCtx = $('Prepare Email Text').first().json;\n\nlet output = items[0].json.output;\n\n// Normalise: agent may return a plain string or an object\nif (typeof output === 'string') {\n  try { output = JSON.parse(output); }\n  catch(e) { output = { subject: 'Re: ' + (emailCtx.subject || ''), message: output }; }\n}\nif (!output || typeof output !== 'object') {\n  output = { subject: 'Re: ' + (emailCtx.subject || ''), message: '[Draft unavailable]' };\n}\nif (!output.message) { output.message = ''; }\n\n// Strip markdown bold/italic\noutput.message = output.message\n  .replace(/\\*\\*([^*]+)\\*\\*/g, '$1')\n  .replace(/\\*([^*]+)\\*/g, '$1');\n\nconst isAutoSend = !!(emailCtx.isAutoSend);\nconst disclaimer = isAutoSend\n  ? '\\n\\n---\\nThis response was drafted and sent by my AI assistant powered by People.ai. It reflects my perspective on the context of your email. Replies come directly to me \\u2014 I review all responses handled by my assistant.'\n  : '';\nconst sig = '\\n\\nRegards,\\n\\nScott Metcalf' + disclaimer;\nconst orig = emailCtx.senderName\n  ? emailCtx.senderName + ' <' + emailCtx.senderEmail + '>'\n  : emailCtx.senderEmail || '';\nlet dateStr = '';\ntry {\n  const d = new Date(emailCtx.date || Number(emailCtx.internalDate));\n  if (!isNaN(d)) dateStr = d.toLocaleString('en-US', {\n    weekday:'short', year:'numeric', month:'short',\n    day:'numeric', hour:'2-digit', minute:'2-digit'\n  });\n} catch(e) {}\n\nconst ccLine = emailCtx.originalCcLine ? '\\nCC: ' + emailCtx.originalCcLine : '';\noutput.message += sig\n  + '\\n\\n------- Original Message -------'\n  + '\\nFrom: ' + orig\n  + (dateStr ? '\\nDate: ' + dateStr : '')\n  + '\\nSubject: ' + (emailCtx.originalSubject || emailCtx.subject || '')\n  + ccLine\n  + '\\n\\n' + (emailCtx.originalBody || emailCtx.text || '');\n\n// Pass email context through so Save Draft can read it\nreturn items.map(i => ({ json: { ...emailCtx, ...i.json, output } }));\n"
+      },
+      "id": "92da98b2-be15-47e8-a8d6-623c7f83fd35",
+      "name": "Add Signature",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3056,
+        -224
+      ]
+    },
+    {
+      "parameters": {
+        "resource": "draft",
+        "subject": "={{ $json.output.subject }}",
+        "message": "={{ $json.output.message }}",
+        "options": {
+          "ccList": "={{ $('Parse Entry Point').item.json.ccRecipients || '' }}",
+          "threadId": "={{ $json.originalThreadId || $json.threadId }}",
+          "sendTo": "={{ $json.senderEmail }}"
+        }
+      },
+      "id": "e8a40d69-e54f-45d1-b924-eed8222911ff",
+      "name": "Save Draft",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [
+        3280,
+        -224
+      ],
+      "webhookId": "ae142eeb-7d20-4fa5-8b50-f4eca75d391b",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "YizHiiClW81mlB3Q",
+          "name": "Gmail scott.metcalf@people.ai"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://slack.com/api/chat.postMessage",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "channel",
+              "value": "U061WJ6RMJS"
+            },
+            {
+              "name": "text",
+              "value": "={{ ':rocket: *Draft ready* \u2014 ' + $('Parse Entry Point').item.json.subject + '\\nFrom: ' + $('Parse Entry Point').item.json.senderEmail + '\\nCheck your Gmail drafts.' }}"
+            },
+            {
+              "name": "username",
+              "value": "ScottAI"
+            },
+            {
+              "name": "icon_emoji",
+              "value": ":rocket:"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "17da7a55-ad28-4a96-849d-a4c61efb8c4d",
+      "name": "Notify Slack",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        3728,
+        768
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "LluVuiMJ8NUbAiG7",
+          "name": "Slackbot Auth Token"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "value": "claude-sonnet-4-6",
+          "mode": "list",
+          "cachedResultName": "Claude Sonnet 4.6"
+        },
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatAnthropic",
+      "typeVersion": 1.3,
+      "position": [
+        1568,
+        432
+      ],
+      "id": "6b0d7a9b-1833-4640-a284-140f9aaffd62",
+      "name": "Anthropic Chat Model",
+      "credentials": {
+        "anthropicApi": {
+          "id": "koligyqR3Ah4WqF2",
+          "name": "ClaudeLLM"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "value": "claude-sonnet-4-6",
+          "mode": "list",
+          "cachedResultName": "Claude Sonnet 4.6"
+        },
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatAnthropic",
+      "typeVersion": 1.3,
+      "position": [
+        2768,
+        208
+      ],
+      "id": "a77bc475-c211-46e0-b979-924eb4c81d9a",
+      "name": "Anthropic Chat Model1",
+      "credentials": {
+        "anthropicApi": {
+          "id": "koligyqR3Ah4WqF2",
+          "name": "ClaudeLLM"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "removeLabels",
+        "messageId": "={{ $('Parse Entry Point').item.json.forwardedMessageId || $('Parse Entry Point').item.json.id }}",
+        "labelIds": [
+          "INBOX",
+          "UNREAD"
+        ]
+      },
+      "id": "0c49303b-02cd-47d4-a4ed-7bf4694bbe10",
+      "name": "Archive Forwarded Copy",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [
+        3728,
+        176
+      ],
+      "webhookId": "7f93edaa-e8cf-4f38-b7a1-7aaa77179a9c",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "YizHiiClW81mlB3Q",
+          "name": "Gmail scott.metcalf@people.ai"
+        }
+      },
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "jsCode": "// \u2500\u2500 Email Routing Policy \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n// Edit these lists to control automated draft behaviour per sender.\n\n// Spam: matched senders are silently marked read \u2014 no draft, no Slack alert\nconst SPAM_PATTERNS = [\n  /no.?reply/i, /noreply/i, /donotreply/i, /do-not-reply/i,\n  /mailer-daemon/i, /postmaster/i, /bounce\\+/i, /newsletter/i,\n  /notifications?@/i, /alerts?@/i, /\\+caf_/i,\n];\n\n// Blocked domains: organisations that never get automated drafts\nconst BLOCKED_DOMAINS = [\n  'google.com',\n  'linkedin.com',\n  'salesforce.com',\n  'github.com',\n  'slack.com',\n  'zoom.us',\n];\n\n// Blocked addresses: individual senders that never get automated drafts\nconst BLOCKED_ADDRESSES = [\n  // 'specific@company.com',\n];\n\n// Auto-send domains: drafts sent automatically after delay if unedited\nconst AUTO_SEND_DOMAINS = [\n  // 'trustedpartner.com',\n];\n\n// Auto-send addresses: specific senders whose drafts are auto-sent\nconst AUTO_SEND_ADDRESSES = [\n  // 'colleague@company.com',\n];\n\n// Hours to wait before auto-sending (only applies to auto-send tier)\nconst AUTO_SEND_DELAY_HOURS = 2;\n\n// \u2500\u2500 Classify \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\nconst email       = $input.first().json;\nconst fromEmail   = (email.senderEmail  || '').toLowerCase();\nconst fromDomain  = (email.senderDomain || '').toLowerCase();\nconst labelIds    = email.labelIds || [];\n\nconst isGmailSpam   = labelIds.includes('SPAM');\nconst isPatternSpam = SPAM_PATTERNS.some(p => p.test(fromEmail));\nconst isSpam        = isGmailSpam || isPatternSpam;\n\nconst isBlockedDomain  = BLOCKED_DOMAINS.some(d => fromDomain === d || fromDomain.endsWith('.' + d));\nconst isBlockedAddress = BLOCKED_ADDRESSES.map(a => a.toLowerCase()).includes(fromEmail);\nconst isBlocked        = isBlockedDomain || isBlockedAddress;\n\nconst isAutoSendDomain  = AUTO_SEND_DOMAINS.some(d => fromDomain === d || fromDomain.endsWith('.' + d));\nconst isAutoSendAddress = AUTO_SEND_ADDRESSES.map(a => a.toLowerCase()).includes(fromEmail);\nconst isAutoSend        = isAutoSendDomain || isAutoSendAddress;\n\nlet route;\nif      (isSpam)    route = 'spam';\nelse if (isBlocked) route = 'blocked';\nelse                route = 'draft';\n\nreturn [{ json: { ...email, route, isSpam, isBlocked, isAutoSend, autoSendDelayHours: AUTO_SEND_DELAY_HOURS } }];\n"
+      },
+      "id": "1736977e-6657-4664-bd8b-0fb187ce6fba",
+      "name": "Route Email",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -240,
+        -512
+      ]
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "version": 2
+                },
+                "combinator": "and",
+                "conditions": [
+                  {
+                    "id": "fd068a53-e913-4a97-bac1-d6206ed81740",
+                    "leftValue": "={{ $json.route }}",
+                    "rightValue": "spam",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ]
+              },
+              "renameOutput": true,
+              "outputKey": "Spam"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "version": 2
+                },
+                "combinator": "and",
+                "conditions": [
+                  {
+                    "id": "790e9905-2e01-4c10-be34-737f663ff5e0",
+                    "leftValue": "={{ $json.route }}",
+                    "rightValue": "blocked",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ]
+              },
+              "renameOutput": true,
+              "outputKey": "Blocked"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "version": 2
+                },
+                "combinator": "and",
+                "conditions": [
+                  {
+                    "id": "44203409-224d-4987-8dd3-a00a20e8a0f0",
+                    "leftValue": "={{ $json.route }}",
+                    "rightValue": "draft",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ]
+              },
+              "renameOutput": true,
+              "outputKey": "Draft"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "ffb1b82f-a329-4b00-b66a-677ce47d26c5",
+      "name": "Route Switch",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.2,
+      "position": [
+        -16,
+        -528
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "removeLabels",
+        "messageId": "={{ $json.id }}",
+        "labelIds": [
+          "UNREAD"
+        ]
+      },
+      "id": "20756c51-c39a-481a-b6b9-f79415d9cf4e",
+      "name": "Skip - Spam",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [
+        208,
+        -524
+      ],
+      "webhookId": "00356e83-5d82-4792-b97d-5e71252394ac",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "YizHiiClW81mlB3Q",
+          "name": "Gmail scott.metcalf@people.ai"
+        }
+      },
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "operation": "removeLabels",
+        "messageId": "={{ $json.id }}",
+        "labelIds": [
+          "UNREAD"
+        ]
+      },
+      "id": "88b1ff23-c5b4-46a1-831f-f2db0d66829c",
+      "name": "Skip - Blocked",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [
+        208,
+        -332
+      ],
+      "webhookId": "a7cfb6cc-9ddb-4728-bf07-e78f68117f0f",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "YizHiiClW81mlB3Q",
+          "name": "Gmail scott.metcalf@people.ai"
+        }
+      },
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "combinator": "and",
+          "conditions": [
+            {
+              "id": "9d7b3992-6358-44d9-9b86-bf4d7c875bd1",
+              "leftValue": "={{ $('Parse Entry Point').item.json.isForwarded }}",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "a97cfd1b-2262-4384-acf3-40707161d4f1",
+      "name": "Is Self Forward?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        3504,
+        -320
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "removeLabels",
+        "messageId": "={{ $('Parse Entry Point').item.json.id }}",
+        "labelIds": [
+          "UNREAD"
+        ]
+      },
+      "id": "0ad68e16-fd72-4907-9c26-136b1205e68e",
+      "name": "Mark Direct Read",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [
+        3728,
+        -16
+      ],
+      "webhookId": "37f03f26-7fd6-4177-bde9-41efa8322020",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "YizHiiClW81mlB3Q",
+          "name": "Gmail scott.metcalf@people.ai"
+        }
+      },
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "combinator": "and",
+          "conditions": [
+            {
+              "id": "0639c031-f241-4407-8096-28f81b9ef3fe",
+              "leftValue": "={{ $('Route Email').first().json.isAutoSend }}",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "ef1b5c5f-b141-4b8b-a180-7b83d3be2a14",
+      "name": "Is Auto-send?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        3504,
+        16
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://slack.com/api/chat.postMessage",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "channel",
+              "value": "U061WJ6RMJS"
+            },
+            {
+              "name": "text",
+              "value": "={{ ':robot_face: *Draft created* \u2014 Re: ' + $('Parse Entry Point').item.json.originalSubject + '\\nTo: ' + $('Parse Entry Point').item.json.senderEmail + '\\n\\n\u23f1 Auto-sending in ' + ($('Route Email').first().json.autoSendDelayHours || 2) + ' hours. Edit the draft in Gmail to cancel.' }}"
+            },
+            {
+              "name": "username",
+              "value": "ScottAI"
+            },
+            {
+              "name": "icon_emoji",
+              "value": ":rocket:"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "e53b9599-bbc4-4a91-ada3-698ab7929541",
+      "name": "Notify - Auto-send Scheduled",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        3728,
+        368
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "LluVuiMJ8NUbAiG7",
+          "name": "Slackbot Auth Token"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "amount": "={{ $('Route Email').first().json.autoSendDelayHours || 2 }}",
+        "unit": "hours"
+      },
+      "id": "89c9dd31-28f8-423c-86cb-6eb672056559",
+      "name": "Wait to Send",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        3952,
+        368
+      ],
+      "webhookId": "0dc82717-1656-4e81-88bb-ece56ca82103"
+    },
+    {
+      "parameters": {
+        "url": "=https://gmail.googleapis.com/gmail/v1/users/me/drafts/{{ $('Save Draft').first().json.id }}",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "gmailOAuth2",
+        "options": {}
+      },
+      "id": "ccd39e98-2f4a-47c3-88cd-3f54b85ccafa",
+      "name": "Check Draft Exists",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        4176,
+        368
+      ],
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "YizHiiClW81mlB3Q",
+          "name": "Gmail scott.metcalf@people.ai"
+        }
+      },
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "combinator": "and",
+          "conditions": [
+            {
+              "id": "dcc16b51-b33a-47d1-8d55-ef4c08077e27",
+              "leftValue": "={{ $json.id }}",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "0a057c40-7a61-4f42-b779-23fc77987c66",
+      "name": "Draft Still There?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        4400,
+        368
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://gmail.googleapis.com/gmail/v1/users/me/drafts/send",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "gmailOAuth2",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "id",
+              "value": "={{ $('Save Draft').first().json.id }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "2f02eecd-6a36-4dae-87fc-a9786083f4a4",
+      "name": "Send Draft",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        4624,
+        272
+      ],
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "YizHiiClW81mlB3Q",
+          "name": "Gmail scott.metcalf@people.ai"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://slack.com/api/chat.postMessage",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "channel",
+              "value": "U061WJ6RMJS"
+            },
+            {
+              "name": "text",
+              "value": "={{ ':white_check_mark: *Auto-sent* \u2014 Re: ' + $('Parse Entry Point').item.json.originalSubject + '\\nTo: ' + $('Parse Entry Point').item.json.senderEmail }}"
+            },
+            {
+              "name": "username",
+              "value": "ScottAI"
+            },
+            {
+              "name": "icon_emoji",
+              "value": ":rocket:"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "98713216-c52b-4880-9d13-f5604cec8bff",
+      "name": "Notify - Sent",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        4848,
+        272
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "LluVuiMJ8NUbAiG7",
+          "name": "Slackbot Auth Token"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://slack.com/api/chat.postMessage",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "channel",
+              "value": "U061WJ6RMJS"
+            },
+            {
+              "name": "text",
+              "value": "={{ ':pencil2: *Draft edited \u2014 not auto-sent* \u2014 Re: ' + $('Parse Entry Point').item.json.originalSubject + '\\nTo: ' + $('Parse Entry Point').item.json.senderEmail + '\\nSend manually when ready.' }}"
+            },
+            {
+              "name": "username",
+              "value": "ScottAI"
+            },
+            {
+              "name": "icon_emoji",
+              "value": ":rocket:"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "ea41deb1-baa1-4345-8243-bfe0b041942a",
+      "name": "Notify - Edited, Not Sent",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        4624,
+        464
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "LluVuiMJ8NUbAiG7",
+          "name": "Slackbot Auth Token"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "prompt": "=Subject: {{ $json.subject }}\n\nFrom: {{ $json.senderEmail || $json.fromEmail || '' }}\n\nMessage:\n{{ $json.bodyText || $json.body || $json.rawBody || $json.textPlain || '' }}",
+        "messages": {
+          "messageValues": [
+            {
+              "message": "You are a professional email assistant. Decide whether this email genuinely requires a personal, human-written reply.\n\nReturn JSON: { \"needsReply\": true } or { \"needsReply\": false }.\n\nReturn FALSE (no reply needed) for ANY of the following:\n- The email body contains an unsubscribe link or \"opt out\" text \u2014 this is marketing\n- The subject contains words like: reminder, exclusive, invitation, promo, offer, deal, discount, sale, kit, swag, award, announcement, digest, newsletter, welcome, confirm, verify, receipt, invoice, tracking, shipped, delivered\n- The from address is a team/group address: team@, hello@, hi@, info@, noreply@, no-reply@, marketing@, news@, updates@, promo@, support@, notifications@, alerts@, donotreply@\n- Automated system emails: calendar invites, Salesforce notifications, GitHub alerts, Slack notifications, out-of-office replies, delivery receipts\n- The email is clearly promotional, informational, or broadcast to many recipients\n\nReturn TRUE (reply needed) ONLY when:\n- A named individual directly asks a question or requests action\n- A customer or partner needs information, a decision, or follow-up\n- The email is part of an ongoing business conversation expecting a reply\n- Someone asks for a meeting, next step, or explicit response\n\nWhen in doubt, return false. It is better to skip a borderline email than to draft an unwanted reply to a marketing or automated message."
+            }
+          ]
+        }
+      },
+      "id": "f4e8c9c1-3287-4dc6-b7a5-9ed83b6e282c",
+      "name": "Assess if Needs Reply",
+      "type": "@n8n/n8n-nodes-langchain.chainLlm",
+      "typeVersion": 1.3,
+      "position": [
+        432,
+        276
+      ]
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "value": "claude-haiku-4-5-20251001",
+          "mode": "list",
+          "cachedResultName": "Claude Haiku 4.5"
+        },
+        "options": {}
+      },
+      "id": "29bd9d62-50b2-4b83-8032-42ce2fb0e57c",
+      "name": "Assessment Model",
+      "type": "@n8n/n8n-nodes-langchain.lmChatAnthropic",
+      "typeVersion": 1.3,
+      "position": [
+        440,
+        500
+      ],
+      "credentials": {
+        "anthropicApi": {
+          "id": "rlAz7ZSl4y6AwRUq",
+          "name": "Anthropic account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsonSchema": "{\n  \"type\": \"object\",\n  \"properties\": {\n    \"needsReply\": {\n      \"type\": \"boolean\"\n    }\n  },\n  \"required\": [\n    \"needsReply\"\n  ]\n}"
+      },
+      "id": "7420c095-06ef-4c55-8d80-8e80e1aecd65",
+      "name": "Assessment Parser",
+      "type": "@n8n/n8n-nodes-langchain.outputParserStructured",
+      "typeVersion": 1,
+      "position": [
+        568,
+        500
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "99fef9b6-fc7a-4ab4-af24-d12820538fca",
+              "leftValue": "={{ $json.needsReply }}",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "2c722013-6c0c-44ed-b6a5-3e37e0e385ff",
+      "name": "If Needs Reply",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        784,
+        276
+      ]
+    },
+    {
+      "parameters": {
+        "endpointUrl": "https://mcp.atlassian.com/v1/sse",
+        "serverTransport": "sse",
+        "authentication": "mcpOAuth2Api",
+        "options": {
+          "timeout": 30000
+        }
+      },
+      "id": "47db262a-16d8-4425-82df-7cccfffe54c6",
+      "name": "Confluence MCP",
+      "type": "@n8n/n8n-nodes-langchain.mcpClientTool",
+      "typeVersion": 1.2,
+      "position": [
+        2560,
+        0
+      ],
+      "credentials": {
+        "mcpOAuth2Api": {
+          "id": "mL7GmjUrxj1FpYxZ",
+          "name": "Atlassian MCP"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Schedule Trigger": {
+      "main": [
+        [
+          {
+            "node": "Get Unread Emails",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Unread Emails": {
+      "main": [
+        [
+          {
+            "node": "Process Each Email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Process Each Email": {
+      "main": [
+        [],
+        [
+          {
+            "node": "Parse Entry Point",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Entry Point": {
+      "main": [
+        [
+          {
+            "node": "Route Email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Is Forwarded?": {
+      "main": [
+        [
+          {
+            "node": "Is Customer Email?",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Assess if Needs Reply",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Is Customer Email?": {
+      "main": [
+        [
+          {
+            "node": "Customer Account Lookup",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Prepare Email Text",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Lookup Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Customer Account Lookup",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Lookup Parser": {
+      "ai_outputParser": [
+        [
+          {
+            "node": "Customer Account Lookup",
+            "type": "ai_outputParser",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "People.ai MCP: Lookup": {
+      "ai_tool": [
+        [
+          {
+            "node": "Customer Account Lookup",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Customer Account Lookup": {
+      "main": [
+        [
+          {
+            "node": "Merge Customer Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge Customer Data": {
+      "main": [
+        [
+          {
+            "node": "Prepare Email Text",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Email Text": {
+      "main": [
+        [
+          {
+            "node": "AI Draft Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Draft Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Draft Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Draft Output Parser": {
+      "ai_outputParser": [
+        [
+          {
+            "node": "AI Draft Agent",
+            "type": "ai_outputParser",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "People.ai MCP: Agent": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Draft Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Draft Agent": {
+      "main": [
+        [
+          {
+            "node": "Add Signature",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Add Signature": {
+      "main": [
+        [
+          {
+            "node": "Save Draft",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Save Draft": {
+      "main": [
+        [
+          {
+            "node": "Is Self Forward?",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Is Auto-send?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Notify Slack": {
+      "main": [
+        [
+          {
+            "node": "Process Each Email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Anthropic Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Lookup Parser",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Anthropic Chat Model1": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Draft Output Parser",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Route Email": {
+      "main": [
+        [
+          {
+            "node": "Route Switch",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Route Switch": {
+      "main": [
+        [
+          {
+            "node": "Skip - Spam",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Skip - Blocked",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Is Forwarded?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Skip - Spam": {
+      "main": [
+        [
+          {
+            "node": "Process Each Email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Skip - Blocked": {
+      "main": [
+        [
+          {
+            "node": "Process Each Email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Is Self Forward?": {
+      "main": [
+        [
+          {
+            "node": "Archive Forwarded Copy",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Mark Direct Read",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Archive Forwarded Copy": {
+      "main": [
+        [
+          {
+            "node": "Process Each Email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Mark Direct Read": {
+      "main": [
+        [
+          {
+            "node": "Process Each Email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Is Auto-send?": {
+      "main": [
+        [
+          {
+            "node": "Notify - Auto-send Scheduled",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Notify Slack",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Notify - Auto-send Scheduled": {
+      "main": [
+        [
+          {
+            "node": "Wait to Send",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait to Send": {
+      "main": [
+        [
+          {
+            "node": "Check Draft Exists",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check Draft Exists": {
+      "main": [
+        [
+          {
+            "node": "Draft Still There?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Draft Still There?": {
+      "main": [
+        [
+          {
+            "node": "Send Draft",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Notify - Edited, Not Sent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send Draft": {
+      "main": [
+        [
+          {
+            "node": "Notify - Sent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Assess if Needs Reply": {
+      "main": [
+        [
+          {
+            "node": "If Needs Reply",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Assessment Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Assess if Needs Reply",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Assessment Parser": {
+      "ai_outputParser": [
+        [
+          {
+            "node": "Assess if Needs Reply",
+            "type": "ai_outputParser",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If Needs Reply": {
+      "main": [
+        [
+          {
+            "node": "Is Customer Email?",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Mark Direct Read",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Confluence MCP": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Draft Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "errorWorkflow": "0hdp_GE0KOBBUK4bOsGdD",
+    "callerPolicy": "workflowsFromSameOwner",
+    "availableInMCP": false
+  },
+  "staticData": {
+    "node:Schedule Trigger": {
+      "recurrenceRules": []
+    }
+  },
+  "meta": {
+    "templateCredsSetupCompleted": true
+  },
+  "pinData": {},
+  "versionId": "cdf8963d-b45f-4b68-a4ee-2e9a406ff7ec",
+  "activeVersionId": "cdf8963d-b45f-4b68-a4ee-2e9a406ff7ec",
+  "versionCounter": 98,
+  "triggerCount": 1,
+  "shared": [
+    {
+      "updatedAt": "2026-03-01T20:42:59.809Z",
+      "createdAt": "2026-03-01T20:42:59.809Z",
+      "role": "workflow:owner",
+      "workflowId": "Wgjmfu82wyuwipVN",
+      "projectId": "85jtzrEPriGDXgHV",
+      "project": {
+        "updatedAt": "2025-11-24T07:01:19.205Z",
+        "createdAt": "2025-11-24T06:56:53.862Z",
+        "id": "85jtzrEPriGDXgHV",
+        "name": "Scott Metcalf <metcalf.scott@gmail.com>",
+        "type": "personal",
+        "icon": null,
+        "description": null,
+        "creatorId": "bfa163c1-bd53-4c0f-b0ba-8dc3626f7c79"
+      }
+    }
+  ],
+  "tags": [],
+  "activeVersion": {
+    "updatedAt": "2026-03-02T18:30:03.912Z",
+    "createdAt": "2026-03-02T18:30:03.912Z",
+    "versionId": "cdf8963d-b45f-4b68-a4ee-2e9a406ff7ec",
+    "workflowId": "Wgjmfu82wyuwipVN",
+    "nodes": [
+      {
+        "parameters": {
+          "rule": {
+            "interval": [
+              {
+                "field": "minutes",
+                "minutesInterval": 15
+              }
+            ]
+          }
+        },
+        "id": "bc8328a2-c145-4068-b61e-c7cf9d302a53",
+        "name": "Schedule Trigger",
+        "type": "n8n-nodes-base.scheduleTrigger",
+        "typeVersion": 1.2,
+        "position": [
+          -1136,
+          336
+        ]
+      },
+      {
+        "parameters": {
+          "operation": "getAll",
+          "returnAll": true,
+          "simple": false,
+          "filters": {
+            "q": "to:scott.metcalf+assistant@people.ai in:inbox",
+            "readStatus": "unread"
+          },
+          "options": {}
+        },
+        "id": "9b14907c-0205-4a49-9a14-cc8cd43235a3",
+        "name": "Get Unread Emails",
+        "type": "n8n-nodes-base.gmail",
+        "typeVersion": 2.1,
+        "position": [
+          -912,
+          336
+        ],
+        "webhookId": "ee1d1607-89e8-4391-bb24-b46f3d4523da",
+        "credentials": {
+          "gmailOAuth2": {
+            "id": "YizHiiClW81mlB3Q",
+            "name": "Gmail scott.metcalf@people.ai"
+          }
+        }
+      },
+      {
+        "parameters": {
+          "options": {}
+        },
+        "id": "afd82f6c-dd7a-4923-9310-c405aeaea512",
+        "name": "Process Each Email",
+        "type": "n8n-nodes-base.splitInBatches",
+        "typeVersion": 3,
+        "position": [
+          -688,
+          336
+        ]
+      },
+      {
+        "parameters": {
+          "jsCode": "// \u2500\u2500 Parse Entry Point \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n// simple:false -> n8n provides email.subject, email.from, email.to, email.text\n// email.from and email.to are nodemailer objects: {value:[{address,name}], text}\nconst email = $input.first().json;\n\nconst subject = email.subject || '';\n\n// \u2500\u2500 helpers: handle both string and nodemailer object format \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\nfunction extractAddr(field) {\n  if (!field) return '';\n  if (typeof field === 'string') {\n    const m = field.match(/<([^>]+)>/);\n    return (m ? m[1] : field).trim();\n  }\n  // nodemailer object: {value:[{address,name}], text}\n  if (field.value && field.value[0] && field.value[0].address) return field.value[0].address.trim();\n  if (field.text) {\n    const m = field.text.match(/<([^>]+)>/);\n    return (m ? m[1] : field.text).trim();\n  }\n  return String(field).trim();\n}\nfunction extractName(field) {\n  if (!field) return '';\n  if (typeof field === 'string') {\n    const m = field.match(/^([^<]+)</);\n    return m ? m[1].trim() : '';\n  }\n  if (field.value && field.value[0] && field.value[0].name) return field.value[0].name.trim();\n  if (field.text) {\n    const m = field.text.match(/^([^<]+)</);\n    return m ? m[1].trim() : '';\n  }\n  return '';\n}\n\nconst SCOTT    = ['scott.metcalf@people.ai', 'metcalf.scott@gmail.com'];\nconst PERSONAL = ['gmail.com','google.com','googlemail.com','icloud.com',\n                  'yahoo.com','hotmail.com','outlook.com','live.com'];\n\nconst fromEmail = extractAddr(email.from);\nconst fromName  = extractName(email.from);\nconst toEmail   = extractAddr(email.to).toLowerCase();\n\n// Body is decoded by n8n with simple:false\nfunction cleanHtml(h) {\n  if (!h || typeof h !== 'string') return '';\n  return h.replace(/&nbsp;/g,' ').replace(/&amp;/g,'&').replace(/&lt;/g,'<').replace(/&gt;/g,'>')\n    .replace(/<br\\s*\\/?>/gi,'\\n').replace(/<\\/(p|div)>/gi,'\\n').replace(/<[^>]+>/g,'')\n    .replace(/\\n{3,}/g,'\\n\\n').trim();\n}\nconst body = email.text || cleanHtml(email.textAsHtml || email.html) || email.snippet || '';\n\nconst isFromScott   = SCOTT.some(e => fromEmail.toLowerCase() === e.toLowerCase());\n// Primary: Scott emailing his own +assistant alias = unambiguous self-forward\nconst isSelfForward = isFromScott && toEmail.includes('+assistant@');\n// Fallback: subject/body patterns for edge cases\nconst isFwdSubject  = /^fw[d]?\\s*:/i.test(subject);\nconst isFwdBody     = /-{4,}\\s*forwarded\\s+message|begin\\s+forwarded\\s+message/i.test(body);\nconst isForwarded   = isSelfForward || (isFromScott && (isFwdSubject || isFwdBody));\n\nlet senderEmail = fromEmail, senderName = fromName;\nlet senderDomain = (fromEmail.split('@')[1] || '').toLowerCase();\nlet originalMessageId = null, originalSubject = subject, originalBody = body;\nlet originalSenderEmail = '', ccRecipients = '', originalCcLine = '';\n\nif (isForwarded) {\n  const fwdIdx = body.search(/-{4,}\\s*forwarded\\s+message|begin\\s+forwarded\\s+message/i);\n  const fwdBlock = fwdIdx >= 0 ? body.substring(fwdIdx) : body;\n\n  // From: \"Name\" <email> \u2014 stop at newline\n  const fm = fwdBlock.match(/From:\\s*(?:\"?([^\"<\\n\\r]+?)\"?\\s*)?<([^>\\n\\r]+)>/i);\n  if (fm) {\n    senderName          = (fm[1] || '').trim();\n    senderEmail         = fm[2].trim();\n    senderDomain        = (senderEmail.split('@')[1] || '').toLowerCase();\n    originalSenderEmail = senderEmail;\n  }\n\n  // Message-ID \u2014 stop at newline\n  const mm = fwdBlock.match(/Message-ID:\\s*<([^>\\n\\r]+)>/i);\n  if (mm) originalMessageId = mm[1].trim();\n\n  // Subject \u2014 stop at end-of-line only (no consuming next header fields)\n  const sm = fwdBlock.match(/Subject:\\s*([^\\n\\r]+)/i);\n  if (sm) originalSubject = sm[1].trim().replace(/^fw[d]?\\s*:/i, '').trim();\n\n  // Body = everything after the blank-line separator in the forwarded block\n  const bodyStart = fwdBlock.indexOf('\\n\\n');\n  originalBody = (bodyStart >= 0 ? fwdBlock.substring(bodyStart) : fwdBlock).trim();\n\n  // Parse all participants from To: and Cc: lines in the forwarded block\n  // Filter out Scott's own addresses \u2014 the remaining are CC recipients in the reply\n  function parseAddressList(line) {\n    if (!line) return [];\n    const addrs = [];\n    const re = /(?:\"?([^\"<,\\n\\r]*?)\"?\\s*)?<([^>\\n\\r]+)>|([\\w._%+\\-]+@[\\w.\\-]+\\.[a-zA-Z]{2,})/g;\n    let m;\n    while ((m = re.exec(line)) !== null) {\n      const email = (m[2] || m[3] || '').trim().toLowerCase();\n      const name  = (m[1] || '').trim();\n      if (email) addrs.push({ name, email });\n    }\n    return addrs;\n  }\n  // Headers may be indented with spaces; handle both Cc: and CC:\n  const fwdToLine = (fwdBlock.match(/^\\s*To:\\s*([^\\n\\r]+)/im) || [])[1] || '';\n  const fwdCcLine = (fwdBlock.match(/^\\s*CC?:\\s*([^\\n\\r]+)/im) || [])[1] || '';\n  originalCcLine = fwdCcLine;\n  const fwdAllParticipants = [...parseAddressList(fwdToLine), ...parseAddressList(fwdCcLine)];\n  ccRecipients = fwdAllParticipants\n    .filter(a => !SCOTT.some(s => a.email === s.toLowerCase()))\n    .filter(a => a.email !== senderEmail.toLowerCase())\n    .map(a => a.name ? a.name + ' <' + a.email + '>' : a.email)\n    .join(', ');\n}\n\nconst isAssistantAlias = toEmail.includes('+assistant@');\nconst isCustomer = !PERSONAL.includes(senderDomain);\n\n// forwardedMessageId = Gmail message ID of the +assistant copy (to archive from INBOX)\nlet forwardedMessageId = null, forwardedThreadId = null, originalThreadId = email.threadId;\nif (isForwarded) {\n  forwardedMessageId = email.id;       // the +assistant email's own Gmail message ID\n  forwardedThreadId  = email.threadId;\n  originalThreadId   = null;\n}\n\nreturn [{\n  json: {\n    ...email,\n    subject: originalSubject || subject,\n    isForwarded,\n    isAssistantAlias,\n    isCustomer,\n    senderEmail,\n    senderName,\n    senderDomain,\n    originalSenderEmail,\n    originalMessageId,\n    originalSubject,\n    originalBody,\n    ccRecipients,\n    originalCcLine,\n    forwardedMessageId,\n    forwardedThreadId,\n    originalThreadId,\n  }\n}];\n"
+        },
+        "id": "5faf4133-3e0d-403b-bc84-63876436f99d",
+        "name": "Parse Entry Point",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          -464,
+          -512
+        ]
+      },
+      {
+        "parameters": {
+          "conditions": {
+            "options": {
+              "caseSensitive": true,
+              "leftValue": "",
+              "typeValidation": "strict",
+              "version": 2
+            },
+            "conditions": [
+              {
+                "id": "aa5cb7ee-6123-4e20-bca0-fbb50d4eda2e",
+                "leftValue": "={{ $json.isForwarded }}",
+                "operator": {
+                  "type": "boolean",
+                  "operation": "true",
+                  "singleValue": true
+                }
+              }
+            ],
+            "combinator": "and"
+          },
+          "options": {}
+        },
+        "id": "612ccab6-e96a-4133-be2a-11b024f3346a",
+        "name": "Is Forwarded?",
+        "type": "n8n-nodes-base.if",
+        "typeVersion": 2.2,
+        "position": [
+          208,
+          -140
+        ]
+      },
+      {
+        "parameters": {
+          "conditions": {
+            "options": {
+              "caseSensitive": true,
+              "leftValue": "",
+              "typeValidation": "strict",
+              "version": 2
+            },
+            "conditions": [
+              {
+                "id": "2a8ca0a7-1a59-4c00-b611-8baedd40e663",
+                "leftValue": "={{ $json.isCustomer }}",
+                "operator": {
+                  "type": "boolean",
+                  "operation": "true",
+                  "singleValue": true
+                }
+              }
+            ],
+            "combinator": "and"
+          },
+          "options": {}
+        },
+        "id": "36d5573b-93fd-45eb-abc7-50b57fa58781",
+        "name": "Is Customer Email?",
+        "type": "n8n-nodes-base.if",
+        "typeVersion": 2.2,
+        "position": [
+          1008,
+          -224
+        ]
+      },
+      {
+        "parameters": {
+          "promptType": "define",
+          "text": "=Identify the People.ai account for this email sender.\n\nSender: {{ $json.senderEmail }}\nDomain: {{ $json.senderDomain }}\n\nUse find_account to search by domain. Return ONLY JSON:\n- Found: {\"accountFound\":true,\"accountName\":\"...\",\"accountId\":12345,\"accountDomain\":\"...\"}\n- Not found: {\"accountFound\":false,\"accountName\":\"Unknown\",\"accountId\":null,\"accountDomain\":\"{{ $json.senderDomain }}\"}",
+          "hasOutputParser": true,
+          "options": {}
+        },
+        "id": "a51aa467-dbf7-40c6-9f45-6667d5f1524b",
+        "name": "Customer Account Lookup",
+        "type": "@n8n/n8n-nodes-langchain.agent",
+        "typeVersion": 2.2,
+        "position": [
+          1288,
+          0
+        ]
+      },
+      {
+        "parameters": {
+          "model": {
+            "__rl": true,
+            "value": "claude-sonnet-4-6",
+            "mode": "list",
+            "cachedResultName": "Claude Sonnet 4.6"
+          },
+          "options": {}
+        },
+        "id": "60be3f1e-23ea-4efb-9da0-aa0ba94f9264",
+        "name": "Lookup Model",
+        "type": "@n8n/n8n-nodes-langchain.lmChatAnthropic",
+        "typeVersion": 1.3,
+        "position": [
+          1232,
+          224
+        ],
+        "credentials": {
+          "anthropicApi": {
+            "id": "rlAz7ZSl4y6AwRUq",
+            "name": "Anthropic account 2"
+          }
+        }
+      },
+      {
+        "parameters": {
+          "schemaType": "manual",
+          "inputSchema": "[{\"accountFound\":\"boolean\",\"accountName\":\"string\",\"accountId\":\"number\",\"accountDomain\":\"string\"}]",
+          "autoFix": true
+        },
+        "id": "0d01aa30-3248-450b-8f8f-be61c05a6bf3",
+        "name": "Lookup Parser",
+        "type": "@n8n/n8n-nodes-langchain.outputParserStructured",
+        "typeVersion": 1.3,
+        "position": [
+          1488,
+          224
+        ]
+      },
+      {
+        "parameters": {
+          "endpointUrl": "https://mcp.people.ai/mcp",
+          "authentication": "multipleHeadersAuth",
+          "options": {
+            "timeout": 30000
+          }
+        },
+        "id": "a99b6f4f-1a9e-4657-b757-4e8257a1426d",
+        "name": "People.ai MCP: Lookup",
+        "type": "@n8n/n8n-nodes-langchain.mcpClientTool",
+        "typeVersion": 1.2,
+        "position": [
+          1360,
+          224
+        ],
+        "credentials": {
+          "httpMultipleHeadersAuth": {
+            "id": "wvV5pwBeIL7f2vLG",
+            "name": "People.ai MCP Multi-Header"
+          }
+        }
+      },
+      {
+        "parameters": {
+          "jsCode": "\nconst emailData    = $('Is Customer Email?').item.json;\nconst customerData = $json.output || {};\nreturn [{ json: {\n  ...emailData,\n  customerAccount: {\n    found:  customerData.accountFound || false,\n    name:   customerData.accountName  || 'Unknown',\n    id:     customerData.accountId    || null,\n    domain: customerData.accountDomain || emailData.senderDomain,\n  }\n}}];\n"
+        },
+        "id": "bac5a433-7eca-4f93-8261-c0ee80643eec",
+        "name": "Merge Customer Data",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          1856,
+          0
+        ]
+      },
+      {
+        "parameters": {
+          "jsCode": "\n// \u2500\u2500 Prepare Email Text \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\nconst email = $input.first().json;\n\nfunction cleanHtml(h) {\n  if (!h || typeof h !== 'string') return '';\n  return h\n    .replace(/&nbsp;/g,' ').replace(/&amp;/g,'&').replace(/&lt;/g,'<').replace(/&gt;/g,'>')\n    .replace(/<li[^>]*>/gi,'\\n\u2022 ').replace(/<br\\s*\\/?>/gi,'\\n')\n    .replace(/<\\/(p|div)>/gi,'\\n').replace(/<[^>]+>/g,'')\n    .replace(/\\n{3,}/g,'\\n\\n').trim();\n}\n\n// Prefer pre-parsed originalBody (set by Parse Entry Point for forwarded emails),\n// then fall back to textPlain/text, then clean HTML, then snippet.\nconst body = email.originalBody\n  || email.textPlain || email.text\n  || cleanHtml(email.textAsHtml || email.html)\n  || email.snippet || '';\n\nreturn [{ json: { ...email, text: body } }];\n"
+        },
+        "id": "dd1b7596-0073-49cb-9c31-3374ed710e0f",
+        "name": "Prepare Email Text",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          2080,
+          -224
+        ]
+      },
+      {
+        "parameters": {
+          "promptType": "define",
+          "text": "=You are drafting an email reply in Scott Metcalf's voice.\n\nEMAIL TO REPLY TO:\nFrom: {{ $json.senderName ? $json.senderName + ' <' + $json.senderEmail + '>' : $json.senderEmail }}\nSubject: {{ $json.subject }}\n{{ $json.isForwarded ? 'Note: Scott forwarded this \u2014 he wants a draft reply.' : '' }}\n\n{{ $json.text }}\n\n---\n\n{{ $json.customerAccount?.found && $json.customerAccount?.id ?\n  'STEP 1 \u2014 Pull CRM context (required):\\n'\n  + 'Account ID: ' + $json.customerAccount.id + '\\n'\n  + '\u2022 get_account_status \u2014 health, risks, engagement\\n'\n  + '\u2022 ask_sales_ai_about_account \u2014 relationship history, recent concerns\\n'\n  + '\u2022 get_recent_account_activity \u2014 latest touchpoints\\n\\n'\n  + 'STEP 2 \u2014 Draft using that context. Reference specific CRM data naturally.\\n'\n  : 'No CRM lookup needed. Draft based on email content only.\\n' }}\n\nDraft guidelines:\n- Address the core ask directly, 2-3 paragraphs max\n- Business casual, warm but concise\n- No signature (added automatically), no markdown\n\nOutput JSON: {\"subject\": \"Re: {{ $json.subject }}\", \"message\": \"...\"}",
+          "hasOutputParser": true,
+          "options": {}
+        },
+        "id": "f4f7aa2b-eed6-4440-95ee-4cd6592c6f6f",
+        "name": "AI Draft Agent",
+        "type": "@n8n/n8n-nodes-langchain.agent",
+        "typeVersion": 2.2,
+        "position": [
+          2424,
+          -224
+        ]
+      },
+      {
+        "parameters": {
+          "model": {
+            "__rl": true,
+            "value": "claude-sonnet-4-6",
+            "mode": "list",
+            "cachedResultName": "Claude Sonnet 4.6"
+          },
+          "options": {
+            "topP": 1
+          }
+        },
+        "id": "631dccdf-2f25-4706-b0d0-40802351d387",
+        "name": "Draft Model",
+        "type": "@n8n/n8n-nodes-langchain.lmChatAnthropic",
+        "typeVersion": 1.3,
+        "position": [
+          2304,
+          0
+        ],
+        "credentials": {
+          "anthropicApi": {
+            "id": "rlAz7ZSl4y6AwRUq",
+            "name": "Anthropic account 2"
+          }
+        }
+      },
+      {
+        "parameters": {
+          "schemaType": "manual",
+          "inputSchema": "[{\"subject\":\"string\",\"message\":\"string\"}]",
+          "autoFix": true
+        },
+        "id": "74af6908-60ac-421f-a847-0e87a643266e",
+        "name": "Draft Output Parser",
+        "type": "@n8n/n8n-nodes-langchain.outputParserStructured",
+        "typeVersion": 1.3,
+        "position": [
+          2688,
+          0
+        ]
+      },
+      {
+        "parameters": {
+          "endpointUrl": "https://mcp.people.ai/mcp",
+          "authentication": "multipleHeadersAuth",
+          "options": {
+            "timeout": 30000
+          }
+        },
+        "id": "60993611-8388-41dd-bf12-d83739974c9a",
+        "name": "People.ai MCP: Agent",
+        "type": "@n8n/n8n-nodes-langchain.mcpClientTool",
+        "typeVersion": 1.2,
+        "position": [
+          2432,
+          0
+        ],
+        "credentials": {
+          "httpMultipleHeadersAuth": {
+            "id": "wvV5pwBeIL7f2vLG",
+            "name": "People.ai MCP Multi-Header"
+          }
+        }
+      },
+      {
+        "parameters": {
+          "jsCode": "// \u2500\u2500 Add Signature \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n// Agent only outputs {output} \u2014 get email context from Prepare Email Text\nconst emailCtx = $('Prepare Email Text').first().json;\n\nlet output = items[0].json.output;\n\n// Normalise: agent may return a plain string or an object\nif (typeof output === 'string') {\n  try { output = JSON.parse(output); }\n  catch(e) { output = { subject: 'Re: ' + (emailCtx.subject || ''), message: output }; }\n}\nif (!output || typeof output !== 'object') {\n  output = { subject: 'Re: ' + (emailCtx.subject || ''), message: '[Draft unavailable]' };\n}\nif (!output.message) { output.message = ''; }\n\n// Strip markdown bold/italic\noutput.message = output.message\n  .replace(/\\*\\*([^*]+)\\*\\*/g, '$1')\n  .replace(/\\*([^*]+)\\*/g, '$1');\n\nconst isAutoSend = !!(emailCtx.isAutoSend);\nconst disclaimer = isAutoSend\n  ? '\\n\\n---\\nThis response was drafted and sent by my AI assistant powered by People.ai. It reflects my perspective on the context of your email. Replies come directly to me \\u2014 I review all responses handled by my assistant.'\n  : '';\nconst sig = '\\n\\nRegards,\\n\\nScott Metcalf' + disclaimer;\nconst orig = emailCtx.senderName\n  ? emailCtx.senderName + ' <' + emailCtx.senderEmail + '>'\n  : emailCtx.senderEmail || '';\nlet dateStr = '';\ntry {\n  const d = new Date(emailCtx.date || Number(emailCtx.internalDate));\n  if (!isNaN(d)) dateStr = d.toLocaleString('en-US', {\n    weekday:'short', year:'numeric', month:'short',\n    day:'numeric', hour:'2-digit', minute:'2-digit'\n  });\n} catch(e) {}\n\nconst ccLine = emailCtx.originalCcLine ? '\\nCC: ' + emailCtx.originalCcLine : '';\noutput.message += sig\n  + '\\n\\n------- Original Message -------'\n  + '\\nFrom: ' + orig\n  + (dateStr ? '\\nDate: ' + dateStr : '')\n  + '\\nSubject: ' + (emailCtx.originalSubject || emailCtx.subject || '')\n  + ccLine\n  + '\\n\\n' + (emailCtx.originalBody || emailCtx.text || '');\n\n// Pass email context through so Save Draft can read it\nreturn items.map(i => ({ json: { ...emailCtx, ...i.json, output } }));\n"
+        },
+        "id": "92da98b2-be15-47e8-a8d6-623c7f83fd35",
+        "name": "Add Signature",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          3056,
+          -224
+        ]
+      },
+      {
+        "parameters": {
+          "resource": "draft",
+          "subject": "={{ $json.output.subject }}",
+          "message": "={{ $json.output.message }}",
+          "options": {
+            "ccList": "={{ $('Parse Entry Point').item.json.ccRecipients || '' }}",
+            "threadId": "={{ $json.originalThreadId || $json.threadId }}",
+            "sendTo": "={{ $json.senderEmail }}"
+          }
+        },
+        "id": "e8a40d69-e54f-45d1-b924-eed8222911ff",
+        "name": "Save Draft",
+        "type": "n8n-nodes-base.gmail",
+        "typeVersion": 2.1,
+        "position": [
+          3280,
+          -224
+        ],
+        "webhookId": "ae142eeb-7d20-4fa5-8b50-f4eca75d391b",
+        "credentials": {
+          "gmailOAuth2": {
+            "id": "YizHiiClW81mlB3Q",
+            "name": "Gmail scott.metcalf@people.ai"
+          }
+        }
+      },
+      {
+        "parameters": {
+          "method": "POST",
+          "url": "https://slack.com/api/chat.postMessage",
+          "authentication": "genericCredentialType",
+          "genericAuthType": "httpHeaderAuth",
+          "sendBody": true,
+          "bodyParameters": {
+            "parameters": [
+              {
+                "name": "channel",
+                "value": "U061WJ6RMJS"
+              },
+              {
+                "name": "text",
+                "value": "={{ ':rocket: *Draft ready* \u2014 ' + $('Parse Entry Point').item.json.subject + '\\nFrom: ' + $('Parse Entry Point').item.json.senderEmail + '\\nCheck your Gmail drafts.' }}"
+              },
+              {
+                "name": "username",
+                "value": "ScottAI"
+              },
+              {
+                "name": "icon_emoji",
+                "value": ":rocket:"
+              }
+            ]
+          },
+          "options": {}
+        },
+        "id": "17da7a55-ad28-4a96-849d-a4c61efb8c4d",
+        "name": "Notify Slack",
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.2,
+        "position": [
+          3728,
+          768
+        ],
+        "credentials": {
+          "httpHeaderAuth": {
+            "id": "LluVuiMJ8NUbAiG7",
+            "name": "Slackbot Auth Token"
+          }
+        }
+      },
+      {
+        "parameters": {
+          "model": {
+            "__rl": true,
+            "value": "claude-sonnet-4-6",
+            "mode": "list",
+            "cachedResultName": "Claude Sonnet 4.6"
+          },
+          "options": {}
+        },
+        "type": "@n8n/n8n-nodes-langchain.lmChatAnthropic",
+        "typeVersion": 1.3,
+        "position": [
+          1568,
+          432
+        ],
+        "id": "6b0d7a9b-1833-4640-a284-140f9aaffd62",
+        "name": "Anthropic Chat Model",
+        "credentials": {
+          "anthropicApi": {
+            "id": "koligyqR3Ah4WqF2",
+            "name": "ClaudeLLM"
+          }
+        }
+      },
+      {
+        "parameters": {
+          "model": {
+            "__rl": true,
+            "value": "claude-sonnet-4-6",
+            "mode": "list",
+            "cachedResultName": "Claude Sonnet 4.6"
+          },
+          "options": {}
+        },
+        "type": "@n8n/n8n-nodes-langchain.lmChatAnthropic",
+        "typeVersion": 1.3,
+        "position": [
+          2768,
+          208
+        ],
+        "id": "a77bc475-c211-46e0-b979-924eb4c81d9a",
+        "name": "Anthropic Chat Model1",
+        "credentials": {
+          "anthropicApi": {
+            "id": "koligyqR3Ah4WqF2",
+            "name": "ClaudeLLM"
+          }
+        }
+      },
+      {
+        "parameters": {
+          "operation": "removeLabels",
+          "messageId": "={{ $('Parse Entry Point').item.json.forwardedMessageId || $('Parse Entry Point').item.json.id }}",
+          "labelIds": [
+            "INBOX",
+            "UNREAD"
+          ]
+        },
+        "id": "0c49303b-02cd-47d4-a4ed-7bf4694bbe10",
+        "name": "Archive Forwarded Copy",
+        "type": "n8n-nodes-base.gmail",
+        "typeVersion": 2.1,
+        "position": [
+          3728,
+          176
+        ],
+        "webhookId": "7f93edaa-e8cf-4f38-b7a1-7aaa77179a9c",
+        "credentials": {
+          "gmailOAuth2": {
+            "id": "YizHiiClW81mlB3Q",
+            "name": "Gmail scott.metcalf@people.ai"
+          }
+        },
+        "continueOnFail": true
+      },
+      {
+        "parameters": {
+          "jsCode": "// \u2500\u2500 Email Routing Policy \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n// Edit these lists to control automated draft behaviour per sender.\n\n// Spam: matched senders are silently marked read \u2014 no draft, no Slack alert\nconst SPAM_PATTERNS = [\n  /no.?reply/i, /noreply/i, /donotreply/i, /do-not-reply/i,\n  /mailer-daemon/i, /postmaster/i, /bounce\\+/i, /newsletter/i,\n  /notifications?@/i, /alerts?@/i, /\\+caf_/i,\n];\n\n// Blocked domains: organisations that never get automated drafts\nconst BLOCKED_DOMAINS = [\n  'google.com',\n  'linkedin.com',\n  'salesforce.com',\n  'github.com',\n  'slack.com',\n  'zoom.us',\n];\n\n// Blocked addresses: individual senders that never get automated drafts\nconst BLOCKED_ADDRESSES = [\n  // 'specific@company.com',\n];\n\n// Auto-send domains: drafts sent automatically after delay if unedited\nconst AUTO_SEND_DOMAINS = [\n  // 'trustedpartner.com',\n];\n\n// Auto-send addresses: specific senders whose drafts are auto-sent\nconst AUTO_SEND_ADDRESSES = [\n  // 'colleague@company.com',\n];\n\n// Hours to wait before auto-sending (only applies to auto-send tier)\nconst AUTO_SEND_DELAY_HOURS = 2;\n\n// \u2500\u2500 Classify \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\nconst email       = $input.first().json;\nconst fromEmail   = (email.senderEmail  || '').toLowerCase();\nconst fromDomain  = (email.senderDomain || '').toLowerCase();\nconst labelIds    = email.labelIds || [];\n\nconst isGmailSpam   = labelIds.includes('SPAM');\nconst isPatternSpam = SPAM_PATTERNS.some(p => p.test(fromEmail));\nconst isSpam        = isGmailSpam || isPatternSpam;\n\nconst isBlockedDomain  = BLOCKED_DOMAINS.some(d => fromDomain === d || fromDomain.endsWith('.' + d));\nconst isBlockedAddress = BLOCKED_ADDRESSES.map(a => a.toLowerCase()).includes(fromEmail);\nconst isBlocked        = isBlockedDomain || isBlockedAddress;\n\nconst isAutoSendDomain  = AUTO_SEND_DOMAINS.some(d => fromDomain === d || fromDomain.endsWith('.' + d));\nconst isAutoSendAddress = AUTO_SEND_ADDRESSES.map(a => a.toLowerCase()).includes(fromEmail);\nconst isAutoSend        = isAutoSendDomain || isAutoSendAddress;\n\nlet route;\nif      (isSpam)    route = 'spam';\nelse if (isBlocked) route = 'blocked';\nelse                route = 'draft';\n\nreturn [{ json: { ...email, route, isSpam, isBlocked, isAutoSend, autoSendDelayHours: AUTO_SEND_DELAY_HOURS } }];\n"
+        },
+        "id": "1736977e-6657-4664-bd8b-0fb187ce6fba",
+        "name": "Route Email",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          -240,
+          -512
+        ]
+      },
+      {
+        "parameters": {
+          "rules": {
+            "values": [
+              {
+                "conditions": {
+                  "options": {
+                    "version": 2
+                  },
+                  "combinator": "and",
+                  "conditions": [
+                    {
+                      "id": "fd068a53-e913-4a97-bac1-d6206ed81740",
+                      "leftValue": "={{ $json.route }}",
+                      "rightValue": "spam",
+                      "operator": {
+                        "type": "string",
+                        "operation": "equals",
+                        "name": "filter.operator.equals"
+                      }
+                    }
+                  ]
+                },
+                "renameOutput": true,
+                "outputKey": "Spam"
+              },
+              {
+                "conditions": {
+                  "options": {
+                    "version": 2
+                  },
+                  "combinator": "and",
+                  "conditions": [
+                    {
+                      "id": "790e9905-2e01-4c10-be34-737f663ff5e0",
+                      "leftValue": "={{ $json.route }}",
+                      "rightValue": "blocked",
+                      "operator": {
+                        "type": "string",
+                        "operation": "equals",
+                        "name": "filter.operator.equals"
+                      }
+                    }
+                  ]
+                },
+                "renameOutput": true,
+                "outputKey": "Blocked"
+              },
+              {
+                "conditions": {
+                  "options": {
+                    "version": 2
+                  },
+                  "combinator": "and",
+                  "conditions": [
+                    {
+                      "id": "44203409-224d-4987-8dd3-a00a20e8a0f0",
+                      "leftValue": "={{ $json.route }}",
+                      "rightValue": "draft",
+                      "operator": {
+                        "type": "string",
+                        "operation": "equals",
+                        "name": "filter.operator.equals"
+                      }
+                    }
+                  ]
+                },
+                "renameOutput": true,
+                "outputKey": "Draft"
+              }
+            ]
+          },
+          "options": {}
+        },
+        "id": "ffb1b82f-a329-4b00-b66a-677ce47d26c5",
+        "name": "Route Switch",
+        "type": "n8n-nodes-base.switch",
+        "typeVersion": 3.2,
+        "position": [
+          -16,
+          -528
+        ]
+      },
+      {
+        "parameters": {
+          "operation": "removeLabels",
+          "messageId": "={{ $json.id }}",
+          "labelIds": [
+            "UNREAD"
+          ]
+        },
+        "id": "20756c51-c39a-481a-b6b9-f79415d9cf4e",
+        "name": "Skip - Spam",
+        "type": "n8n-nodes-base.gmail",
+        "typeVersion": 2.1,
+        "position": [
+          208,
+          -524
+        ],
+        "webhookId": "00356e83-5d82-4792-b97d-5e71252394ac",
+        "credentials": {
+          "gmailOAuth2": {
+            "id": "YizHiiClW81mlB3Q",
+            "name": "Gmail scott.metcalf@people.ai"
+          }
+        },
+        "continueOnFail": true
+      },
+      {
+        "parameters": {
+          "operation": "removeLabels",
+          "messageId": "={{ $json.id }}",
+          "labelIds": [
+            "UNREAD"
+          ]
+        },
+        "id": "88b1ff23-c5b4-46a1-831f-f2db0d66829c",
+        "name": "Skip - Blocked",
+        "type": "n8n-nodes-base.gmail",
+        "typeVersion": 2.1,
+        "position": [
+          208,
+          -332
+        ],
+        "webhookId": "a7cfb6cc-9ddb-4728-bf07-e78f68117f0f",
+        "credentials": {
+          "gmailOAuth2": {
+            "id": "YizHiiClW81mlB3Q",
+            "name": "Gmail scott.metcalf@people.ai"
+          }
+        },
+        "continueOnFail": true
+      },
+      {
+        "parameters": {
+          "conditions": {
+            "options": {
+              "caseSensitive": true,
+              "typeValidation": "strict",
+              "version": 2
+            },
+            "combinator": "and",
+            "conditions": [
+              {
+                "id": "9d7b3992-6358-44d9-9b86-bf4d7c875bd1",
+                "leftValue": "={{ $('Parse Entry Point').item.json.isForwarded }}",
+                "operator": {
+                  "type": "boolean",
+                  "operation": "true",
+                  "singleValue": true
+                }
+              }
+            ]
+          },
+          "options": {}
+        },
+        "id": "a97cfd1b-2262-4384-acf3-40707161d4f1",
+        "name": "Is Self Forward?",
+        "type": "n8n-nodes-base.if",
+        "typeVersion": 2.2,
+        "position": [
+          3504,
+          -320
+        ]
+      },
+      {
+        "parameters": {
+          "operation": "removeLabels",
+          "messageId": "={{ $('Parse Entry Point').item.json.id }}",
+          "labelIds": [
+            "UNREAD"
+          ]
+        },
+        "id": "0ad68e16-fd72-4907-9c26-136b1205e68e",
+        "name": "Mark Direct Read",
+        "type": "n8n-nodes-base.gmail",
+        "typeVersion": 2.1,
+        "position": [
+          3728,
+          -16
+        ],
+        "webhookId": "37f03f26-7fd6-4177-bde9-41efa8322020",
+        "credentials": {
+          "gmailOAuth2": {
+            "id": "YizHiiClW81mlB3Q",
+            "name": "Gmail scott.metcalf@people.ai"
+          }
+        },
+        "continueOnFail": true
+      },
+      {
+        "parameters": {
+          "conditions": {
+            "options": {
+              "caseSensitive": true,
+              "typeValidation": "strict",
+              "version": 2
+            },
+            "combinator": "and",
+            "conditions": [
+              {
+                "id": "0639c031-f241-4407-8096-28f81b9ef3fe",
+                "leftValue": "={{ $('Route Email').first().json.isAutoSend }}",
+                "operator": {
+                  "type": "boolean",
+                  "operation": "true",
+                  "singleValue": true
+                }
+              }
+            ]
+          },
+          "options": {}
+        },
+        "id": "ef1b5c5f-b141-4b8b-a180-7b83d3be2a14",
+        "name": "Is Auto-send?",
+        "type": "n8n-nodes-base.if",
+        "typeVersion": 2.2,
+        "position": [
+          3504,
+          16
+        ]
+      },
+      {
+        "parameters": {
+          "method": "POST",
+          "url": "https://slack.com/api/chat.postMessage",
+          "authentication": "genericCredentialType",
+          "genericAuthType": "httpHeaderAuth",
+          "sendBody": true,
+          "bodyParameters": {
+            "parameters": [
+              {
+                "name": "channel",
+                "value": "U061WJ6RMJS"
+              },
+              {
+                "name": "text",
+                "value": "={{ ':robot_face: *Draft created* \u2014 Re: ' + $('Parse Entry Point').item.json.originalSubject + '\\nTo: ' + $('Parse Entry Point').item.json.senderEmail + '\\n\\n\u23f1 Auto-sending in ' + ($('Route Email').first().json.autoSendDelayHours || 2) + ' hours. Edit the draft in Gmail to cancel.' }}"
+              },
+              {
+                "name": "username",
+                "value": "ScottAI"
+              },
+              {
+                "name": "icon_emoji",
+                "value": ":rocket:"
+              }
+            ]
+          },
+          "options": {}
+        },
+        "id": "e53b9599-bbc4-4a91-ada3-698ab7929541",
+        "name": "Notify - Auto-send Scheduled",
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.2,
+        "position": [
+          3728,
+          368
+        ],
+        "credentials": {
+          "httpHeaderAuth": {
+            "id": "LluVuiMJ8NUbAiG7",
+            "name": "Slackbot Auth Token"
+          }
+        }
+      },
+      {
+        "parameters": {
+          "amount": "={{ $('Route Email').first().json.autoSendDelayHours || 2 }}",
+          "unit": "hours"
+        },
+        "id": "89c9dd31-28f8-423c-86cb-6eb672056559",
+        "name": "Wait to Send",
+        "type": "n8n-nodes-base.wait",
+        "typeVersion": 1.1,
+        "position": [
+          3952,
+          368
+        ],
+        "webhookId": "0dc82717-1656-4e81-88bb-ece56ca82103"
+      },
+      {
+        "parameters": {
+          "url": "=https://gmail.googleapis.com/gmail/v1/users/me/drafts/{{ $('Save Draft').first().json.id }}",
+          "authentication": "predefinedCredentialType",
+          "nodeCredentialType": "gmailOAuth2",
+          "options": {}
+        },
+        "id": "ccd39e98-2f4a-47c3-88cd-3f54b85ccafa",
+        "name": "Check Draft Exists",
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.2,
+        "position": [
+          4176,
+          368
+        ],
+        "credentials": {
+          "gmailOAuth2": {
+            "id": "YizHiiClW81mlB3Q",
+            "name": "Gmail scott.metcalf@people.ai"
+          }
+        },
+        "continueOnFail": true
+      },
+      {
+        "parameters": {
+          "conditions": {
+            "options": {
+              "caseSensitive": true,
+              "typeValidation": "strict",
+              "version": 2
+            },
+            "combinator": "and",
+            "conditions": [
+              {
+                "id": "dcc16b51-b33a-47d1-8d55-ef4c08077e27",
+                "leftValue": "={{ $json.id }}",
+                "operator": {
+                  "type": "string",
+                  "operation": "notEmpty",
+                  "singleValue": true
+                }
+              }
+            ]
+          },
+          "options": {}
+        },
+        "id": "0a057c40-7a61-4f42-b779-23fc77987c66",
+        "name": "Draft Still There?",
+        "type": "n8n-nodes-base.if",
+        "typeVersion": 2.2,
+        "position": [
+          4400,
+          368
+        ]
+      },
+      {
+        "parameters": {
+          "method": "POST",
+          "url": "https://gmail.googleapis.com/gmail/v1/users/me/drafts/send",
+          "authentication": "predefinedCredentialType",
+          "nodeCredentialType": "gmailOAuth2",
+          "sendBody": true,
+          "bodyParameters": {
+            "parameters": [
+              {
+                "name": "id",
+                "value": "={{ $('Save Draft').first().json.id }}"
+              }
+            ]
+          },
+          "options": {}
+        },
+        "id": "2f02eecd-6a36-4dae-87fc-a9786083f4a4",
+        "name": "Send Draft",
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.2,
+        "position": [
+          4624,
+          272
+        ],
+        "credentials": {
+          "gmailOAuth2": {
+            "id": "YizHiiClW81mlB3Q",
+            "name": "Gmail scott.metcalf@people.ai"
+          }
+        }
+      },
+      {
+        "parameters": {
+          "method": "POST",
+          "url": "https://slack.com/api/chat.postMessage",
+          "authentication": "genericCredentialType",
+          "genericAuthType": "httpHeaderAuth",
+          "sendBody": true,
+          "bodyParameters": {
+            "parameters": [
+              {
+                "name": "channel",
+                "value": "U061WJ6RMJS"
+              },
+              {
+                "name": "text",
+                "value": "={{ ':white_check_mark: *Auto-sent* \u2014 Re: ' + $('Parse Entry Point').item.json.originalSubject + '\\nTo: ' + $('Parse Entry Point').item.json.senderEmail }}"
+              },
+              {
+                "name": "username",
+                "value": "ScottAI"
+              },
+              {
+                "name": "icon_emoji",
+                "value": ":rocket:"
+              }
+            ]
+          },
+          "options": {}
+        },
+        "id": "98713216-c52b-4880-9d13-f5604cec8bff",
+        "name": "Notify - Sent",
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.2,
+        "position": [
+          4848,
+          272
+        ],
+        "credentials": {
+          "httpHeaderAuth": {
+            "id": "LluVuiMJ8NUbAiG7",
+            "name": "Slackbot Auth Token"
+          }
+        }
+      },
+      {
+        "parameters": {
+          "method": "POST",
+          "url": "https://slack.com/api/chat.postMessage",
+          "authentication": "genericCredentialType",
+          "genericAuthType": "httpHeaderAuth",
+          "sendBody": true,
+          "bodyParameters": {
+            "parameters": [
+              {
+                "name": "channel",
+                "value": "U061WJ6RMJS"
+              },
+              {
+                "name": "text",
+                "value": "={{ ':pencil2: *Draft edited \u2014 not auto-sent* \u2014 Re: ' + $('Parse Entry Point').item.json.originalSubject + '\\nTo: ' + $('Parse Entry Point').item.json.senderEmail + '\\nSend manually when ready.' }}"
+              },
+              {
+                "name": "username",
+                "value": "ScottAI"
+              },
+              {
+                "name": "icon_emoji",
+                "value": ":rocket:"
+              }
+            ]
+          },
+          "options": {}
+        },
+        "id": "ea41deb1-baa1-4345-8243-bfe0b041942a",
+        "name": "Notify - Edited, Not Sent",
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.2,
+        "position": [
+          4624,
+          464
+        ],
+        "credentials": {
+          "httpHeaderAuth": {
+            "id": "LluVuiMJ8NUbAiG7",
+            "name": "Slackbot Auth Token"
+          }
+        }
+      },
+      {
+        "parameters": {
+          "prompt": "=Subject: {{ $json.subject }}\n\nFrom: {{ $json.senderEmail || $json.fromEmail || '' }}\n\nMessage:\n{{ $json.bodyText || $json.body || $json.rawBody || $json.textPlain || '' }}",
+          "messages": {
+            "messageValues": [
+              {
+                "message": "You are a professional email assistant. Decide whether this email genuinely requires a personal, human-written reply.\n\nReturn JSON: { \"needsReply\": true } or { \"needsReply\": false }.\n\nReturn FALSE (no reply needed) for ANY of the following:\n- The email body contains an unsubscribe link or \"opt out\" text \u2014 this is marketing\n- The subject contains words like: reminder, exclusive, invitation, promo, offer, deal, discount, sale, kit, swag, award, announcement, digest, newsletter, welcome, confirm, verify, receipt, invoice, tracking, shipped, delivered\n- The from address is a team/group address: team@, hello@, hi@, info@, noreply@, no-reply@, marketing@, news@, updates@, promo@, support@, notifications@, alerts@, donotreply@\n- Automated system emails: calendar invites, Salesforce notifications, GitHub alerts, Slack notifications, out-of-office replies, delivery receipts\n- The email is clearly promotional, informational, or broadcast to many recipients\n\nReturn TRUE (reply needed) ONLY when:\n- A named individual directly asks a question or requests action\n- A customer or partner needs information, a decision, or follow-up\n- The email is part of an ongoing business conversation expecting a reply\n- Someone asks for a meeting, next step, or explicit response\n\nWhen in doubt, return false. It is better to skip a borderline email than to draft an unwanted reply to a marketing or automated message."
+              }
+            ]
+          }
+        },
+        "id": "f4e8c9c1-3287-4dc6-b7a5-9ed83b6e282c",
+        "name": "Assess if Needs Reply",
+        "type": "@n8n/n8n-nodes-langchain.chainLlm",
+        "typeVersion": 1.3,
+        "position": [
+          432,
+          276
+        ]
+      },
+      {
+        "parameters": {
+          "model": {
+            "__rl": true,
+            "value": "claude-haiku-4-5-20251001",
+            "mode": "list",
+            "cachedResultName": "Claude Haiku 4.5"
+          },
+          "options": {}
+        },
+        "id": "29bd9d62-50b2-4b83-8032-42ce2fb0e57c",
+        "name": "Assessment Model",
+        "type": "@n8n/n8n-nodes-langchain.lmChatAnthropic",
+        "typeVersion": 1.3,
+        "position": [
+          440,
+          500
+        ],
+        "credentials": {
+          "anthropicApi": {
+            "id": "rlAz7ZSl4y6AwRUq",
+            "name": "Anthropic account 2"
+          }
+        }
+      },
+      {
+        "parameters": {
+          "jsonSchema": "{\n  \"type\": \"object\",\n  \"properties\": {\n    \"needsReply\": {\n      \"type\": \"boolean\"\n    }\n  },\n  \"required\": [\n    \"needsReply\"\n  ]\n}"
+        },
+        "id": "7420c095-06ef-4c55-8d80-8e80e1aecd65",
+        "name": "Assessment Parser",
+        "type": "@n8n/n8n-nodes-langchain.outputParserStructured",
+        "typeVersion": 1,
+        "position": [
+          568,
+          500
+        ]
+      },
+      {
+        "parameters": {
+          "conditions": {
+            "options": {
+              "caseSensitive": true,
+              "leftValue": "",
+              "typeValidation": "strict",
+              "version": 2
+            },
+            "conditions": [
+              {
+                "id": "99fef9b6-fc7a-4ab4-af24-d12820538fca",
+                "leftValue": "={{ $json.needsReply }}",
+                "operator": {
+                  "type": "boolean",
+                  "operation": "true",
+                  "singleValue": true
+                }
+              }
+            ],
+            "combinator": "and"
+          },
+          "options": {}
+        },
+        "id": "2c722013-6c0c-44ed-b6a5-3e37e0e385ff",
+        "name": "If Needs Reply",
+        "type": "n8n-nodes-base.if",
+        "typeVersion": 2,
+        "position": [
+          784,
+          276
+        ]
+      },
+      {
+        "parameters": {
+          "endpointUrl": "https://mcp.atlassian.com/v1/sse",
+          "serverTransport": "sse",
+          "authentication": "mcpOAuth2Api",
+          "options": {
+            "timeout": 30000
+          }
+        },
+        "id": "47db262a-16d8-4425-82df-7cccfffe54c6",
+        "name": "Confluence MCP",
+        "type": "@n8n/n8n-nodes-langchain.mcpClientTool",
+        "typeVersion": 1.2,
+        "position": [
+          2560,
+          0
+        ],
+        "credentials": {
+          "mcpOAuth2Api": {
+            "id": "mL7GmjUrxj1FpYxZ",
+            "name": "Atlassian MCP"
+          }
+        }
+      }
+    ],
+    "connections": {
+      "Schedule Trigger": {
+        "main": [
+          [
+            {
+              "node": "Get Unread Emails",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Get Unread Emails": {
+        "main": [
+          [
+            {
+              "node": "Process Each Email",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Process Each Email": {
+        "main": [
+          [],
+          [
+            {
+              "node": "Parse Entry Point",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Parse Entry Point": {
+        "main": [
+          [
+            {
+              "node": "Route Email",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Is Forwarded?": {
+        "main": [
+          [
+            {
+              "node": "Is Customer Email?",
+              "type": "main",
+              "index": 0
+            }
+          ],
+          [
+            {
+              "node": "Assess if Needs Reply",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Is Customer Email?": {
+        "main": [
+          [
+            {
+              "node": "Customer Account Lookup",
+              "type": "main",
+              "index": 0
+            }
+          ],
+          [
+            {
+              "node": "Prepare Email Text",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Lookup Model": {
+        "ai_languageModel": [
+          [
+            {
+              "node": "Customer Account Lookup",
+              "type": "ai_languageModel",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Lookup Parser": {
+        "ai_outputParser": [
+          [
+            {
+              "node": "Customer Account Lookup",
+              "type": "ai_outputParser",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "People.ai MCP: Lookup": {
+        "ai_tool": [
+          [
+            {
+              "node": "Customer Account Lookup",
+              "type": "ai_tool",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Customer Account Lookup": {
+        "main": [
+          [
+            {
+              "node": "Merge Customer Data",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Merge Customer Data": {
+        "main": [
+          [
+            {
+              "node": "Prepare Email Text",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Prepare Email Text": {
+        "main": [
+          [
+            {
+              "node": "AI Draft Agent",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Draft Model": {
+        "ai_languageModel": [
+          [
+            {
+              "node": "AI Draft Agent",
+              "type": "ai_languageModel",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Draft Output Parser": {
+        "ai_outputParser": [
+          [
+            {
+              "node": "AI Draft Agent",
+              "type": "ai_outputParser",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "People.ai MCP: Agent": {
+        "ai_tool": [
+          [
+            {
+              "node": "AI Draft Agent",
+              "type": "ai_tool",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "AI Draft Agent": {
+        "main": [
+          [
+            {
+              "node": "Add Signature",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Add Signature": {
+        "main": [
+          [
+            {
+              "node": "Save Draft",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Save Draft": {
+        "main": [
+          [
+            {
+              "node": "Is Self Forward?",
+              "type": "main",
+              "index": 0
+            },
+            {
+              "node": "Is Auto-send?",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Notify Slack": {
+        "main": [
+          [
+            {
+              "node": "Process Each Email",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Anthropic Chat Model": {
+        "ai_languageModel": [
+          [
+            {
+              "node": "Lookup Parser",
+              "type": "ai_languageModel",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Anthropic Chat Model1": {
+        "ai_languageModel": [
+          [
+            {
+              "node": "Draft Output Parser",
+              "type": "ai_languageModel",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Route Email": {
+        "main": [
+          [
+            {
+              "node": "Route Switch",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Route Switch": {
+        "main": [
+          [
+            {
+              "node": "Skip - Spam",
+              "type": "main",
+              "index": 0
+            }
+          ],
+          [
+            {
+              "node": "Skip - Blocked",
+              "type": "main",
+              "index": 0
+            }
+          ],
+          [
+            {
+              "node": "Is Forwarded?",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Skip - Spam": {
+        "main": [
+          [
+            {
+              "node": "Process Each Email",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Skip - Blocked": {
+        "main": [
+          [
+            {
+              "node": "Process Each Email",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Is Self Forward?": {
+        "main": [
+          [
+            {
+              "node": "Archive Forwarded Copy",
+              "type": "main",
+              "index": 0
+            }
+          ],
+          [
+            {
+              "node": "Mark Direct Read",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Archive Forwarded Copy": {
+        "main": [
+          [
+            {
+              "node": "Process Each Email",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Mark Direct Read": {
+        "main": [
+          [
+            {
+              "node": "Process Each Email",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Is Auto-send?": {
+        "main": [
+          [
+            {
+              "node": "Notify - Auto-send Scheduled",
+              "type": "main",
+              "index": 0
+            }
+          ],
+          [
+            {
+              "node": "Notify Slack",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Notify - Auto-send Scheduled": {
+        "main": [
+          [
+            {
+              "node": "Wait to Send",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Wait to Send": {
+        "main": [
+          [
+            {
+              "node": "Check Draft Exists",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Check Draft Exists": {
+        "main": [
+          [
+            {
+              "node": "Draft Still There?",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Draft Still There?": {
+        "main": [
+          [
+            {
+              "node": "Send Draft",
+              "type": "main",
+              "index": 0
+            }
+          ],
+          [
+            {
+              "node": "Notify - Edited, Not Sent",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Send Draft": {
+        "main": [
+          [
+            {
+              "node": "Notify - Sent",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Assess if Needs Reply": {
+        "main": [
+          [
+            {
+              "node": "If Needs Reply",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Assessment Model": {
+        "ai_languageModel": [
+          [
+            {
+              "node": "Assess if Needs Reply",
+              "type": "ai_languageModel",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Assessment Parser": {
+        "ai_outputParser": [
+          [
+            {
+              "node": "Assess if Needs Reply",
+              "type": "ai_outputParser",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "If Needs Reply": {
+        "main": [
+          [
+            {
+              "node": "Is Customer Email?",
+              "type": "main",
+              "index": 0
+            }
+          ],
+          [
+            {
+              "node": "Mark Direct Read",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Confluence MCP": {
+        "ai_tool": [
+          [
+            {
+              "node": "AI Draft Agent",
+              "type": "ai_tool",
+              "index": 0
+            }
+          ]
+        ]
+      }
+    },
+    "authors": "Scott Metcalf",
+    "name": null,
+    "description": null,
+    "autosaved": false,
+    "workflowPublishHistory": [
+      {
+        "createdAt": "2026-03-02T18:30:04.089Z",
+        "id": 593,
+        "workflowId": "Wgjmfu82wyuwipVN",
+        "versionId": "cdf8963d-b45f-4b68-a4ee-2e9a406ff7ec",
+        "event": "activated",
+        "userId": "bfa163c1-bd53-4c0f-b0ba-8dc3626f7c79"
+      },
+      {
+        "createdAt": "2026-03-02T18:30:04.024Z",
+        "id": 592,
+        "workflowId": "Wgjmfu82wyuwipVN",
+        "versionId": "cdf8963d-b45f-4b68-a4ee-2e9a406ff7ec",
+        "event": "deactivated",
+        "userId": "bfa163c1-bd53-4c0f-b0ba-8dc3626f7c79"
+      }
+    ]
+  }
+}

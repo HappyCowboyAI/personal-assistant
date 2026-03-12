@@ -1,0 +1,399 @@
+{
+  "name": "Onboarding - Name Your Assistant",
+  "nodes": [
+    {
+      "parameters": {
+        "events": ["message"],
+        "channelTypes": ["im"],
+        "options": {}
+      },
+      "id": "slack-trigger",
+      "name": "Slack DM Received",
+      "type": "n8n-nodes-base.slackTrigger",
+      "typeVersion": 1,
+      "position": [250, 300],
+      "webhookId": "WEBHOOK_ID",
+      "credentials": {
+        "slackApi": {
+          "id": "SLACK_CREDENTIAL_ID",
+          "name": "Slack"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "select",
+        "tableId": "users",
+        "filterByFormula": "{slack_user_id} = '{{ $json.event.user }}'"
+      },
+      "id": "check-user-exists",
+      "name": "Check if User Exists",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [450, 300],
+      "credentials": {
+        "supabaseApi": {
+          "id": "SUPABASE_CREDENTIAL_ID",
+          "name": "Supabase"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "boolean": [
+            {
+              "value1": "={{ $json.data?.length > 0 }}",
+              "value2": true
+            }
+          ]
+        }
+      },
+      "id": "user-exists-check",
+      "name": "User Exists?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [650, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Parse the message for commands or name\nconst message = $input.first().json.event.text.trim().toLowerCase();\nconst originalMessage = $input.first().json.event.text.trim();\nconst user = $('Check if User Exists').first().json.data?.[0];\n\n// Command detection\nif (message.startsWith('rename ')) {\n  const newName = originalMessage.substring(7).trim();\n  return {\n    action: 'rename',\n    new_name: newName,\n    user: user\n  };\n}\n\nif (message.startsWith('emoji ')) {\n  const newEmoji = originalMessage.substring(6).trim();\n  return {\n    action: 'change_emoji',\n    new_emoji: newEmoji,\n    user: user\n  };\n}\n\nif (message === 'help') {\n  return { action: 'help', user: user };\n}\n\nif (message === 'stop digest' || message === 'pause digest') {\n  return { action: 'stop_digest', user: user };\n}\n\nif (message === 'resume digest' || message === 'start digest') {\n  return { action: 'resume_digest', user: user };\n}\n\nconst timeMatch = message.match(/digest at (\\d{1,2}(?::\\d{2})?\\s*(?:am|pm)?)/i);\nif (timeMatch) {\n  return { action: 'change_time', new_time: timeMatch[1], user: user };\n}\n\n// Default: treat as question/conversation\nreturn { action: 'conversation', message: originalMessage, user: user };"
+      },
+      "id": "parse-existing-user-message",
+      "name": "Parse Command",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [850, 200]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "string": [
+            {
+              "value1": "={{ $json.action }}",
+              "value2": "rename"
+            }
+          ]
+        }
+      },
+      "id": "is-rename",
+      "name": "Is Rename?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [1050, 200]
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "tableId": "users",
+        "id": "={{ $json.user.id }}",
+        "dataToSend": "defineBelow",
+        "fieldsToSend": {
+          "values": [
+            {
+              "fieldId": "assistant_name",
+              "fieldValue": "={{ $json.new_name }}"
+            }
+          ]
+        }
+      },
+      "id": "update-name",
+      "name": "Update Assistant Name",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [1250, 100],
+      "credentials": {
+        "supabaseApi": {
+          "id": "SUPABASE_CREDENTIAL_ID",
+          "name": "Supabase"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "channel": "={{ $('Slack DM Received').item.json.event.user }}",
+        "text": "Done. I'm {{ $('Parse Command').item.json.new_name }} now.\n\n(If you ever want to change it again, just say \"rename [new name]\")",
+        "otherOptions": {
+          "username": "={{ $('Parse Command').item.json.new_name }}",
+          "icon_emoji": "={{ $('Parse Command').item.json.user.assistant_emoji || ':robot_face:' }}"
+        }
+      },
+      "id": "confirm-rename",
+      "name": "Confirm Rename",
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 2,
+      "position": [1450, 100],
+      "credentials": {
+        "slackApi": {
+          "id": "SLACK_CREDENTIAL_ID",
+          "name": "Slack"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "channel": "={{ $('Slack DM Received').item.json.event.user }}",
+        "text": "Hey! I'm your new sales assistant — I'll be helping you stay on top of your deals, prep for meetings, and spot risks before they become problems.\n\nBut first, I need a name. What do you want to call me?\n\n(Just reply with a name — anything you like. Some folks go with Alex, Luna, Max... or get creative. It's up to you.)",
+        "otherOptions": {
+          "username": "Your New Assistant"
+        }
+      },
+      "id": "initial-greeting",
+      "name": "Send Initial Greeting",
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 2,
+      "position": [850, 450],
+      "credentials": {
+        "slackApi": {
+          "id": "SLACK_CREDENTIAL_ID",
+          "name": "Slack"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "insert",
+        "tableId": "users",
+        "dataToSend": "defineBelow",
+        "fieldsToSend": {
+          "values": [
+            {
+              "fieldId": "slack_user_id",
+              "fieldValue": "={{ $('Slack DM Received').item.json.event.user }}"
+            },
+            {
+              "fieldId": "organization_id",
+              "fieldValue": "DEFAULT_ORG_ID"
+            }
+          ]
+        }
+      },
+      "id": "create-user",
+      "name": "Create User Record",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [1050, 450],
+      "credentials": {
+        "supabaseApi": {
+          "id": "SUPABASE_CREDENTIAL_ID",
+          "name": "Supabase"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "set",
+        "keepOnlySet": true,
+        "values": {
+          "string": [
+            {
+              "name": "awaiting_name",
+              "value": "true"
+            }
+          ]
+        }
+      },
+      "id": "set-awaiting-name",
+      "name": "Set Awaiting Name State",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 2,
+      "position": [1250, 450]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "string": [
+            {
+              "value1": "={{ $json.action }}",
+              "value2": "change_emoji"
+            }
+          ]
+        }
+      },
+      "id": "is-change-emoji",
+      "name": "Is Change Emoji?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [1050, 350]
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "tableId": "users",
+        "id": "={{ $json.user.id }}",
+        "dataToSend": "defineBelow",
+        "fieldsToSend": {
+          "values": [
+            {
+              "fieldId": "assistant_emoji",
+              "fieldValue": "={{ $json.new_emoji }}"
+            }
+          ]
+        }
+      },
+      "id": "update-emoji",
+      "name": "Update Assistant Emoji",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [1250, 300],
+      "credentials": {
+        "supabaseApi": {
+          "id": "SUPABASE_CREDENTIAL_ID",
+          "name": "Supabase"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "channel": "={{ $('Slack DM Received').item.json.event.user }}",
+        "text": "Done — I'll use {{ $('Parse Command').item.json.new_emoji }} as my icon from now on.\n\n(Want to change it again? Just say \"emoji :new_emoji:\")",
+        "otherOptions": {
+          "username": "={{ $('Parse Command').item.json.user.assistant_name || 'Aria' }}",
+          "icon_emoji": "={{ $('Parse Command').item.json.new_emoji }}"
+        }
+      },
+      "id": "confirm-emoji",
+      "name": "Confirm Emoji Change",
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 2,
+      "position": [1450, 300],
+      "credentials": {
+        "slackApi": {
+          "id": "SLACK_CREDENTIAL_ID",
+          "name": "Slack"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Slack DM Received": {
+      "main": [
+        [
+          {
+            "node": "Check if User Exists",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check if User Exists": {
+      "main": [
+        [
+          {
+            "node": "User Exists?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "User Exists?": {
+      "main": [
+        [
+          {
+            "node": "Parse Command",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Send Initial Greeting",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Command": {
+      "main": [
+        [
+          {
+            "node": "Is Rename?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Is Rename?": {
+      "main": [
+        [
+          {
+            "node": "Update Assistant Name",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Is Change Emoji?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Is Change Emoji?": {
+      "main": [
+        [
+          {
+            "node": "Update Assistant Emoji",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        []
+      ]
+    },
+    "Update Assistant Emoji": {
+      "main": [
+        [
+          {
+            "node": "Confirm Emoji Change",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update Assistant Name": {
+      "main": [
+        [
+          {
+            "node": "Confirm Rename",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send Initial Greeting": {
+      "main": [
+        [
+          {
+            "node": "Create User Record",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create User Record": {
+      "main": [
+        [
+          {
+            "node": "Set Awaiting Name State",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "saveExecutionProgress": true,
+    "saveManualExecutions": true
+  }
+}

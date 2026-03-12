@@ -1,0 +1,926 @@
+{
+    "updatedAt": "2026-03-10T18:09:12.081Z",
+    "createdAt": "2026-03-10T15:32:57.605Z",
+    "id": "7QaWpTuTp6oNVFjM",
+    "name": "On-Demand Silence Check",
+    "description": null,
+    "active": true,
+    "isArchived": false,
+    "nodes": [
+        {
+            "parameters": {
+                "inputSource": "passthrough"
+            },
+            "id": "0f7a7791-b5ad-4f28-b2ff-7f6f525b097c",
+            "name": "Workflow Input Trigger",
+            "type": "n8n-nodes-base.executeWorkflowTrigger",
+            "typeVersion": 1.1,
+            "position": [
+                0,
+                300
+            ]
+        },
+        {
+            "parameters": {
+                "method": "POST",
+                "url": "https://api.people.ai/v3/auth/tokens",
+                "sendHeaders": true,
+                "headerParameters": {
+                    "parameters": [
+                        {
+                            "name": "Content-Type",
+                            "value": "application/x-www-form-urlencoded"
+                        }
+                    ]
+                },
+                "sendBody": true,
+                "specifyBody": "string",
+                "body": "client_id=YOUR_CLIENT_ID&client_secret=YOUR_CLIENT_SECRET&grant_type=client_credentials",
+                "options": {}
+            },
+            "id": "6328d383-18f2-43d3-834c-80a477d7aff0",
+            "name": "Get Auth Token",
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4.2,
+            "position": [
+                224,
+                300
+            ]
+        },
+        {
+            "parameters": {
+                "method": "POST",
+                "url": "https://api.people.ai/v3/beta/insights/export",
+                "sendHeaders": true,
+                "headerParameters": {
+                    "parameters": [
+                        {
+                            "name": "Authorization",
+                            "value": "=Bearer {{ $json.access_token }}"
+                        },
+                        {
+                            "name": "Content-Type",
+                            "value": "application/json"
+                        }
+                    ]
+                },
+                "sendBody": true,
+                "specifyBody": "json",
+                "jsonBody": "{\"object\": \"opportunity\", \"filter\": {\"$and\": [{\"attribute\": {\"slug\": \"ootb_opportunity_is_closed\"}, \"clause\": {\"$eq\": false}}]}, \"columns\": [{\"slug\": \"ootb_opportunity_name\"}, {\"slug\": \"ootb_opportunity_account_name\"}, {\"slug\": \"ootb_opportunity_original_owner\"}, {\"slug\": \"opportunity_csm_owner__c_user\"}, {\"slug\": \"ootb_opportunity_crm_id\"}, {\"slug\": \"ootb_opportunity_converted_amount\"}], \"sort\": [{\"attribute\": {\"slug\": \"ootb_opportunity_account_name\"}, \"direction\": \"asc\"}]}",
+                "options": {}
+            },
+            "id": "4c9285c7-c553-430e-8be0-47bc2923fd7e",
+            "name": "Fetch Opp Ownership",
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4.2,
+            "position": [
+                448,
+                300
+            ]
+        },
+        {
+            "parameters": {
+                "mode": "runOnceForAllItems",
+                "jsCode": "// Parse opp ownership CSV into per-person account lists with deal values\nconst csvData = $('Fetch Opp Ownership').first().json.data;\nconst userData = $('Workflow Input Trigger').first().json;\n\nif (!csvData) {\n  return [{ json: { ...userData, userAccounts: [], error: 'No ownership data' } }];\n}\n\nconst lines = csvData.split('\\n').filter(l => l.trim());\nif (lines.length < 2) {\n  return [{ json: { ...userData, userAccounts: [] } }];\n}\n\nfunction parseCsvLine(line) {\n  const result = [];\n  let current = '';\n  let inQuotes = false;\n  for (let i = 0; i < line.length; i++) {\n    const ch = line[i];\n    if (ch === '\"') {\n      if (inQuotes && i + 1 < line.length && line[i + 1] === '\"') { current += '\"'; i++; }\n      else { inQuotes = !inQuotes; }\n    } else if (ch === ',' && !inQuotes) {\n      result.push(current.trim());\n      current = '';\n    } else {\n      current += ch;\n    }\n  }\n  result.push(current.trim());\n  return result;\n}\n\nconst headers = parseCsvLine(lines[0]);\nconst headerMap = {};\nheaders.forEach((h, i) => { headerMap[h.toLowerCase()] = i; });\n\nfunction get(row, ...names) {\n  for (const name of names) {\n    const idx = headerMap[name.toLowerCase()];\n    if (idx !== undefined && row[idx] !== undefined && row[idx] !== '') return row[idx];\n  }\n  return '';\n}\n\n// Build per-person account sets AND per-account max deal value\nconst accountsByPerson = {};  // person \u2192 Set of account names\nconst accountMaxAmount = {};  // account name \u2192 max deal amount\n\nfunction addAccount(personName, accountName) {\n  if (!personName || !accountName) return;\n  const key = personName.toLowerCase().trim();\n  if (!accountsByPerson[key]) accountsByPerson[key] = new Set();\n  accountsByPerson[key].add(accountName);\n}\n\nfor (let i = 1; i < lines.length; i++) {\n  const row = parseCsvLine(lines[i]);\n  if (row.length < 2) continue;\n\n  const accountName = get(row, 'Account Name');\n  const ownerName = get(row, 'Opportunity Owner (name)', 'Opportunity Owner');\n  const csmName = get(row, 'CSM Owner (name)', 'CSM Owner');\n  const amountStr = get(row, 'Amount (Converted)', 'Converted Amount', 'Amount');\n  const amount = parseFloat(String(amountStr).replace(/[^0-9.\\-]/g, '')) || 0;\n\n  addAccount(ownerName, accountName);\n  addAccount(csmName, accountName);\n\n  // Track max deal value per account\n  if (accountName) {\n    accountMaxAmount[accountName] = Math.max(accountMaxAmount[accountName] || 0, amount);\n  }\n}\n\n// Find this user's accounts\nconst scope = userData.digestScope || userData.digest_scope || 'my_deals';\nconst repName = userData.repName || '';\nconst repLower = repName.toLowerCase();\n\nlet userAccounts;\nconst MAX_ACCOUNTS = 30;\n\nif (scope === 'my_deals') {\n  // IC/CSM: only their accounts, sorted by deal value, capped\n  const accts = accountsByPerson[repLower] ? Array.from(accountsByPerson[repLower]) : [];\n  userAccounts = accts\n    .sort((a, b) => (accountMaxAmount[b] || 0) - (accountMaxAmount[a] || 0))\n    .slice(0, MAX_ACCOUNTS);\n} else if (scope === 'team_deals') {\n  // Manager: their accounts + reports (would need hierarchy data, fallback to own for now)\n  const accts = accountsByPerson[repLower] ? Array.from(accountsByPerson[repLower]) : [];\n  userAccounts = accts\n    .sort((a, b) => (accountMaxAmount[b] || 0) - (accountMaxAmount[a] || 0))\n    .slice(0, MAX_ACCOUNTS);\n} else {\n  // Exec/top_pipeline: all accounts with open opps, sorted by value, top 30\n  const allAccounts = Object.keys(accountMaxAmount);\n  userAccounts = allAccounts\n    .sort((a, b) => (accountMaxAmount[b] || 0) - (accountMaxAmount[a] || 0))\n    .slice(0, MAX_ACCOUNTS);\n}\n\nreturn [{ json: {\n  ...userData,\n  userAccounts,\n  userAccountCount: userAccounts.length,\n  totalAccountCount: Object.keys(accountMaxAmount).length\n} }];"
+            },
+            "id": "5725482a-3fb4-413a-8250-bfc656259f24",
+            "name": "Parse Opp Teams",
+            "type": "n8n-nodes-base.code",
+            "typeVersion": 2,
+            "position": [
+                672,
+                300
+            ]
+        },
+        {
+            "parameters": {
+                "mode": "runOnceForAllItems",
+                "jsCode": "const data = $input.first().json;\nconst today = new Date().toISOString().split('T')[0];\nconst scope = data.digestScope || data.digest_scope || 'my_deals';\nconst repName = data.repName || '';\nconst userAccounts = data.userAccounts || [];\nconst totalAccountCount = data.totalAccountCount || 0;\nconst assistantName = data.assistantName || data.assistant_name || 'Aria';\nconst assistantEmoji = data.assistantEmoji || data.assistant_emoji || ':robot_face:';\nconst assistantPersona = data.assistantPersona || data.assistant_persona || '';\n\nif (userAccounts.length === 0) {\n  return [{ json: { ...data, silencePrompt: '', systemPrompt: '', skip: true, skipReason: 'No accounts found for ' + repName, assistantName, assistantEmoji } }];\n}\n\nconst accountList = userAccounts.map(a => `\u2022 ${a}`).join('\\n');\n\nlet scopeContext;\nif (scope === 'my_deals') {\n  scopeContext = `These are accounts where ${repName} is the owner or CSM.`;\n} else if (scope === 'team_deals') {\n  scopeContext = `These are your team's top accounts by deal value.`;\n} else {\n  scopeContext = `These are the top ${userAccounts.length} accounts by deal value (of ${totalAccountCount} total with open opportunities).`;\n}\n\nconst prompt = `Check these specific accounts for engagement gaps. For each account below, check if there has been any customer-facing activity (emails, meetings, or calls) in the past 5 or more days. ${scopeContext}\n\n${accountList}\n\nToday's date is ${today}. Report any that have gone silent (5+ days with no activity).`;\n\nconst systemPrompt = `You are ${assistantName}, a proactive sales assistant.${assistantPersona ? ' Your personality: ' + assistantPersona + '.' : ''} You detect \"silence contracts\" \u2014 accounts where customer engagement has gone quiet.\n\nUsing the People.ai tools, check accounts for engagement gaps:\n1. For each account, check the most recent customer-facing activity (emails, meetings, calls)\n2. Identify accounts where the last activity was more than 5 days ago\n\nClassify each silent account by severity:\n- \"info\" (5-9 days): Getting quiet\n- \"warning\" (10-20 days): Gone silent\n- \"critical\" (21+ days): Relationship at risk\n\nCRITICAL: End your response with a JSON code block:\n\\`\\`\\`json\n{\n  \"silent_accounts\": [\n    {\n      \"account_name\": \"Account Name\",\n      \"days_silent\": 14,\n      \"last_activity_date\": \"2026-02-17\",\n      \"last_activity_type\": \"email\",\n      \"severity\": \"warning\"\n    }\n  ]\n}\n\\`\\`\\`\nIf no accounts are silent, return: \\`\\`\\`json\\n{\"silent_accounts\": []}\\n\\`\\`\\`\nDo NOT include text after the JSON block.`;\n\nreturn [{ json: { ...data, silencePrompt: prompt, systemPrompt, assistantName, assistantEmoji } }];"
+            },
+            "id": "ddb1a8d6-05e1-45ed-9c13-76f72f9291a6",
+            "name": "Build Silence Prompt",
+            "type": "n8n-nodes-base.code",
+            "typeVersion": 2,
+            "position": [
+                896,
+                300
+            ]
+        },
+        {
+            "parameters": {
+                "promptType": "define",
+                "text": "={{ $json.silencePrompt }}",
+                "options": {
+                    "systemMessage": "={{ $json.systemPrompt }}",
+                    "maxIterations": 15
+                }
+            },
+            "id": "d31bcde8-a6a8-43be-a02e-aaf45783ed2a",
+            "name": "Silence Agent",
+            "type": "@n8n/n8n-nodes-langchain.agent",
+            "typeVersion": 1.7,
+            "position": [
+                1120,
+                300
+            ]
+        },
+        {
+            "parameters": {
+                "model": {
+                    "__rl": true,
+                    "mode": "list",
+                    "value": "claude-sonnet-4-5-20250929",
+                    "cachedResultName": "Claude Sonnet 4.5"
+                },
+                "options": {}
+            },
+            "id": "4b5b37cb-93d9-4acd-bd36-e040d5959177",
+            "name": "Anthropic Chat Model",
+            "type": "@n8n/n8n-nodes-langchain.lmChatAnthropic",
+            "typeVersion": 1.3,
+            "position": [
+                1020,
+                520
+            ],
+            "credentials": {
+                "anthropicApi": {
+                    "id": "rlAz7ZSl4y6AwRUq",
+                    "name": "Anthropic account 2"
+                }
+            }
+        },
+        {
+            "parameters": {
+                "endpointUrl": "https://mcp.people.ai/mcp",
+                "authentication": "multipleHeadersAuth",
+                "options": {}
+            },
+            "id": "b6919adf-c1a9-40e6-9dd6-16a1f9f41d78",
+            "name": "People.ai MCP",
+            "type": "@n8n/n8n-nodes-langchain.mcpClientTool",
+            "typeVersion": 1.2,
+            "position": [
+                1220,
+                520
+            ],
+            "credentials": {
+                "httpMultipleHeadersAuth": {
+                    "id": "wvV5pwBeIL7f2vLG",
+                    "name": "People.ai MCP Multi-Header"
+                }
+            }
+        },
+        {
+            "parameters": {
+                "mode": "runOnceForAllItems",
+                "jsCode": "const agentOutput = $('Silence Agent').first().json.output || '';\nconst inputData = $('Build Silence Prompt').first().json;\n\n// Get muted accounts\nlet allMuted = [];\ntry {\n  allMuted = $('Fetch Muted Accounts').all().map(i => i.json);\n} catch (e) {}\n\nconst now = new Date();\nconst userId = inputData.userId;\nconst mutedSet = new Set();\nfor (const m of allMuted) {\n  if (m.user_id !== userId) continue;\n  if (m.muted_until && new Date(m.muted_until) < now) continue;\n  mutedSet.add((m.entity_name || '').toLowerCase());\n}\n\n// Extract JSON from agent response\nlet silentAccounts = [];\nconst jsonMatch = agentOutput.match(/```json\\s*([\\s\\S]*?)\\s*```/);\nif (jsonMatch) {\n  try {\n    silentAccounts = JSON.parse(jsonMatch[1]).silent_accounts || [];\n  } catch (e) {}\n}\n\n// Reclassify 60+ day accounts as 'dead'\nfor (const a of silentAccounts) {\n  if ((a.days_silent || 0) >= 60) a.severity = 'dead';\n}\n\n// Filter out muted\nconst filtered = silentAccounts.filter(a => !mutedSet.has((a.account_name || '').toLowerCase()));\n\n// Sort by severity then days\nconst order = { dead: 0, critical: 1, warning: 2, info: 3 };\nfiltered.sort((a, b) => (order[a.severity] || 9) - (order[b.severity] || 9) || (b.days_silent || 0) - (a.days_silent || 0));\n\n// Dead accounts to auto-mute\nconst autoMuteAccounts = filtered\n  .filter(a => a.severity === 'dead')\n  .map(a => ({\n    user_id: userId,\n    organization_id: inputData.organizationId,\n    alert_type_id: 'silence_contract',\n    entity_name: a.account_name,\n    mute_reason: 'auto_dead',\n    muted_at: now.toISOString()\n  }));\n\nreturn [{ json: {\n  ...inputData,\n  silentAccounts: filtered,\n  autoMuteAccounts,\n  silentCount: filtered.length\n} }];"
+            },
+            "id": "095005ee-4418-4085-9809-60d35259a423",
+            "name": "Parse Silence Results",
+            "type": "n8n-nodes-base.code",
+            "typeVersion": 2,
+            "position": [
+                1344,
+                300
+            ]
+        },
+        {
+            "parameters": {
+                "mode": "runOnceForAllItems",
+                "jsCode": "const data = $input.first().json;\nconst accounts = data.silentAccounts || [];\n\nif (accounts.length === 0) {\n  return [{ json: { ...data, blocks: JSON.stringify([\n    { type: \"section\", text: { type: \"mrkdwn\", text: \":white_check_mark: *All clear!* None of your accounts have gone silent. Everything looks active.\" } }\n  ]), notificationText: \"All accounts active\" } }];\n}\n\nconst severityEmoji = { dead: ':skull:', critical: ':red_circle:', warning: ':large_orange_circle:', info: ':large_blue_circle:' };\n\nconst blocks = [\n  { type: \"section\", text: { type: \"mrkdwn\", text: `:mag: *Silence Contract Check*\\n${accounts.length} account${accounts.length === 1 ? '' : 's'} need${accounts.length === 1 ? 's' : ''} attention:` } }\n];\n\nfor (const acct of accounts) {\n  const emoji = severityEmoji[acct.severity] || ':grey_question:';\n  const lastDate = acct.last_activity_date ? ` (last: ${acct.last_activity_date})` : '';\n  const line = `${emoji} *${acct.account_name}* \\u2014 ${acct.days_silent} d silent${lastDate}`;\n\n  const acctName = acct.account_name;\n\n  blocks.push({\n    type: \"section\",\n    text: { type: \"mrkdwn\", text: line },\n    accessory: {\n      type: \"button\",\n      text: { type: \"plain_text\", text: \"Draft \u2709\ufe0f\" },\n      action_id: \"silence_overflow_\" + blocks.length,\n      value: (\"fd|\" + acctName).slice(0, 75)\n    }\n  });\n}\n\nblocks.push({ type: \"context\", elements: [{ type: \"mrkdwn\", text: \"Click Draft on any account to draft a re-engagement email.\" }] });\n\nif (blocks.length > 50) blocks.length = 50;\nfor (const b of blocks) {\n  if (b.text && b.text.text && b.text.text.length > 3000) {\n    b.text.text = b.text.text.slice(0, 2997) + '...';\n  }\n}\n\nreturn [{ json: { ...data, blocks: JSON.stringify(blocks), notificationText: accounts.length + ' silent account' + (accounts.length === 1 ? '' : 's') + ' found' } }];"
+            },
+            "id": "a7a01725-73a0-4591-9989-e8be5ea8767a",
+            "name": "Build Alert Message",
+            "type": "n8n-nodes-base.code",
+            "typeVersion": 2,
+            "position": [
+                1568,
+                300
+            ]
+        },
+        {
+            "parameters": {
+                "method": "POST",
+                "url": "https://slack.com/api/chat.postMessage",
+                "authentication": "genericCredentialType",
+                "genericAuthType": "httpHeaderAuth",
+                "sendBody": true,
+                "specifyBody": "json",
+                "jsonBody": "={\n  \"channel\": \"{{ $json.channelId }}\",\n  \"text\": \"{{ $json.notificationText }}\",\n  \"blocks\": {{ $json.blocks }},\n  \"username\": \"{{ $json.assistantName }}\",\n  \"icon_emoji\": \"{{ $json.assistantEmoji }}\"\n}",
+                "options": {}
+            },
+            "id": "283190f4-de97-46d5-8968-6cef11a19e7c",
+            "name": "Send Silence Check",
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4.2,
+            "position": [
+                1792,
+                300
+            ],
+            "credentials": {
+                "httpHeaderAuth": {
+                    "id": "LluVuiMJ8NUbAiG7",
+                    "name": "Slackbot Auth Token"
+                }
+            }
+        },
+        {
+            "parameters": {
+                "method": "GET",
+                "url": "https://rhrlnkbphxntxxxcrgvv.supabase.co/rest/v1/muted_alerts?alert_type_id=eq.silence_contract&unmuted_at=is.null&select=user_id,entity_name,muted_until",
+                "authentication": "predefinedCredentialType",
+                "nodeCredentialType": "supabaseApi",
+                "sendHeaders": true,
+                "headerParameters": {
+                    "parameters": [
+                        {
+                            "name": "Prefer",
+                            "value": "return=representation"
+                        }
+                    ]
+                },
+                "options": {}
+            },
+            "id": "7bb4391b-79ab-402f-99b1-38ad728be66d",
+            "name": "Fetch Muted Accounts",
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4.2,
+            "position": [
+                1120,
+                450
+            ],
+            "credentials": {
+                "supabaseApi": {
+                    "id": "ASRWWkQ0RSMOpNF1",
+                    "name": "Supabase account"
+                }
+            }
+        },
+        {
+            "parameters": {
+                "method": "POST",
+                "url": "https://rhrlnkbphxntxxxcrgvv.supabase.co/rest/v1/muted_alerts",
+                "authentication": "predefinedCredentialType",
+                "nodeCredentialType": "supabaseApi",
+                "sendHeaders": true,
+                "headerParameters": {
+                    "parameters": [
+                        {
+                            "name": "Prefer",
+                            "value": "resolution=merge-duplicates,return=representation"
+                        },
+                        {
+                            "name": "Content-Type",
+                            "value": "application/json"
+                        }
+                    ]
+                },
+                "options": {},
+                "sendBody": true,
+                "specifyBody": "json",
+                "jsonBody": "={{ JSON.stringify($json.autoMuteAccounts || []) }}"
+            },
+            "id": "02b1f9b8-511d-439d-a2a1-0cbe3ce80f78",
+            "name": "Auto-Mute Dead (OD)",
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4.2,
+            "position": [
+                2016,
+                300
+            ],
+            "credentials": {
+                "supabaseApi": {
+                    "id": "ASRWWkQ0RSMOpNF1",
+                    "name": "Supabase account"
+                }
+            }
+        }
+    ],
+    "connections": {
+        "Workflow Input Trigger": {
+            "main": [
+                [
+                    {
+                        "node": "Get Auth Token",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Get Auth Token": {
+            "main": [
+                [
+                    {
+                        "node": "Fetch Opp Ownership",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Fetch Opp Ownership": {
+            "main": [
+                [
+                    {
+                        "node": "Parse Opp Teams",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Parse Opp Teams": {
+            "main": [
+                [
+                    {
+                        "node": "Build Silence Prompt",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Build Silence Prompt": {
+            "main": [
+                [
+                    {
+                        "node": "Silence Agent",
+                        "type": "main",
+                        "index": 0
+                    },
+                    {
+                        "node": "Fetch Muted Accounts",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Silence Agent": {
+            "main": [
+                [
+                    {
+                        "node": "Parse Silence Results",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Anthropic Chat Model": {
+            "ai_languageModel": [
+                [
+                    {
+                        "node": "Silence Agent",
+                        "type": "ai_languageModel",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "People.ai MCP": {
+            "ai_tool": [
+                [
+                    {
+                        "node": "Silence Agent",
+                        "type": "ai_tool",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Parse Silence Results": {
+            "main": [
+                [
+                    {
+                        "node": "Build Alert Message",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Build Alert Message": {
+            "main": [
+                [
+                    {
+                        "node": "Send Silence Check",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Fetch Muted Accounts": {
+            "main": [
+                []
+            ]
+        },
+        "Send Silence Check": {
+            "main": [
+                [
+                    {
+                        "node": "Auto-Mute Dead (OD)",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Auto-Mute Dead (OD)": {
+            "main": [
+                []
+            ]
+        }
+    },
+    "settings": {
+        "executionOrder": "v1",
+        "saveManualExecutions": true,
+        "callerPolicy": "workflowsFromSameOwner",
+        "availableInMCP": false
+    },
+    "staticData": null,
+    "meta": null,
+    "pinData": null,
+    "versionId": "0144baa8-ef4d-4a7e-ad17-4c2fd844f990",
+    "activeVersionId": "0144baa8-ef4d-4a7e-ad17-4c2fd844f990",
+    "versionCounter": 46,
+    "triggerCount": 0,
+    "shared": [
+        {
+            "updatedAt": "2026-03-10T15:32:57.608Z",
+            "createdAt": "2026-03-10T15:32:57.608Z",
+            "role": "workflow:owner",
+            "workflowId": "7QaWpTuTp6oNVFjM",
+            "projectId": "85jtzrEPriGDXgHV",
+            "project": {
+                "updatedAt": "2025-11-24T07:01:19.205Z",
+                "createdAt": "2025-11-24T06:56:53.862Z",
+                "id": "85jtzrEPriGDXgHV",
+                "name": "Scott Metcalf <metcalf.scott@gmail.com>",
+                "type": "personal",
+                "icon": null,
+                "description": null,
+                "creatorId": "bfa163c1-bd53-4c0f-b0ba-8dc3626f7c79"
+            }
+        }
+    ],
+    "tags": [],
+    "activeVersion": {
+        "updatedAt": "2026-03-10T18:09:12.083Z",
+        "createdAt": "2026-03-10T18:09:12.083Z",
+        "versionId": "0144baa8-ef4d-4a7e-ad17-4c2fd844f990",
+        "workflowId": "7QaWpTuTp6oNVFjM",
+        "nodes": [
+            {
+                "parameters": {
+                    "inputSource": "passthrough"
+                },
+                "id": "0f7a7791-b5ad-4f28-b2ff-7f6f525b097c",
+                "name": "Workflow Input Trigger",
+                "type": "n8n-nodes-base.executeWorkflowTrigger",
+                "typeVersion": 1.1,
+                "position": [
+                    0,
+                    300
+                ]
+            },
+            {
+                "parameters": {
+                    "method": "POST",
+                    "url": "https://api.people.ai/v3/auth/tokens",
+                    "sendHeaders": true,
+                    "headerParameters": {
+                        "parameters": [
+                            {
+                                "name": "Content-Type",
+                                "value": "application/x-www-form-urlencoded"
+                            }
+                        ]
+                    },
+                    "sendBody": true,
+                    "specifyBody": "string",
+                    "body": "client_id=YOUR_CLIENT_ID&client_secret=YOUR_CLIENT_SECRET&grant_type=client_credentials",
+                    "options": {}
+                },
+                "id": "6328d383-18f2-43d3-834c-80a477d7aff0",
+                "name": "Get Auth Token",
+                "type": "n8n-nodes-base.httpRequest",
+                "typeVersion": 4.2,
+                "position": [
+                    224,
+                    300
+                ]
+            },
+            {
+                "parameters": {
+                    "method": "POST",
+                    "url": "https://api.people.ai/v3/beta/insights/export",
+                    "sendHeaders": true,
+                    "headerParameters": {
+                        "parameters": [
+                            {
+                                "name": "Authorization",
+                                "value": "=Bearer {{ $json.access_token }}"
+                            },
+                            {
+                                "name": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ]
+                    },
+                    "sendBody": true,
+                    "specifyBody": "json",
+                    "jsonBody": "{\"object\": \"opportunity\", \"filter\": {\"$and\": [{\"attribute\": {\"slug\": \"ootb_opportunity_is_closed\"}, \"clause\": {\"$eq\": false}}]}, \"columns\": [{\"slug\": \"ootb_opportunity_name\"}, {\"slug\": \"ootb_opportunity_account_name\"}, {\"slug\": \"ootb_opportunity_original_owner\"}, {\"slug\": \"opportunity_csm_owner__c_user\"}, {\"slug\": \"ootb_opportunity_crm_id\"}, {\"slug\": \"ootb_opportunity_converted_amount\"}], \"sort\": [{\"attribute\": {\"slug\": \"ootb_opportunity_account_name\"}, \"direction\": \"asc\"}]}",
+                    "options": {}
+                },
+                "id": "4c9285c7-c553-430e-8be0-47bc2923fd7e",
+                "name": "Fetch Opp Ownership",
+                "type": "n8n-nodes-base.httpRequest",
+                "typeVersion": 4.2,
+                "position": [
+                    448,
+                    300
+                ]
+            },
+            {
+                "parameters": {
+                    "mode": "runOnceForAllItems",
+                    "jsCode": "// Parse opp ownership CSV into per-person account lists with deal values\nconst csvData = $('Fetch Opp Ownership').first().json.data;\nconst userData = $('Workflow Input Trigger').first().json;\n\nif (!csvData) {\n  return [{ json: { ...userData, userAccounts: [], error: 'No ownership data' } }];\n}\n\nconst lines = csvData.split('\\n').filter(l => l.trim());\nif (lines.length < 2) {\n  return [{ json: { ...userData, userAccounts: [] } }];\n}\n\nfunction parseCsvLine(line) {\n  const result = [];\n  let current = '';\n  let inQuotes = false;\n  for (let i = 0; i < line.length; i++) {\n    const ch = line[i];\n    if (ch === '\"') {\n      if (inQuotes && i + 1 < line.length && line[i + 1] === '\"') { current += '\"'; i++; }\n      else { inQuotes = !inQuotes; }\n    } else if (ch === ',' && !inQuotes) {\n      result.push(current.trim());\n      current = '';\n    } else {\n      current += ch;\n    }\n  }\n  result.push(current.trim());\n  return result;\n}\n\nconst headers = parseCsvLine(lines[0]);\nconst headerMap = {};\nheaders.forEach((h, i) => { headerMap[h.toLowerCase()] = i; });\n\nfunction get(row, ...names) {\n  for (const name of names) {\n    const idx = headerMap[name.toLowerCase()];\n    if (idx !== undefined && row[idx] !== undefined && row[idx] !== '') return row[idx];\n  }\n  return '';\n}\n\n// Build per-person account sets AND per-account max deal value\nconst accountsByPerson = {};  // person \u2192 Set of account names\nconst accountMaxAmount = {};  // account name \u2192 max deal amount\n\nfunction addAccount(personName, accountName) {\n  if (!personName || !accountName) return;\n  const key = personName.toLowerCase().trim();\n  if (!accountsByPerson[key]) accountsByPerson[key] = new Set();\n  accountsByPerson[key].add(accountName);\n}\n\nfor (let i = 1; i < lines.length; i++) {\n  const row = parseCsvLine(lines[i]);\n  if (row.length < 2) continue;\n\n  const accountName = get(row, 'Account Name');\n  const ownerName = get(row, 'Opportunity Owner (name)', 'Opportunity Owner');\n  const csmName = get(row, 'CSM Owner (name)', 'CSM Owner');\n  const amountStr = get(row, 'Amount (Converted)', 'Converted Amount', 'Amount');\n  const amount = parseFloat(String(amountStr).replace(/[^0-9.\\-]/g, '')) || 0;\n\n  addAccount(ownerName, accountName);\n  addAccount(csmName, accountName);\n\n  // Track max deal value per account\n  if (accountName) {\n    accountMaxAmount[accountName] = Math.max(accountMaxAmount[accountName] || 0, amount);\n  }\n}\n\n// Find this user's accounts\nconst scope = userData.digestScope || userData.digest_scope || 'my_deals';\nconst repName = userData.repName || '';\nconst repLower = repName.toLowerCase();\n\nlet userAccounts;\nconst MAX_ACCOUNTS = 30;\n\nif (scope === 'my_deals') {\n  // IC/CSM: only their accounts, sorted by deal value, capped\n  const accts = accountsByPerson[repLower] ? Array.from(accountsByPerson[repLower]) : [];\n  userAccounts = accts\n    .sort((a, b) => (accountMaxAmount[b] || 0) - (accountMaxAmount[a] || 0))\n    .slice(0, MAX_ACCOUNTS);\n} else if (scope === 'team_deals') {\n  // Manager: their accounts + reports (would need hierarchy data, fallback to own for now)\n  const accts = accountsByPerson[repLower] ? Array.from(accountsByPerson[repLower]) : [];\n  userAccounts = accts\n    .sort((a, b) => (accountMaxAmount[b] || 0) - (accountMaxAmount[a] || 0))\n    .slice(0, MAX_ACCOUNTS);\n} else {\n  // Exec/top_pipeline: all accounts with open opps, sorted by value, top 30\n  const allAccounts = Object.keys(accountMaxAmount);\n  userAccounts = allAccounts\n    .sort((a, b) => (accountMaxAmount[b] || 0) - (accountMaxAmount[a] || 0))\n    .slice(0, MAX_ACCOUNTS);\n}\n\nreturn [{ json: {\n  ...userData,\n  userAccounts,\n  userAccountCount: userAccounts.length,\n  totalAccountCount: Object.keys(accountMaxAmount).length\n} }];"
+                },
+                "id": "5725482a-3fb4-413a-8250-bfc656259f24",
+                "name": "Parse Opp Teams",
+                "type": "n8n-nodes-base.code",
+                "typeVersion": 2,
+                "position": [
+                    672,
+                    300
+                ]
+            },
+            {
+                "parameters": {
+                    "mode": "runOnceForAllItems",
+                    "jsCode": "const data = $input.first().json;\nconst today = new Date().toISOString().split('T')[0];\nconst scope = data.digestScope || data.digest_scope || 'my_deals';\nconst repName = data.repName || '';\nconst userAccounts = data.userAccounts || [];\nconst totalAccountCount = data.totalAccountCount || 0;\nconst assistantName = data.assistantName || data.assistant_name || 'Aria';\nconst assistantEmoji = data.assistantEmoji || data.assistant_emoji || ':robot_face:';\nconst assistantPersona = data.assistantPersona || data.assistant_persona || '';\n\nif (userAccounts.length === 0) {\n  return [{ json: { ...data, silencePrompt: '', systemPrompt: '', skip: true, skipReason: 'No accounts found for ' + repName, assistantName, assistantEmoji } }];\n}\n\nconst accountList = userAccounts.map(a => `\u2022 ${a}`).join('\\n');\n\nlet scopeContext;\nif (scope === 'my_deals') {\n  scopeContext = `These are accounts where ${repName} is the owner or CSM.`;\n} else if (scope === 'team_deals') {\n  scopeContext = `These are your team's top accounts by deal value.`;\n} else {\n  scopeContext = `These are the top ${userAccounts.length} accounts by deal value (of ${totalAccountCount} total with open opportunities).`;\n}\n\nconst prompt = `Check these specific accounts for engagement gaps. For each account below, check if there has been any customer-facing activity (emails, meetings, or calls) in the past 5 or more days. ${scopeContext}\n\n${accountList}\n\nToday's date is ${today}. Report any that have gone silent (5+ days with no activity).`;\n\nconst systemPrompt = `You are ${assistantName}, a proactive sales assistant.${assistantPersona ? ' Your personality: ' + assistantPersona + '.' : ''} You detect \"silence contracts\" \u2014 accounts where customer engagement has gone quiet.\n\nUsing the People.ai tools, check accounts for engagement gaps:\n1. For each account, check the most recent customer-facing activity (emails, meetings, calls)\n2. Identify accounts where the last activity was more than 5 days ago\n\nClassify each silent account by severity:\n- \"info\" (5-9 days): Getting quiet\n- \"warning\" (10-20 days): Gone silent\n- \"critical\" (21+ days): Relationship at risk\n\nCRITICAL: End your response with a JSON code block:\n\\`\\`\\`json\n{\n  \"silent_accounts\": [\n    {\n      \"account_name\": \"Account Name\",\n      \"days_silent\": 14,\n      \"last_activity_date\": \"2026-02-17\",\n      \"last_activity_type\": \"email\",\n      \"severity\": \"warning\"\n    }\n  ]\n}\n\\`\\`\\`\nIf no accounts are silent, return: \\`\\`\\`json\\n{\"silent_accounts\": []}\\n\\`\\`\\`\nDo NOT include text after the JSON block.`;\n\nreturn [{ json: { ...data, silencePrompt: prompt, systemPrompt, assistantName, assistantEmoji } }];"
+                },
+                "id": "ddb1a8d6-05e1-45ed-9c13-76f72f9291a6",
+                "name": "Build Silence Prompt",
+                "type": "n8n-nodes-base.code",
+                "typeVersion": 2,
+                "position": [
+                    896,
+                    300
+                ]
+            },
+            {
+                "parameters": {
+                    "promptType": "define",
+                    "text": "={{ $json.silencePrompt }}",
+                    "options": {
+                        "systemMessage": "={{ $json.systemPrompt }}",
+                        "maxIterations": 15
+                    }
+                },
+                "id": "d31bcde8-a6a8-43be-a02e-aaf45783ed2a",
+                "name": "Silence Agent",
+                "type": "@n8n/n8n-nodes-langchain.agent",
+                "typeVersion": 1.7,
+                "position": [
+                    1120,
+                    300
+                ]
+            },
+            {
+                "parameters": {
+                    "model": {
+                        "__rl": true,
+                        "mode": "list",
+                        "value": "claude-sonnet-4-5-20250929",
+                        "cachedResultName": "Claude Sonnet 4.5"
+                    },
+                    "options": {}
+                },
+                "id": "4b5b37cb-93d9-4acd-bd36-e040d5959177",
+                "name": "Anthropic Chat Model",
+                "type": "@n8n/n8n-nodes-langchain.lmChatAnthropic",
+                "typeVersion": 1.3,
+                "position": [
+                    1020,
+                    520
+                ],
+                "credentials": {
+                    "anthropicApi": {
+                        "id": "rlAz7ZSl4y6AwRUq",
+                        "name": "Anthropic account 2"
+                    }
+                }
+            },
+            {
+                "parameters": {
+                    "endpointUrl": "https://mcp.people.ai/mcp",
+                    "authentication": "multipleHeadersAuth",
+                    "options": {}
+                },
+                "id": "b6919adf-c1a9-40e6-9dd6-16a1f9f41d78",
+                "name": "People.ai MCP",
+                "type": "@n8n/n8n-nodes-langchain.mcpClientTool",
+                "typeVersion": 1.2,
+                "position": [
+                    1220,
+                    520
+                ],
+                "credentials": {
+                    "httpMultipleHeadersAuth": {
+                        "id": "wvV5pwBeIL7f2vLG",
+                        "name": "People.ai MCP Multi-Header"
+                    }
+                }
+            },
+            {
+                "parameters": {
+                    "mode": "runOnceForAllItems",
+                    "jsCode": "const agentOutput = $('Silence Agent').first().json.output || '';\nconst inputData = $('Build Silence Prompt').first().json;\n\n// Get muted accounts\nlet allMuted = [];\ntry {\n  allMuted = $('Fetch Muted Accounts').all().map(i => i.json);\n} catch (e) {}\n\nconst now = new Date();\nconst userId = inputData.userId;\nconst mutedSet = new Set();\nfor (const m of allMuted) {\n  if (m.user_id !== userId) continue;\n  if (m.muted_until && new Date(m.muted_until) < now) continue;\n  mutedSet.add((m.entity_name || '').toLowerCase());\n}\n\n// Extract JSON from agent response\nlet silentAccounts = [];\nconst jsonMatch = agentOutput.match(/```json\\s*([\\s\\S]*?)\\s*```/);\nif (jsonMatch) {\n  try {\n    silentAccounts = JSON.parse(jsonMatch[1]).silent_accounts || [];\n  } catch (e) {}\n}\n\n// Reclassify 60+ day accounts as 'dead'\nfor (const a of silentAccounts) {\n  if ((a.days_silent || 0) >= 60) a.severity = 'dead';\n}\n\n// Filter out muted\nconst filtered = silentAccounts.filter(a => !mutedSet.has((a.account_name || '').toLowerCase()));\n\n// Sort by severity then days\nconst order = { dead: 0, critical: 1, warning: 2, info: 3 };\nfiltered.sort((a, b) => (order[a.severity] || 9) - (order[b.severity] || 9) || (b.days_silent || 0) - (a.days_silent || 0));\n\n// Dead accounts to auto-mute\nconst autoMuteAccounts = filtered\n  .filter(a => a.severity === 'dead')\n  .map(a => ({\n    user_id: userId,\n    organization_id: inputData.organizationId,\n    alert_type_id: 'silence_contract',\n    entity_name: a.account_name,\n    mute_reason: 'auto_dead',\n    muted_at: now.toISOString()\n  }));\n\nreturn [{ json: {\n  ...inputData,\n  silentAccounts: filtered,\n  autoMuteAccounts,\n  silentCount: filtered.length\n} }];"
+                },
+                "id": "095005ee-4418-4085-9809-60d35259a423",
+                "name": "Parse Silence Results",
+                "type": "n8n-nodes-base.code",
+                "typeVersion": 2,
+                "position": [
+                    1344,
+                    300
+                ]
+            },
+            {
+                "parameters": {
+                    "mode": "runOnceForAllItems",
+                    "jsCode": "const data = $input.first().json;\nconst accounts = data.silentAccounts || [];\n\nif (accounts.length === 0) {\n  return [{ json: { ...data, blocks: JSON.stringify([\n    { type: \"section\", text: { type: \"mrkdwn\", text: \":white_check_mark: *All clear!* None of your accounts have gone silent. Everything looks active.\" } }\n  ]), notificationText: \"All accounts active\" } }];\n}\n\nconst severityEmoji = { dead: ':skull:', critical: ':red_circle:', warning: ':large_orange_circle:', info: ':large_blue_circle:' };\n\nconst blocks = [\n  { type: \"section\", text: { type: \"mrkdwn\", text: `:mag: *Silence Contract Check*\\n${accounts.length} account${accounts.length === 1 ? '' : 's'} need${accounts.length === 1 ? 's' : ''} attention:` } }\n];\n\nfor (const acct of accounts) {\n  const emoji = severityEmoji[acct.severity] || ':grey_question:';\n  const lastDate = acct.last_activity_date ? ` (last: ${acct.last_activity_date})` : '';\n  const line = `${emoji} *${acct.account_name}* \\u2014 ${acct.days_silent} d silent${lastDate}`;\n\n  const acctName = acct.account_name;\n\n  blocks.push({\n    type: \"section\",\n    text: { type: \"mrkdwn\", text: line },\n    accessory: {\n      type: \"button\",\n      text: { type: \"plain_text\", text: \"Draft \u2709\ufe0f\" },\n      action_id: \"silence_overflow_\" + blocks.length,\n      value: (\"fd|\" + acctName).slice(0, 75)\n    }\n  });\n}\n\nblocks.push({ type: \"context\", elements: [{ type: \"mrkdwn\", text: \"Click Draft on any account to draft a re-engagement email.\" }] });\n\nif (blocks.length > 50) blocks.length = 50;\nfor (const b of blocks) {\n  if (b.text && b.text.text && b.text.text.length > 3000) {\n    b.text.text = b.text.text.slice(0, 2997) + '...';\n  }\n}\n\nreturn [{ json: { ...data, blocks: JSON.stringify(blocks), notificationText: accounts.length + ' silent account' + (accounts.length === 1 ? '' : 's') + ' found' } }];"
+                },
+                "id": "a7a01725-73a0-4591-9989-e8be5ea8767a",
+                "name": "Build Alert Message",
+                "type": "n8n-nodes-base.code",
+                "typeVersion": 2,
+                "position": [
+                    1568,
+                    300
+                ]
+            },
+            {
+                "parameters": {
+                    "method": "POST",
+                    "url": "https://slack.com/api/chat.postMessage",
+                    "authentication": "genericCredentialType",
+                    "genericAuthType": "httpHeaderAuth",
+                    "sendBody": true,
+                    "specifyBody": "json",
+                    "jsonBody": "={\n  \"channel\": \"{{ $json.channelId }}\",\n  \"text\": \"{{ $json.notificationText }}\",\n  \"blocks\": {{ $json.blocks }},\n  \"username\": \"{{ $json.assistantName }}\",\n  \"icon_emoji\": \"{{ $json.assistantEmoji }}\"\n}",
+                    "options": {}
+                },
+                "id": "283190f4-de97-46d5-8968-6cef11a19e7c",
+                "name": "Send Silence Check",
+                "type": "n8n-nodes-base.httpRequest",
+                "typeVersion": 4.2,
+                "position": [
+                    1792,
+                    300
+                ],
+                "credentials": {
+                    "httpHeaderAuth": {
+                        "id": "LluVuiMJ8NUbAiG7",
+                        "name": "Slackbot Auth Token"
+                    }
+                }
+            },
+            {
+                "parameters": {
+                    "method": "GET",
+                    "url": "https://rhrlnkbphxntxxxcrgvv.supabase.co/rest/v1/muted_alerts?alert_type_id=eq.silence_contract&unmuted_at=is.null&select=user_id,entity_name,muted_until",
+                    "authentication": "predefinedCredentialType",
+                    "nodeCredentialType": "supabaseApi",
+                    "sendHeaders": true,
+                    "headerParameters": {
+                        "parameters": [
+                            {
+                                "name": "Prefer",
+                                "value": "return=representation"
+                            }
+                        ]
+                    },
+                    "options": {}
+                },
+                "id": "7bb4391b-79ab-402f-99b1-38ad728be66d",
+                "name": "Fetch Muted Accounts",
+                "type": "n8n-nodes-base.httpRequest",
+                "typeVersion": 4.2,
+                "position": [
+                    1120,
+                    450
+                ],
+                "credentials": {
+                    "supabaseApi": {
+                        "id": "ASRWWkQ0RSMOpNF1",
+                        "name": "Supabase account"
+                    }
+                }
+            },
+            {
+                "parameters": {
+                    "method": "POST",
+                    "url": "https://rhrlnkbphxntxxxcrgvv.supabase.co/rest/v1/muted_alerts",
+                    "authentication": "predefinedCredentialType",
+                    "nodeCredentialType": "supabaseApi",
+                    "sendHeaders": true,
+                    "headerParameters": {
+                        "parameters": [
+                            {
+                                "name": "Prefer",
+                                "value": "resolution=merge-duplicates,return=representation"
+                            },
+                            {
+                                "name": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ]
+                    },
+                    "options": {},
+                    "sendBody": true,
+                    "specifyBody": "json",
+                    "jsonBody": "={{ JSON.stringify($json.autoMuteAccounts || []) }}"
+                },
+                "id": "02b1f9b8-511d-439d-a2a1-0cbe3ce80f78",
+                "name": "Auto-Mute Dead (OD)",
+                "type": "n8n-nodes-base.httpRequest",
+                "typeVersion": 4.2,
+                "position": [
+                    2016,
+                    300
+                ],
+                "credentials": {
+                    "supabaseApi": {
+                        "id": "ASRWWkQ0RSMOpNF1",
+                        "name": "Supabase account"
+                    }
+                }
+            }
+        ],
+        "connections": {
+            "Workflow Input Trigger": {
+                "main": [
+                    [
+                        {
+                            "node": "Get Auth Token",
+                            "type": "main",
+                            "index": 0
+                        }
+                    ]
+                ]
+            },
+            "Get Auth Token": {
+                "main": [
+                    [
+                        {
+                            "node": "Fetch Opp Ownership",
+                            "type": "main",
+                            "index": 0
+                        }
+                    ]
+                ]
+            },
+            "Fetch Opp Ownership": {
+                "main": [
+                    [
+                        {
+                            "node": "Parse Opp Teams",
+                            "type": "main",
+                            "index": 0
+                        }
+                    ]
+                ]
+            },
+            "Parse Opp Teams": {
+                "main": [
+                    [
+                        {
+                            "node": "Build Silence Prompt",
+                            "type": "main",
+                            "index": 0
+                        }
+                    ]
+                ]
+            },
+            "Build Silence Prompt": {
+                "main": [
+                    [
+                        {
+                            "node": "Silence Agent",
+                            "type": "main",
+                            "index": 0
+                        },
+                        {
+                            "node": "Fetch Muted Accounts",
+                            "type": "main",
+                            "index": 0
+                        }
+                    ]
+                ]
+            },
+            "Silence Agent": {
+                "main": [
+                    [
+                        {
+                            "node": "Parse Silence Results",
+                            "type": "main",
+                            "index": 0
+                        }
+                    ]
+                ]
+            },
+            "Anthropic Chat Model": {
+                "ai_languageModel": [
+                    [
+                        {
+                            "node": "Silence Agent",
+                            "type": "ai_languageModel",
+                            "index": 0
+                        }
+                    ]
+                ]
+            },
+            "People.ai MCP": {
+                "ai_tool": [
+                    [
+                        {
+                            "node": "Silence Agent",
+                            "type": "ai_tool",
+                            "index": 0
+                        }
+                    ]
+                ]
+            },
+            "Parse Silence Results": {
+                "main": [
+                    [
+                        {
+                            "node": "Build Alert Message",
+                            "type": "main",
+                            "index": 0
+                        }
+                    ]
+                ]
+            },
+            "Build Alert Message": {
+                "main": [
+                    [
+                        {
+                            "node": "Send Silence Check",
+                            "type": "main",
+                            "index": 0
+                        }
+                    ]
+                ]
+            },
+            "Fetch Muted Accounts": {
+                "main": [
+                    []
+                ]
+            },
+            "Send Silence Check": {
+                "main": [
+                    [
+                        {
+                            "node": "Auto-Mute Dead (OD)",
+                            "type": "main",
+                            "index": 0
+                        }
+                    ]
+                ]
+            },
+            "Auto-Mute Dead (OD)": {
+                "main": [
+                    []
+                ]
+            }
+        },
+        "authors": "Scott Metcalf",
+        "name": null,
+        "description": null,
+        "autosaved": false,
+        "workflowPublishHistory": [
+            {
+                "createdAt": "2026-03-10T18:09:12.157Z",
+                "id": 924,
+                "workflowId": "7QaWpTuTp6oNVFjM",
+                "versionId": "0144baa8-ef4d-4a7e-ad17-4c2fd844f990",
+                "event": "activated",
+                "userId": "bfa163c1-bd53-4c0f-b0ba-8dc3626f7c79"
+            },
+            {
+                "createdAt": "2026-03-10T18:09:12.125Z",
+                "id": 923,
+                "workflowId": "7QaWpTuTp6oNVFjM",
+                "versionId": "0144baa8-ef4d-4a7e-ad17-4c2fd844f990",
+                "event": "deactivated",
+                "userId": "bfa163c1-bd53-4c0f-b0ba-8dc3626f7c79"
+            }
+        ]
+    }
+}

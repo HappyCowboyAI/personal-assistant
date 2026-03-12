@@ -1,0 +1,1209 @@
+{
+    "updatedAt": "2026-03-04T18:14:22.522Z",
+    "createdAt": "2026-03-04T18:14:22.522Z",
+    "id": "fmLjwZZdEqHfYw4B",
+    "name": "Feature Education Cron",
+    "description": null,
+    "active": true,
+    "isArchived": false,
+    "nodes": [
+        {
+            "parameters": {
+                "rule": {
+                    "interval": [
+                        {
+                            "triggerAtHour": 13,
+                            "triggerAtMinute": 0,
+                            "triggerAtDay": [
+                                1,
+                                2,
+                                3,
+                                4,
+                                5
+                            ]
+                        }
+                    ]
+                }
+            },
+            "id": "65c6f073-3c1f-439a-9e09-3f150b756a4e",
+            "name": "Daily 1pm PT",
+            "type": "n8n-nodes-base.scheduleTrigger",
+            "typeVersion": 1.2,
+            "position": [
+                250,
+                300
+            ]
+        },
+        {
+            "parameters": {
+                "method": "GET",
+                "url": "https://rhrlnkbphxntxxxcrgvv.supabase.co/rest/v1/users?onboarding_state=eq.complete&select=id,slack_user_id,email,assistant_name,assistant_emoji,assistant_persona,organization_id,onboarding_state,tips_enabled,announcements_enabled,created_at",
+                "authentication": "predefinedCredentialType",
+                "nodeCredentialType": "supabaseApi",
+                "sendHeaders": true,
+                "headerParameters": {
+                    "parameters": [
+                        {
+                            "name": "Prefer",
+                            "value": "return=representation"
+                        }
+                    ]
+                },
+                "options": {}
+            },
+            "id": "e905db87-fbd2-4c7f-9796-77229d071573",
+            "name": "Get Active Users",
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4.2,
+            "position": [
+                550,
+                300
+            ],
+            "credentials": {
+                "supabaseApi": {
+                    "id": "ASRWWkQ0RSMOpNF1",
+                    "name": "Supabase account"
+                }
+            }
+        },
+        {
+            "parameters": {
+                "method": "GET",
+                "url": "=https://rhrlnkbphxntxxxcrgvv.supabase.co/rest/v1/education_log?delivered_at=gte.{{ new Date(Date.now() - 30*24*60*60*1000).toISOString() }}&select=user_id,feature_id,trigger_type,delivered_at",
+                "authentication": "predefinedCredentialType",
+                "nodeCredentialType": "supabaseApi",
+                "sendHeaders": true,
+                "headerParameters": {
+                    "parameters": [
+                        {
+                            "name": "Prefer",
+                            "value": "return=representation"
+                        }
+                    ]
+                },
+                "options": {}
+            },
+            "id": "5b911d78-59ff-430c-9e7a-c57b1d29ec36",
+            "name": "Get Education History",
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4.2,
+            "position": [
+                850,
+                300
+            ],
+            "credentials": {
+                "supabaseApi": {
+                    "id": "ASRWWkQ0RSMOpNF1",
+                    "name": "Supabase account"
+                }
+            },
+            "alwaysOutputData": true
+        },
+        {
+            "parameters": {
+                "method": "GET",
+                "url": "https://rhrlnkbphxntxxxcrgvv.supabase.co/rest/v1/feature_usage?select=user_id,feature_id,first_used_at,last_used_at,use_count",
+                "authentication": "predefinedCredentialType",
+                "nodeCredentialType": "supabaseApi",
+                "sendHeaders": true,
+                "headerParameters": {
+                    "parameters": [
+                        {
+                            "name": "Prefer",
+                            "value": "return=representation"
+                        }
+                    ]
+                },
+                "options": {}
+            },
+            "id": "a99eed2b-3449-46f0-826a-1c86697240f2",
+            "name": "Get Feature Usage",
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4.2,
+            "position": [
+                1150,
+                300
+            ],
+            "credentials": {
+                "supabaseApi": {
+                    "id": "ASRWWkQ0RSMOpNF1",
+                    "name": "Supabase account"
+                }
+            },
+            "alwaysOutputData": true
+        },
+        {
+            "parameters": {
+                "method": "GET",
+                "url": "https://rhrlnkbphxntxxxcrgvv.supabase.co/rest/v1/feature_catalog?select=*&order=drip_order.asc.nullslast",
+                "authentication": "predefinedCredentialType",
+                "nodeCredentialType": "supabaseApi",
+                "sendHeaders": true,
+                "headerParameters": {
+                    "parameters": [
+                        {
+                            "name": "Prefer",
+                            "value": "return=representation"
+                        }
+                    ]
+                },
+                "options": {}
+            },
+            "id": "ed5e2434-53d4-4f9d-b49c-730e389a296b",
+            "name": "Get Feature Catalog",
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4.2,
+            "position": [
+                1450,
+                300
+            ],
+            "credentials": {
+                "supabaseApi": {
+                    "id": "ASRWWkQ0RSMOpNF1",
+                    "name": "Supabase account"
+                }
+            }
+        },
+        {
+            "parameters": {
+                "jsCode": "const usersRaw = $('Get Active Users').first().json;\nconst historyRaw = $('Get Education History').first().json;\nconst usageRaw = $('Get Feature Usage').first().json;\nconst catalogRaw = $('Get Feature Catalog').first().json;\n\nconst users = Array.isArray(usersRaw) ? usersRaw : [usersRaw];\nconst history = Array.isArray(historyRaw) ? historyRaw : (historyRaw?.id ? [historyRaw] : []);\nconst usage = Array.isArray(usageRaw) ? usageRaw : (usageRaw?.id ? [usageRaw] : []);\nconst catalog = Array.isArray(catalogRaw) ? catalogRaw : (catalogRaw?.id ? [catalogRaw] : []);\n\n// Group history by user\nconst historyByUser = {};\nfor (const h of history) {\n  if (!historyByUser[h.user_id]) historyByUser[h.user_id] = [];\n  historyByUser[h.user_id].push(h);\n}\n\n// Group usage by user\nconst usageByUser = {};\nfor (const u of usage) {\n  if (!usageByUser[u.user_id]) usageByUser[u.user_id] = {};\n  usageByUser[u.user_id][u.feature_id] = u;\n}\n\nconst output = [];\nfor (const user of users) {\n  if (user.onboarding_state !== 'complete') continue;\n  if (!user.tips_enabled && !user.announcements_enabled) continue;\n\n  output.push({\n    json: {\n      userId: user.id,\n      slackUserId: user.slack_user_id,\n      email: user.email,\n      assistantName: user.assistant_name || 'Aria',\n      assistantEmoji: user.assistant_emoji || ':robot_face:',\n      assistantPersona: user.assistant_persona || 'friendly and helpful',\n      organizationId: user.organization_id,\n      tipsEnabled: user.tips_enabled !== false,\n      announcementsEnabled: user.announcements_enabled !== false,\n      userCreatedAt: user.created_at,\n      educationHistory: historyByUser[user.id] || [],\n      featureUsage: usageByUser[user.id] || {},\n      featureCatalog: catalog,\n    }\n  });\n}\n\nif (output.length === 0) {\n  return [{ json: { skip: true } }];\n}\n\nreturn output;\n"
+            },
+            "id": "7af3bc43-0274-436e-ba9d-4fbdda98d4df",
+            "name": "Prepare Education Batch",
+            "type": "n8n-nodes-base.code",
+            "typeVersion": 2,
+            "position": [
+                1750,
+                300
+            ]
+        },
+        {
+            "parameters": {
+                "options": {}
+            },
+            "id": "5b08917b-4ec7-4ebd-b284-ff425698dbaa",
+            "name": "Split In Batches",
+            "type": "n8n-nodes-base.splitInBatches",
+            "typeVersion": 3,
+            "position": [
+                2050,
+                300
+            ]
+        },
+        {
+            "parameters": {
+                "jsCode": "const data = $input.first().json;\nif (data.skip) {\n  return [{ json: { ...data, hasTip: false } }];\n}\n\nconst now = new Date();\nconst userAge = Math.floor((now - new Date(data.userCreatedAt)) / (24*60*60*1000));\nconst history = data.educationHistory || [];\nconst usage = data.featureUsage || {};\nconst catalog = data.featureCatalog || [];\n\n// Pacing: max 2 tips/week, min 3 days between tips\nconst recentTips = history.filter(h => {\n  const daysAgo = (now - new Date(h.delivered_at)) / (24*60*60*1000);\n  return daysAgo <= 7;\n});\nif (recentTips.length >= 2) {\n  return [{ json: { ...data, hasTip: false } }];\n}\n\nif (history.length > 0) {\n  const lastTipDaysAgo = Math.min(...history.map(h => (now - new Date(h.delivered_at)) / (24*60*60*1000)));\n  if (lastTipDaysAgo < 3) {\n    return [{ json: { ...data, hasTip: false } }];\n  }\n}\n\nconst educatedDrip = new Set(history.filter(h => h.trigger_type === 'onboarding_drip').map(h => h.feature_id));\nconst educatedReengagement = new Set(history.filter(h => h.trigger_type === 're_engagement').map(h => h.feature_id));\n\nlet selectedFeature = null;\nlet triggerType = null;\n\n// Priority 1: Onboarding drip (first 14 days, tips_enabled)\nif (data.tipsEnabled && userAge <= 14) {\n  const dripFeatures = catalog\n    .filter(f => f.drip_order !== null && f.drip_day !== null)\n    .sort((a, b) => a.drip_order - b.drip_order);\n\n  for (const feature of dripFeatures) {\n    if (userAge >= feature.drip_day && !educatedDrip.has(feature.id) && !usage[feature.id]) {\n      selectedFeature = feature;\n      triggerType = 'onboarding_drip';\n      break;\n    }\n  }\n}\n\n// Priority 2: Re-engagement (feature unused 14+ days, tips_enabled)\nif (!selectedFeature && data.tipsEnabled && userAge > 7) {\n  for (const feature of catalog) {\n    const featureUsage = usage[feature.id];\n    if (!featureUsage) continue;\n    const daysSinceUse = (now - new Date(featureUsage.last_used_at)) / (24*60*60*1000);\n    if (daysSinceUse >= 14 && !educatedReengagement.has(feature.id)) {\n      if (featureUsage.use_count >= 3) {\n        selectedFeature = feature;\n        triggerType = 're_engagement';\n        break;\n      }\n    }\n  }\n}\n\nif (!selectedFeature) {\n  return [{ json: { ...data, hasTip: false } }];\n}\n\nconst persona = data.assistantPersona || 'friendly and helpful';\nconst tipSystemPrompt = `You are ${data.assistantName}, a sales assistant with the following personality: ${persona}.\n\nWrite a SHORT Slack DM (2-3 sentences max) introducing a feature to your user. This should feel like a casual, helpful tip \u2014 not a product announcement or documentation.\n\nRules:\n- Use Slack formatting (*bold*, _italic_, bullet points)\n- Match the personality described above\n- Be conversational and brief\n- Include the specific command or action they should try\n- Don't start with \"Hey!\" or \"Did you know?\" \u2014 vary your openings\n- Don't use emojis excessively (1-2 max)\n- If this is a re-engagement tip, acknowledge they've used it before\n\nFeature to introduce:\n- Name: ${selectedFeature.display_name}\n- What it does: ${selectedFeature.description}\n- How to use: ${selectedFeature.how_to_use}\n\nTrigger type: ${triggerType === 're_engagement' ? \"Re-engagement \u2014 they used this before but haven't recently\" : \"Onboarding \u2014 they haven't tried this yet\"}\n\nWrite ONLY the message text. No subject line, no preamble.`;\n\nreturn [{\n  json: {\n    ...data,\n    hasTip: true,\n    selectedFeatureId: selectedFeature.id,\n    selectedFeatureName: selectedFeature.display_name,\n    triggerType: triggerType,\n    tipSystemPrompt: tipSystemPrompt,\n    tipUserPrompt: 'Write a tip about ' + selectedFeature.display_name + ' for this user.',\n  }\n}];\n"
+            },
+            "id": "e020c6c3-4ff7-4968-88bc-60e1be443dac",
+            "name": "Pick Feature & Build Prompt",
+            "type": "n8n-nodes-base.code",
+            "typeVersion": 2,
+            "position": [
+                2350,
+                300
+            ]
+        },
+        {
+            "parameters": {
+                "conditions": {
+                    "options": {
+                        "version": 2,
+                        "leftValue": "",
+                        "caseSensitive": true,
+                        "typeValidation": "strict"
+                    },
+                    "conditions": [
+                        {
+                            "id": "4004558d-9467-48f3-8e72-d101bba4a358",
+                            "leftValue": "={{ $json.hasTip }}",
+                            "rightValue": true,
+                            "operator": {
+                                "type": "boolean",
+                                "operation": "equals"
+                            }
+                        }
+                    ],
+                    "combinator": "and"
+                },
+                "options": {}
+            },
+            "id": "b785a5a8-7b7b-4de2-a1ed-fbbd3938e68e",
+            "name": "Has Tip?",
+            "type": "n8n-nodes-base.if",
+            "typeVersion": 2.2,
+            "position": [
+                2650,
+                300
+            ]
+        },
+        {
+            "parameters": {
+                "promptType": "define",
+                "text": "={{ $json.tipUserPrompt }}",
+                "options": {
+                    "systemMessage": "={{ $json.tipSystemPrompt }}",
+                    "maxIterations": 3
+                }
+            },
+            "id": "78da433f-608a-4650-9b25-281388a9b7ae",
+            "name": "Education Agent",
+            "type": "@n8n/n8n-nodes-langchain.agent",
+            "typeVersion": 1.7,
+            "position": [
+                2950,
+                200
+            ],
+            "continueOnFail": true
+        },
+        {
+            "parameters": {
+                "model": {
+                    "__rl": true,
+                    "mode": "list",
+                    "value": "claude-sonnet-4-5-20250929",
+                    "cachedResultName": "Claude Sonnet 4.5"
+                },
+                "options": {}
+            },
+            "id": "dd69cbe7-7b45-4470-821e-0e0955920e14",
+            "name": "Anthropic Chat Model (Education)",
+            "type": "@n8n/n8n-nodes-langchain.lmChatAnthropic",
+            "typeVersion": 1.3,
+            "position": [
+                2900,
+                420
+            ],
+            "credentials": {
+                "anthropicApi": {
+                    "id": "rlAz7ZSl4y6AwRUq",
+                    "name": "Anthropic account 2"
+                }
+            }
+        },
+        {
+            "parameters": {
+                "method": "POST",
+                "url": "https://slack.com/api/conversations.open",
+                "authentication": "genericCredentialType",
+                "genericAuthType": "httpHeaderAuth",
+                "sendHeaders": true,
+                "headerParameters": {
+                    "parameters": [
+                        {
+                            "name": "Content-Type",
+                            "value": "application/json"
+                        }
+                    ]
+                },
+                "sendBody": true,
+                "specifyBody": "json",
+                "jsonBody": "={{ JSON.stringify({ users: $(\"Pick Feature & Build Prompt\").first().json.slackUserId }) }}",
+                "options": {}
+            },
+            "id": "24b0fa37-7184-42f0-bd2f-fd7ae8cfbfb9",
+            "name": "Open Bot DM",
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4.2,
+            "position": [
+                3250,
+                200
+            ],
+            "credentials": {
+                "httpHeaderAuth": {
+                    "id": "LluVuiMJ8NUbAiG7",
+                    "name": "Slackbot Auth Token"
+                }
+            }
+        },
+        {
+            "parameters": {
+                "method": "POST",
+                "url": "https://slack.com/api/chat.postMessage",
+                "authentication": "genericCredentialType",
+                "genericAuthType": "httpHeaderAuth",
+                "sendHeaders": true,
+                "headerParameters": {
+                    "parameters": [
+                        {
+                            "name": "Content-Type",
+                            "value": "application/json"
+                        }
+                    ]
+                },
+                "sendBody": true,
+                "specifyBody": "json",
+                "jsonBody": "={{ JSON.stringify({ channel: $json.channel.id, text: $(\"Education Agent\").first().json.output, username: $(\"Pick Feature & Build Prompt\").first().json.assistantName, icon_emoji: $(\"Pick Feature & Build Prompt\").first().json.assistantEmoji }) }}",
+                "options": {}
+            },
+            "id": "915b5e1f-25e3-45a8-b218-90e65397e75f",
+            "name": "Send Tip DM",
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4.2,
+            "position": [
+                3550,
+                200
+            ],
+            "credentials": {
+                "httpHeaderAuth": {
+                    "id": "LluVuiMJ8NUbAiG7",
+                    "name": "Slackbot Auth Token"
+                }
+            }
+        },
+        {
+            "parameters": {
+                "jsCode": "const data = $('Pick Feature & Build Prompt').first().json;\nconst agentOutput = $('Education Agent').first().json.output || '';\nconst sendResult = $('Send Tip DM').first().json;\n\nreturn [{\n  json: {\n    user_id: data.userId,\n    feature_id: data.selectedFeatureId,\n    trigger_type: data.triggerType,\n    message_text: agentOutput,\n    slack_message_ts: sendResult.ts || null,\n    slack_channel_id: sendResult.channel || null,\n  }\n}];\n"
+            },
+            "id": "9fe85b15-ee8d-488d-8ce9-f6cf890f0c1b",
+            "name": "Prepare Education Log",
+            "type": "n8n-nodes-base.code",
+            "typeVersion": 2,
+            "position": [
+                3850,
+                200
+            ]
+        },
+        {
+            "parameters": {
+                "method": "POST",
+                "url": "https://rhrlnkbphxntxxxcrgvv.supabase.co/rest/v1/education_log",
+                "authentication": "predefinedCredentialType",
+                "nodeCredentialType": "supabaseApi",
+                "sendHeaders": true,
+                "headerParameters": {
+                    "parameters": [
+                        {
+                            "name": "Prefer",
+                            "value": "return=representation"
+                        },
+                        {
+                            "name": "Content-Type",
+                            "value": "application/json"
+                        }
+                    ]
+                },
+                "options": {},
+                "sendBody": true,
+                "specifyBody": "json",
+                "jsonBody": "={{ JSON.stringify($json) }}"
+            },
+            "id": "03e40483-d8f4-4e76-8bd7-e0801dbe40c9",
+            "name": "Log Education",
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4.2,
+            "position": [
+                4150,
+                200
+            ],
+            "credentials": {
+                "supabaseApi": {
+                    "id": "ASRWWkQ0RSMOpNF1",
+                    "name": "Supabase account"
+                }
+            }
+        }
+    ],
+    "connections": {
+        "Daily 1pm PT": {
+            "main": [
+                [
+                    {
+                        "node": "Get Active Users",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Get Active Users": {
+            "main": [
+                [
+                    {
+                        "node": "Get Education History",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Get Education History": {
+            "main": [
+                [
+                    {
+                        "node": "Get Feature Usage",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Get Feature Usage": {
+            "main": [
+                [
+                    {
+                        "node": "Get Feature Catalog",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Get Feature Catalog": {
+            "main": [
+                [
+                    {
+                        "node": "Prepare Education Batch",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Prepare Education Batch": {
+            "main": [
+                [
+                    {
+                        "node": "Split In Batches",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Split In Batches": {
+            "main": [
+                [],
+                [
+                    {
+                        "node": "Pick Feature & Build Prompt",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Pick Feature & Build Prompt": {
+            "main": [
+                [
+                    {
+                        "node": "Has Tip?",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Anthropic Chat Model (Education)": {
+            "ai_languageModel": [
+                [
+                    {
+                        "node": "Education Agent",
+                        "type": "ai_languageModel",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Has Tip?": {
+            "main": [
+                [
+                    {
+                        "node": "Education Agent",
+                        "type": "main",
+                        "index": 0
+                    }
+                ],
+                [
+                    {
+                        "node": "Split In Batches",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Education Agent": {
+            "main": [
+                [
+                    {
+                        "node": "Open Bot DM",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Open Bot DM": {
+            "main": [
+                [
+                    {
+                        "node": "Send Tip DM",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Send Tip DM": {
+            "main": [
+                [
+                    {
+                        "node": "Prepare Education Log",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Prepare Education Log": {
+            "main": [
+                [
+                    {
+                        "node": "Log Education",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Log Education": {
+            "main": [
+                [
+                    {
+                        "node": "Split In Batches",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        }
+    },
+    "settings": {
+        "executionOrder": "v1",
+        "callerPolicy": "workflowsFromSameOwner",
+        "availableInMCP": false
+    },
+    "staticData": {
+        "node:Daily 1pm PT": {
+            "recurrenceRules": []
+        }
+    },
+    "meta": null,
+    "pinData": null,
+    "versionId": "8ae69d25-94d3-4c3a-b0fb-0d3033991a03",
+    "activeVersionId": "8ae69d25-94d3-4c3a-b0fb-0d3033991a03",
+    "versionCounter": 4,
+    "triggerCount": 1,
+    "shared": [
+        {
+            "updatedAt": "2026-03-04T18:14:22.525Z",
+            "createdAt": "2026-03-04T18:14:22.525Z",
+            "role": "workflow:owner",
+            "workflowId": "fmLjwZZdEqHfYw4B",
+            "projectId": "85jtzrEPriGDXgHV",
+            "project": {
+                "updatedAt": "2025-11-24T07:01:19.205Z",
+                "createdAt": "2025-11-24T06:56:53.862Z",
+                "id": "85jtzrEPriGDXgHV",
+                "name": "Scott Metcalf <metcalf.scott@gmail.com>",
+                "type": "personal",
+                "icon": null,
+                "description": null,
+                "creatorId": "bfa163c1-bd53-4c0f-b0ba-8dc3626f7c79"
+            }
+        }
+    ],
+    "tags": [],
+    "activeVersion": {
+        "updatedAt": "2026-03-04T18:14:22.530Z",
+        "createdAt": "2026-03-04T18:14:22.530Z",
+        "versionId": "8ae69d25-94d3-4c3a-b0fb-0d3033991a03",
+        "workflowId": "fmLjwZZdEqHfYw4B",
+        "nodes": [
+            {
+                "parameters": {
+                    "rule": {
+                        "interval": [
+                            {
+                                "triggerAtHour": 13,
+                                "triggerAtMinute": 0,
+                                "triggerAtDay": [
+                                    1,
+                                    2,
+                                    3,
+                                    4,
+                                    5
+                                ]
+                            }
+                        ]
+                    }
+                },
+                "id": "65c6f073-3c1f-439a-9e09-3f150b756a4e",
+                "name": "Daily 1pm PT",
+                "type": "n8n-nodes-base.scheduleTrigger",
+                "typeVersion": 1.2,
+                "position": [
+                    250,
+                    300
+                ]
+            },
+            {
+                "parameters": {
+                    "method": "GET",
+                    "url": "https://rhrlnkbphxntxxxcrgvv.supabase.co/rest/v1/users?onboarding_state=eq.complete&select=id,slack_user_id,email,assistant_name,assistant_emoji,assistant_persona,organization_id,onboarding_state,tips_enabled,announcements_enabled,created_at",
+                    "authentication": "predefinedCredentialType",
+                    "nodeCredentialType": "supabaseApi",
+                    "sendHeaders": true,
+                    "headerParameters": {
+                        "parameters": [
+                            {
+                                "name": "Prefer",
+                                "value": "return=representation"
+                            }
+                        ]
+                    },
+                    "options": {}
+                },
+                "id": "e905db87-fbd2-4c7f-9796-77229d071573",
+                "name": "Get Active Users",
+                "type": "n8n-nodes-base.httpRequest",
+                "typeVersion": 4.2,
+                "position": [
+                    550,
+                    300
+                ],
+                "credentials": {
+                    "supabaseApi": {
+                        "id": "ASRWWkQ0RSMOpNF1",
+                        "name": "Supabase account"
+                    }
+                }
+            },
+            {
+                "parameters": {
+                    "method": "GET",
+                    "url": "=https://rhrlnkbphxntxxxcrgvv.supabase.co/rest/v1/education_log?delivered_at=gte.{{ new Date(Date.now() - 30*24*60*60*1000).toISOString() }}&select=user_id,feature_id,trigger_type,delivered_at",
+                    "authentication": "predefinedCredentialType",
+                    "nodeCredentialType": "supabaseApi",
+                    "sendHeaders": true,
+                    "headerParameters": {
+                        "parameters": [
+                            {
+                                "name": "Prefer",
+                                "value": "return=representation"
+                            }
+                        ]
+                    },
+                    "options": {}
+                },
+                "id": "5b911d78-59ff-430c-9e7a-c57b1d29ec36",
+                "name": "Get Education History",
+                "type": "n8n-nodes-base.httpRequest",
+                "typeVersion": 4.2,
+                "position": [
+                    850,
+                    300
+                ],
+                "credentials": {
+                    "supabaseApi": {
+                        "id": "ASRWWkQ0RSMOpNF1",
+                        "name": "Supabase account"
+                    }
+                },
+                "alwaysOutputData": true
+            },
+            {
+                "parameters": {
+                    "method": "GET",
+                    "url": "https://rhrlnkbphxntxxxcrgvv.supabase.co/rest/v1/feature_usage?select=user_id,feature_id,first_used_at,last_used_at,use_count",
+                    "authentication": "predefinedCredentialType",
+                    "nodeCredentialType": "supabaseApi",
+                    "sendHeaders": true,
+                    "headerParameters": {
+                        "parameters": [
+                            {
+                                "name": "Prefer",
+                                "value": "return=representation"
+                            }
+                        ]
+                    },
+                    "options": {}
+                },
+                "id": "a99eed2b-3449-46f0-826a-1c86697240f2",
+                "name": "Get Feature Usage",
+                "type": "n8n-nodes-base.httpRequest",
+                "typeVersion": 4.2,
+                "position": [
+                    1150,
+                    300
+                ],
+                "credentials": {
+                    "supabaseApi": {
+                        "id": "ASRWWkQ0RSMOpNF1",
+                        "name": "Supabase account"
+                    }
+                },
+                "alwaysOutputData": true
+            },
+            {
+                "parameters": {
+                    "method": "GET",
+                    "url": "https://rhrlnkbphxntxxxcrgvv.supabase.co/rest/v1/feature_catalog?select=*&order=drip_order.asc.nullslast",
+                    "authentication": "predefinedCredentialType",
+                    "nodeCredentialType": "supabaseApi",
+                    "sendHeaders": true,
+                    "headerParameters": {
+                        "parameters": [
+                            {
+                                "name": "Prefer",
+                                "value": "return=representation"
+                            }
+                        ]
+                    },
+                    "options": {}
+                },
+                "id": "ed5e2434-53d4-4f9d-b49c-730e389a296b",
+                "name": "Get Feature Catalog",
+                "type": "n8n-nodes-base.httpRequest",
+                "typeVersion": 4.2,
+                "position": [
+                    1450,
+                    300
+                ],
+                "credentials": {
+                    "supabaseApi": {
+                        "id": "ASRWWkQ0RSMOpNF1",
+                        "name": "Supabase account"
+                    }
+                }
+            },
+            {
+                "parameters": {
+                    "jsCode": "const usersRaw = $('Get Active Users').first().json;\nconst historyRaw = $('Get Education History').first().json;\nconst usageRaw = $('Get Feature Usage').first().json;\nconst catalogRaw = $('Get Feature Catalog').first().json;\n\nconst users = Array.isArray(usersRaw) ? usersRaw : [usersRaw];\nconst history = Array.isArray(historyRaw) ? historyRaw : (historyRaw?.id ? [historyRaw] : []);\nconst usage = Array.isArray(usageRaw) ? usageRaw : (usageRaw?.id ? [usageRaw] : []);\nconst catalog = Array.isArray(catalogRaw) ? catalogRaw : (catalogRaw?.id ? [catalogRaw] : []);\n\n// Group history by user\nconst historyByUser = {};\nfor (const h of history) {\n  if (!historyByUser[h.user_id]) historyByUser[h.user_id] = [];\n  historyByUser[h.user_id].push(h);\n}\n\n// Group usage by user\nconst usageByUser = {};\nfor (const u of usage) {\n  if (!usageByUser[u.user_id]) usageByUser[u.user_id] = {};\n  usageByUser[u.user_id][u.feature_id] = u;\n}\n\nconst output = [];\nfor (const user of users) {\n  if (user.onboarding_state !== 'complete') continue;\n  if (!user.tips_enabled && !user.announcements_enabled) continue;\n\n  output.push({\n    json: {\n      userId: user.id,\n      slackUserId: user.slack_user_id,\n      email: user.email,\n      assistantName: user.assistant_name || 'Aria',\n      assistantEmoji: user.assistant_emoji || ':robot_face:',\n      assistantPersona: user.assistant_persona || 'friendly and helpful',\n      organizationId: user.organization_id,\n      tipsEnabled: user.tips_enabled !== false,\n      announcementsEnabled: user.announcements_enabled !== false,\n      userCreatedAt: user.created_at,\n      educationHistory: historyByUser[user.id] || [],\n      featureUsage: usageByUser[user.id] || {},\n      featureCatalog: catalog,\n    }\n  });\n}\n\nif (output.length === 0) {\n  return [{ json: { skip: true } }];\n}\n\nreturn output;\n"
+                },
+                "id": "7af3bc43-0274-436e-ba9d-4fbdda98d4df",
+                "name": "Prepare Education Batch",
+                "type": "n8n-nodes-base.code",
+                "typeVersion": 2,
+                "position": [
+                    1750,
+                    300
+                ]
+            },
+            {
+                "parameters": {
+                    "options": {}
+                },
+                "id": "5b08917b-4ec7-4ebd-b284-ff425698dbaa",
+                "name": "Split In Batches",
+                "type": "n8n-nodes-base.splitInBatches",
+                "typeVersion": 3,
+                "position": [
+                    2050,
+                    300
+                ]
+            },
+            {
+                "parameters": {
+                    "jsCode": "const data = $input.first().json;\nif (data.skip) {\n  return [{ json: { ...data, hasTip: false } }];\n}\n\nconst now = new Date();\nconst userAge = Math.floor((now - new Date(data.userCreatedAt)) / (24*60*60*1000));\nconst history = data.educationHistory || [];\nconst usage = data.featureUsage || {};\nconst catalog = data.featureCatalog || [];\n\n// Pacing: max 2 tips/week, min 3 days between tips\nconst recentTips = history.filter(h => {\n  const daysAgo = (now - new Date(h.delivered_at)) / (24*60*60*1000);\n  return daysAgo <= 7;\n});\nif (recentTips.length >= 2) {\n  return [{ json: { ...data, hasTip: false } }];\n}\n\nif (history.length > 0) {\n  const lastTipDaysAgo = Math.min(...history.map(h => (now - new Date(h.delivered_at)) / (24*60*60*1000)));\n  if (lastTipDaysAgo < 3) {\n    return [{ json: { ...data, hasTip: false } }];\n  }\n}\n\nconst educatedDrip = new Set(history.filter(h => h.trigger_type === 'onboarding_drip').map(h => h.feature_id));\nconst educatedReengagement = new Set(history.filter(h => h.trigger_type === 're_engagement').map(h => h.feature_id));\n\nlet selectedFeature = null;\nlet triggerType = null;\n\n// Priority 1: Onboarding drip (first 14 days, tips_enabled)\nif (data.tipsEnabled && userAge <= 14) {\n  const dripFeatures = catalog\n    .filter(f => f.drip_order !== null && f.drip_day !== null)\n    .sort((a, b) => a.drip_order - b.drip_order);\n\n  for (const feature of dripFeatures) {\n    if (userAge >= feature.drip_day && !educatedDrip.has(feature.id) && !usage[feature.id]) {\n      selectedFeature = feature;\n      triggerType = 'onboarding_drip';\n      break;\n    }\n  }\n}\n\n// Priority 2: Re-engagement (feature unused 14+ days, tips_enabled)\nif (!selectedFeature && data.tipsEnabled && userAge > 7) {\n  for (const feature of catalog) {\n    const featureUsage = usage[feature.id];\n    if (!featureUsage) continue;\n    const daysSinceUse = (now - new Date(featureUsage.last_used_at)) / (24*60*60*1000);\n    if (daysSinceUse >= 14 && !educatedReengagement.has(feature.id)) {\n      if (featureUsage.use_count >= 3) {\n        selectedFeature = feature;\n        triggerType = 're_engagement';\n        break;\n      }\n    }\n  }\n}\n\nif (!selectedFeature) {\n  return [{ json: { ...data, hasTip: false } }];\n}\n\nconst persona = data.assistantPersona || 'friendly and helpful';\nconst tipSystemPrompt = `You are ${data.assistantName}, a sales assistant with the following personality: ${persona}.\n\nWrite a SHORT Slack DM (2-3 sentences max) introducing a feature to your user. This should feel like a casual, helpful tip \u2014 not a product announcement or documentation.\n\nRules:\n- Use Slack formatting (*bold*, _italic_, bullet points)\n- Match the personality described above\n- Be conversational and brief\n- Include the specific command or action they should try\n- Don't start with \"Hey!\" or \"Did you know?\" \u2014 vary your openings\n- Don't use emojis excessively (1-2 max)\n- If this is a re-engagement tip, acknowledge they've used it before\n\nFeature to introduce:\n- Name: ${selectedFeature.display_name}\n- What it does: ${selectedFeature.description}\n- How to use: ${selectedFeature.how_to_use}\n\nTrigger type: ${triggerType === 're_engagement' ? \"Re-engagement \u2014 they used this before but haven't recently\" : \"Onboarding \u2014 they haven't tried this yet\"}\n\nWrite ONLY the message text. No subject line, no preamble.`;\n\nreturn [{\n  json: {\n    ...data,\n    hasTip: true,\n    selectedFeatureId: selectedFeature.id,\n    selectedFeatureName: selectedFeature.display_name,\n    triggerType: triggerType,\n    tipSystemPrompt: tipSystemPrompt,\n    tipUserPrompt: 'Write a tip about ' + selectedFeature.display_name + ' for this user.',\n  }\n}];\n"
+                },
+                "id": "e020c6c3-4ff7-4968-88bc-60e1be443dac",
+                "name": "Pick Feature & Build Prompt",
+                "type": "n8n-nodes-base.code",
+                "typeVersion": 2,
+                "position": [
+                    2350,
+                    300
+                ]
+            },
+            {
+                "parameters": {
+                    "conditions": {
+                        "options": {
+                            "version": 2,
+                            "leftValue": "",
+                            "caseSensitive": true,
+                            "typeValidation": "strict"
+                        },
+                        "conditions": [
+                            {
+                                "id": "4004558d-9467-48f3-8e72-d101bba4a358",
+                                "leftValue": "={{ $json.hasTip }}",
+                                "rightValue": true,
+                                "operator": {
+                                    "type": "boolean",
+                                    "operation": "equals"
+                                }
+                            }
+                        ],
+                        "combinator": "and"
+                    },
+                    "options": {}
+                },
+                "id": "b785a5a8-7b7b-4de2-a1ed-fbbd3938e68e",
+                "name": "Has Tip?",
+                "type": "n8n-nodes-base.if",
+                "typeVersion": 2.2,
+                "position": [
+                    2650,
+                    300
+                ]
+            },
+            {
+                "parameters": {
+                    "promptType": "define",
+                    "text": "={{ $json.tipUserPrompt }}",
+                    "options": {
+                        "systemMessage": "={{ $json.tipSystemPrompt }}",
+                        "maxIterations": 3
+                    }
+                },
+                "id": "78da433f-608a-4650-9b25-281388a9b7ae",
+                "name": "Education Agent",
+                "type": "@n8n/n8n-nodes-langchain.agent",
+                "typeVersion": 1.7,
+                "position": [
+                    2950,
+                    200
+                ],
+                "continueOnFail": true
+            },
+            {
+                "parameters": {
+                    "model": {
+                        "__rl": true,
+                        "mode": "list",
+                        "value": "claude-sonnet-4-5-20250929",
+                        "cachedResultName": "Claude Sonnet 4.5"
+                    },
+                    "options": {}
+                },
+                "id": "dd69cbe7-7b45-4470-821e-0e0955920e14",
+                "name": "Anthropic Chat Model (Education)",
+                "type": "@n8n/n8n-nodes-langchain.lmChatAnthropic",
+                "typeVersion": 1.3,
+                "position": [
+                    2900,
+                    420
+                ],
+                "credentials": {
+                    "anthropicApi": {
+                        "id": "rlAz7ZSl4y6AwRUq",
+                        "name": "Anthropic account 2"
+                    }
+                }
+            },
+            {
+                "parameters": {
+                    "method": "POST",
+                    "url": "https://slack.com/api/conversations.open",
+                    "authentication": "genericCredentialType",
+                    "genericAuthType": "httpHeaderAuth",
+                    "sendHeaders": true,
+                    "headerParameters": {
+                        "parameters": [
+                            {
+                                "name": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ]
+                    },
+                    "sendBody": true,
+                    "specifyBody": "json",
+                    "jsonBody": "={{ JSON.stringify({ users: $(\"Pick Feature & Build Prompt\").first().json.slackUserId }) }}",
+                    "options": {}
+                },
+                "id": "24b0fa37-7184-42f0-bd2f-fd7ae8cfbfb9",
+                "name": "Open Bot DM",
+                "type": "n8n-nodes-base.httpRequest",
+                "typeVersion": 4.2,
+                "position": [
+                    3250,
+                    200
+                ],
+                "credentials": {
+                    "httpHeaderAuth": {
+                        "id": "LluVuiMJ8NUbAiG7",
+                        "name": "Slackbot Auth Token"
+                    }
+                }
+            },
+            {
+                "parameters": {
+                    "method": "POST",
+                    "url": "https://slack.com/api/chat.postMessage",
+                    "authentication": "genericCredentialType",
+                    "genericAuthType": "httpHeaderAuth",
+                    "sendHeaders": true,
+                    "headerParameters": {
+                        "parameters": [
+                            {
+                                "name": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ]
+                    },
+                    "sendBody": true,
+                    "specifyBody": "json",
+                    "jsonBody": "={{ JSON.stringify({ channel: $json.channel.id, text: $(\"Education Agent\").first().json.output, username: $(\"Pick Feature & Build Prompt\").first().json.assistantName, icon_emoji: $(\"Pick Feature & Build Prompt\").first().json.assistantEmoji }) }}",
+                    "options": {}
+                },
+                "id": "915b5e1f-25e3-45a8-b218-90e65397e75f",
+                "name": "Send Tip DM",
+                "type": "n8n-nodes-base.httpRequest",
+                "typeVersion": 4.2,
+                "position": [
+                    3550,
+                    200
+                ],
+                "credentials": {
+                    "httpHeaderAuth": {
+                        "id": "LluVuiMJ8NUbAiG7",
+                        "name": "Slackbot Auth Token"
+                    }
+                }
+            },
+            {
+                "parameters": {
+                    "jsCode": "const data = $('Pick Feature & Build Prompt').first().json;\nconst agentOutput = $('Education Agent').first().json.output || '';\nconst sendResult = $('Send Tip DM').first().json;\n\nreturn [{\n  json: {\n    user_id: data.userId,\n    feature_id: data.selectedFeatureId,\n    trigger_type: data.triggerType,\n    message_text: agentOutput,\n    slack_message_ts: sendResult.ts || null,\n    slack_channel_id: sendResult.channel || null,\n  }\n}];\n"
+                },
+                "id": "9fe85b15-ee8d-488d-8ce9-f6cf890f0c1b",
+                "name": "Prepare Education Log",
+                "type": "n8n-nodes-base.code",
+                "typeVersion": 2,
+                "position": [
+                    3850,
+                    200
+                ]
+            },
+            {
+                "parameters": {
+                    "method": "POST",
+                    "url": "https://rhrlnkbphxntxxxcrgvv.supabase.co/rest/v1/education_log",
+                    "authentication": "predefinedCredentialType",
+                    "nodeCredentialType": "supabaseApi",
+                    "sendHeaders": true,
+                    "headerParameters": {
+                        "parameters": [
+                            {
+                                "name": "Prefer",
+                                "value": "return=representation"
+                            },
+                            {
+                                "name": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ]
+                    },
+                    "options": {},
+                    "sendBody": true,
+                    "specifyBody": "json",
+                    "jsonBody": "={{ JSON.stringify($json) }}"
+                },
+                "id": "03e40483-d8f4-4e76-8bd7-e0801dbe40c9",
+                "name": "Log Education",
+                "type": "n8n-nodes-base.httpRequest",
+                "typeVersion": 4.2,
+                "position": [
+                    4150,
+                    200
+                ],
+                "credentials": {
+                    "supabaseApi": {
+                        "id": "ASRWWkQ0RSMOpNF1",
+                        "name": "Supabase account"
+                    }
+                }
+            }
+        ],
+        "connections": {
+            "Daily 1pm PT": {
+                "main": [
+                    [
+                        {
+                            "node": "Get Active Users",
+                            "type": "main",
+                            "index": 0
+                        }
+                    ]
+                ]
+            },
+            "Get Active Users": {
+                "main": [
+                    [
+                        {
+                            "node": "Get Education History",
+                            "type": "main",
+                            "index": 0
+                        }
+                    ]
+                ]
+            },
+            "Get Education History": {
+                "main": [
+                    [
+                        {
+                            "node": "Get Feature Usage",
+                            "type": "main",
+                            "index": 0
+                        }
+                    ]
+                ]
+            },
+            "Get Feature Usage": {
+                "main": [
+                    [
+                        {
+                            "node": "Get Feature Catalog",
+                            "type": "main",
+                            "index": 0
+                        }
+                    ]
+                ]
+            },
+            "Get Feature Catalog": {
+                "main": [
+                    [
+                        {
+                            "node": "Prepare Education Batch",
+                            "type": "main",
+                            "index": 0
+                        }
+                    ]
+                ]
+            },
+            "Prepare Education Batch": {
+                "main": [
+                    [
+                        {
+                            "node": "Split In Batches",
+                            "type": "main",
+                            "index": 0
+                        }
+                    ]
+                ]
+            },
+            "Split In Batches": {
+                "main": [
+                    [],
+                    [
+                        {
+                            "node": "Pick Feature & Build Prompt",
+                            "type": "main",
+                            "index": 0
+                        }
+                    ]
+                ]
+            },
+            "Pick Feature & Build Prompt": {
+                "main": [
+                    [
+                        {
+                            "node": "Has Tip?",
+                            "type": "main",
+                            "index": 0
+                        }
+                    ]
+                ]
+            },
+            "Anthropic Chat Model (Education)": {
+                "ai_languageModel": [
+                    [
+                        {
+                            "node": "Education Agent",
+                            "type": "ai_languageModel",
+                            "index": 0
+                        }
+                    ]
+                ]
+            },
+            "Has Tip?": {
+                "main": [
+                    [
+                        {
+                            "node": "Education Agent",
+                            "type": "main",
+                            "index": 0
+                        }
+                    ],
+                    [
+                        {
+                            "node": "Split In Batches",
+                            "type": "main",
+                            "index": 0
+                        }
+                    ]
+                ]
+            },
+            "Education Agent": {
+                "main": [
+                    [
+                        {
+                            "node": "Open Bot DM",
+                            "type": "main",
+                            "index": 0
+                        }
+                    ]
+                ]
+            },
+            "Open Bot DM": {
+                "main": [
+                    [
+                        {
+                            "node": "Send Tip DM",
+                            "type": "main",
+                            "index": 0
+                        }
+                    ]
+                ]
+            },
+            "Send Tip DM": {
+                "main": [
+                    [
+                        {
+                            "node": "Prepare Education Log",
+                            "type": "main",
+                            "index": 0
+                        }
+                    ]
+                ]
+            },
+            "Prepare Education Log": {
+                "main": [
+                    [
+                        {
+                            "node": "Log Education",
+                            "type": "main",
+                            "index": 0
+                        }
+                    ]
+                ]
+            },
+            "Log Education": {
+                "main": [
+                    [
+                        {
+                            "node": "Split In Batches",
+                            "type": "main",
+                            "index": 0
+                        }
+                    ]
+                ]
+            }
+        },
+        "authors": "Scott Metcalf",
+        "name": null,
+        "description": null,
+        "autosaved": false,
+        "workflowPublishHistory": [
+            {
+                "createdAt": "2026-03-04T18:14:22.697Z",
+                "id": 656,
+                "workflowId": "fmLjwZZdEqHfYw4B",
+                "versionId": "8ae69d25-94d3-4c3a-b0fb-0d3033991a03",
+                "event": "activated",
+                "userId": "bfa163c1-bd53-4c0f-b0ba-8dc3626f7c79"
+            }
+        ]
+    }
+}

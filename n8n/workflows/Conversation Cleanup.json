@@ -1,0 +1,263 @@
+{
+    "updatedAt": "2026-03-03T18:20:55.247Z",
+    "createdAt": "2026-03-03T18:20:55.247Z",
+    "id": "vs1Vih3Xl3EXca6N",
+    "name": "Conversation Cleanup",
+    "description": null,
+    "active": true,
+    "isArchived": false,
+    "nodes": [
+        {
+            "parameters": {
+                "rule": {
+                    "interval": [
+                        {
+                            "field": "cronExpression",
+                            "expression": "0 7 * * 1"
+                        }
+                    ]
+                }
+            },
+            "id": "77b9c6ab-1bac-4a36-aa1e-94cae7ac0dc2",
+            "name": "Weekly Cleanup Trigger",
+            "type": "n8n-nodes-base.scheduleTrigger",
+            "typeVersion": 1.2,
+            "position": [
+                0,
+                400
+            ]
+        },
+        {
+            "parameters": {
+                "method": "PATCH",
+                "url": "https://rhrlnkbphxntxxxcrgvv.supabase.co/rest/v1/conversations?expires_at=lt.now()&status=in.(active,processing)",
+                "authentication": "predefinedCredentialType",
+                "nodeCredentialType": "supabaseApi",
+                "sendHeaders": true,
+                "headerParameters": {
+                    "parameters": [
+                        {
+                            "name": "Content-Type",
+                            "value": "application/json"
+                        },
+                        {
+                            "name": "Prefer",
+                            "value": "return=representation"
+                        }
+                    ]
+                },
+                "sendBody": true,
+                "specifyBody": "json",
+                "jsonBody": "={{ JSON.stringify({ status: \"expired\" }) }}",
+                "options": {}
+            },
+            "id": "c3560ef7-9431-440f-8b9e-8d9093b3fc38",
+            "name": "Expire Stale Conversations",
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4.2,
+            "position": [
+                280,
+                400
+            ],
+            "credentials": {
+                "supabaseApi": {
+                    "id": "ASRWWkQ0RSMOpNF1",
+                    "name": "Supabase account"
+                }
+            },
+            "continueOnFail": true
+        },
+        {
+            "parameters": {
+                "jsCode": "// Count how many conversations were expired\nconst items = $input.all();\n// Supabase PATCH with return=representation returns the updated rows\nconst count = items.length;\nconst firstItem = items[0]?.json;\n\n// If the response is an array (multiple items), count them\nlet expiredCount = 0;\nif (Array.isArray(firstItem)) {\n  expiredCount = firstItem.length;\n} else if (firstItem && firstItem.id) {\n  expiredCount = count;\n} else {\n  expiredCount = 0;\n}\n\nconst now = new Date().toISOString();\nconsole.log(`[${now}] Conversation cleanup: ${expiredCount} expired`);\n\nreturn [{ json: { expiredCount, timestamp: now } }];\n"
+            },
+            "id": "e11440a6-5916-4b46-b49d-9cfd4ef1e730",
+            "name": "Log Result",
+            "type": "n8n-nodes-base.code",
+            "typeVersion": 2,
+            "position": [
+                560,
+                400
+            ]
+        }
+    ],
+    "connections": {
+        "Weekly Cleanup Trigger": {
+            "main": [
+                [
+                    {
+                        "node": "Expire Stale Conversations",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Expire Stale Conversations": {
+            "main": [
+                [
+                    {
+                        "node": "Log Result",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        }
+    },
+    "settings": {
+        "executionOrder": "v1",
+        "callerPolicy": "workflowsFromSameOwner",
+        "availableInMCP": false
+    },
+    "staticData": {
+        "node:Weekly Cleanup Trigger": {
+            "recurrenceRules": []
+        }
+    },
+    "meta": null,
+    "pinData": null,
+    "versionId": "93d9ec13-3e64-4fcc-86a4-e40b4aba9580",
+    "activeVersionId": "93d9ec13-3e64-4fcc-86a4-e40b4aba9580",
+    "versionCounter": 4,
+    "triggerCount": 1,
+    "shared": [
+        {
+            "updatedAt": "2026-03-03T18:20:55.251Z",
+            "createdAt": "2026-03-03T18:20:55.251Z",
+            "role": "workflow:owner",
+            "workflowId": "vs1Vih3Xl3EXca6N",
+            "projectId": "85jtzrEPriGDXgHV",
+            "project": {
+                "updatedAt": "2025-11-24T07:01:19.205Z",
+                "createdAt": "2025-11-24T06:56:53.862Z",
+                "id": "85jtzrEPriGDXgHV",
+                "name": "Scott Metcalf <metcalf.scott@gmail.com>",
+                "type": "personal",
+                "icon": null,
+                "description": null,
+                "creatorId": "bfa163c1-bd53-4c0f-b0ba-8dc3626f7c79"
+            }
+        }
+    ],
+    "tags": [],
+    "activeVersion": {
+        "updatedAt": "2026-03-03T18:20:55.257Z",
+        "createdAt": "2026-03-03T18:20:55.257Z",
+        "versionId": "93d9ec13-3e64-4fcc-86a4-e40b4aba9580",
+        "workflowId": "vs1Vih3Xl3EXca6N",
+        "nodes": [
+            {
+                "parameters": {
+                    "rule": {
+                        "interval": [
+                            {
+                                "field": "cronExpression",
+                                "expression": "0 7 * * 1"
+                            }
+                        ]
+                    }
+                },
+                "id": "77b9c6ab-1bac-4a36-aa1e-94cae7ac0dc2",
+                "name": "Weekly Cleanup Trigger",
+                "type": "n8n-nodes-base.scheduleTrigger",
+                "typeVersion": 1.2,
+                "position": [
+                    0,
+                    400
+                ]
+            },
+            {
+                "parameters": {
+                    "method": "PATCH",
+                    "url": "https://rhrlnkbphxntxxxcrgvv.supabase.co/rest/v1/conversations?expires_at=lt.now()&status=in.(active,processing)",
+                    "authentication": "predefinedCredentialType",
+                    "nodeCredentialType": "supabaseApi",
+                    "sendHeaders": true,
+                    "headerParameters": {
+                        "parameters": [
+                            {
+                                "name": "Content-Type",
+                                "value": "application/json"
+                            },
+                            {
+                                "name": "Prefer",
+                                "value": "return=representation"
+                            }
+                        ]
+                    },
+                    "sendBody": true,
+                    "specifyBody": "json",
+                    "jsonBody": "={{ JSON.stringify({ status: \"expired\" }) }}",
+                    "options": {}
+                },
+                "id": "c3560ef7-9431-440f-8b9e-8d9093b3fc38",
+                "name": "Expire Stale Conversations",
+                "type": "n8n-nodes-base.httpRequest",
+                "typeVersion": 4.2,
+                "position": [
+                    280,
+                    400
+                ],
+                "credentials": {
+                    "supabaseApi": {
+                        "id": "ASRWWkQ0RSMOpNF1",
+                        "name": "Supabase account"
+                    }
+                },
+                "continueOnFail": true
+            },
+            {
+                "parameters": {
+                    "jsCode": "// Count how many conversations were expired\nconst items = $input.all();\n// Supabase PATCH with return=representation returns the updated rows\nconst count = items.length;\nconst firstItem = items[0]?.json;\n\n// If the response is an array (multiple items), count them\nlet expiredCount = 0;\nif (Array.isArray(firstItem)) {\n  expiredCount = firstItem.length;\n} else if (firstItem && firstItem.id) {\n  expiredCount = count;\n} else {\n  expiredCount = 0;\n}\n\nconst now = new Date().toISOString();\nconsole.log(`[${now}] Conversation cleanup: ${expiredCount} expired`);\n\nreturn [{ json: { expiredCount, timestamp: now } }];\n"
+                },
+                "id": "e11440a6-5916-4b46-b49d-9cfd4ef1e730",
+                "name": "Log Result",
+                "type": "n8n-nodes-base.code",
+                "typeVersion": 2,
+                "position": [
+                    560,
+                    400
+                ]
+            }
+        ],
+        "connections": {
+            "Weekly Cleanup Trigger": {
+                "main": [
+                    [
+                        {
+                            "node": "Expire Stale Conversations",
+                            "type": "main",
+                            "index": 0
+                        }
+                    ]
+                ]
+            },
+            "Expire Stale Conversations": {
+                "main": [
+                    [
+                        {
+                            "node": "Log Result",
+                            "type": "main",
+                            "index": 0
+                        }
+                    ]
+                ]
+            }
+        },
+        "authors": "Scott Metcalf",
+        "name": null,
+        "description": null,
+        "autosaved": false,
+        "workflowPublishHistory": [
+            {
+                "createdAt": "2026-03-03T18:20:55.428Z",
+                "id": 609,
+                "workflowId": "vs1Vih3Xl3EXca6N",
+                "versionId": "93d9ec13-3e64-4fcc-86a4-e40b4aba9580",
+                "event": "activated",
+                "userId": "bfa163c1-bd53-4c0f-b0ba-8dc3626f7c79"
+            }
+        ]
+    }
+}

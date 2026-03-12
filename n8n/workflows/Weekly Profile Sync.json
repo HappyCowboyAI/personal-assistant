@@ -1,0 +1,676 @@
+{
+    "updatedAt": "2026-02-24T22:34:45.576Z",
+    "createdAt": "2026-02-24T22:28:22.411Z",
+    "id": "EDLS1vIbb4gNebIv",
+    "name": "Weekly Profile Sync",
+    "description": null,
+    "active": true,
+    "isArchived": false,
+    "nodes": [
+        {
+            "parameters": {
+                "rule": {
+                    "interval": [
+                        {
+                            "field": "cronExpression",
+                            "expression": "0 6 * * 1"
+                        }
+                    ]
+                }
+            },
+            "id": "2af40c0f-c44a-42a3-ac75-0b672822d2e9",
+            "name": "Weekly Sunday 10pm PT",
+            "type": "n8n-nodes-base.scheduleTrigger",
+            "typeVersion": 1.2,
+            "position": [
+                200,
+                400
+            ]
+        },
+        {
+            "parameters": {
+                "operation": "getAll",
+                "tableId": "users",
+                "returnAll": true,
+                "filters": {
+                    "conditions": []
+                }
+            },
+            "id": "1c5b87f1-a620-41ab-8bd6-f67a7a7773d2",
+            "name": "Get All Users",
+            "type": "n8n-nodes-base.supabase",
+            "typeVersion": 1,
+            "position": [
+                640,
+                400
+            ],
+            "credentials": {
+                "supabaseApi": {
+                    "id": "ASRWWkQ0RSMOpNF1",
+                    "name": "Supabase account"
+                }
+            }
+        },
+        {
+            "parameters": {
+                "jsCode": "// Only users who completed onboarding and have a real Slack ID\nreturn $input.all().filter(item =>\n  item.json.onboarding_state === 'complete' &&\n  item.json.slack_user_id &&\n  !item.json.slack_user_id.startsWith('U_YOUR')\n);\n"
+            },
+            "id": "1a1dbb00-db83-43f3-9afc-e755ea432c17",
+            "name": "Filter Active Users",
+            "type": "n8n-nodes-base.code",
+            "typeVersion": 2,
+            "position": [
+                860,
+                400
+            ]
+        },
+        {
+            "parameters": {
+                "batchSize": 1,
+                "options": {}
+            },
+            "id": "e04af2a6-2cc0-4367-969b-bd0660a56c75",
+            "name": "Split In Batches",
+            "type": "n8n-nodes-base.splitInBatches",
+            "typeVersion": 3,
+            "position": [
+                1080,
+                400
+            ]
+        },
+        {
+            "parameters": {
+                "method": "GET",
+                "url": "=https://slack.com/api/users.info?user={{ $json.slack_user_id }}",
+                "authentication": "genericCredentialType",
+                "genericAuthType": "httpHeaderAuth",
+                "options": {}
+            },
+            "id": "4fac1598-4a73-4eef-acbd-abd1b7e80ae0",
+            "name": "Get Slack Profile",
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4.2,
+            "position": [
+                1300,
+                300
+            ],
+            "credentials": {
+                "httpHeaderAuth": {
+                    "id": "LluVuiMJ8NUbAiG7",
+                    "name": "Slackbot Auth Token"
+                }
+            }
+        },
+        {
+            "parameters": {
+                "jsCode": "// Extract Slack profile fields using custom field metadata\nconst slackProfile = $('Get Slack Profile').first().json;\nconst fieldMeta = $('Get Profile Fields').first().json;\nconst user = $('Split In Batches').first().json;\n\nconst profile = (slackProfile.user && slackProfile.user.profile) || {};\nconst fields = profile.fields || {};\n\n// Build label\u2192value map from custom profile fields\nconst profileFields = fieldMeta.profile && fieldMeta.profile.fields || [];\nconst labelToId = {};\nfor (const f of profileFields) {\n  if (f.label) {\n    labelToId[f.label.toLowerCase()] = f.id;\n  }\n}\n\n// Extract by label\nfunction getCustomField(label) {\n  const fieldId = labelToId[label.toLowerCase()];\n  if (fieldId && fields[fieldId]) {\n    return fields[fieldId].value || '';\n  }\n  return '';\n}\n\n// Try custom fields first, fall back to standard fields\nconst newDepartment = getCustomField('Department') || profile.department || '';\nconst newDivision = getCustomField('Division') || profile.title || '';\n\n// Derive digest_scope from division\nfunction deriveDigestScope(div) {\n  if (!div) return 'my_deals';\n  const lower = div.toLowerCase();\n  if (/^(vp|svp|evp|cro|chief|head of)/.test(lower)) return 'top_pipeline';\n  if (/(manager|director)/.test(lower)) return 'team_deals';\n  return 'my_deals';\n}\n\nconst newDigestScope = deriveDigestScope(newDivision);\n\n// Check if anything changed\nconst changed = (\n  (user.department || '') !== newDepartment ||\n  (user.division || '') !== newDivision ||\n  (user.digest_scope || 'my_deals') !== newDigestScope\n);\n\nreturn [{\n  json: {\n    userId: user.id,\n    slackUserId: user.slack_user_id,\n    email: user.email,\n    oldDepartment: user.department || '',\n    oldDivision: user.division || '',\n    oldDigestScope: user.digest_scope || 'my_deals',\n    newDepartment,\n    newDivision,\n    newDigestScope,\n    changed\n  }\n}];\n"
+            },
+            "id": "f8f3934a-cdb7-42f0-bcdb-6c376b8a64be",
+            "name": "Extract and Compare",
+            "type": "n8n-nodes-base.code",
+            "typeVersion": 2,
+            "position": [
+                1520,
+                300
+            ]
+        },
+        {
+            "parameters": {
+                "conditions": {
+                    "options": {
+                        "version": 2,
+                        "leftValue": "",
+                        "caseSensitive": true,
+                        "typeValidation": "strict"
+                    },
+                    "conditions": [
+                        {
+                            "id": "ba276e26-44e1-4d99-9bd5-c6f12229e0c7",
+                            "leftValue": "={{ $json.changed }}",
+                            "rightValue": true,
+                            "operator": {
+                                "type": "boolean",
+                                "operation": "true"
+                            }
+                        }
+                    ],
+                    "combinator": "and"
+                },
+                "options": {}
+            },
+            "id": "13fcd3bd-24e1-47f5-a8b7-376428b5c8fe",
+            "name": "Has Changed?",
+            "type": "n8n-nodes-base.if",
+            "typeVersion": 2.2,
+            "position": [
+                1740,
+                300
+            ]
+        },
+        {
+            "parameters": {
+                "operation": "update",
+                "tableId": "users",
+                "dataToSend": "defineBelow",
+                "fieldsUi": {
+                    "fieldValues": [
+                        {
+                            "fieldId": "department",
+                            "fieldValue": "={{ $json.newDepartment }}"
+                        },
+                        {
+                            "fieldId": "division",
+                            "fieldValue": "={{ $json.newDivision }}"
+                        },
+                        {
+                            "fieldId": "digest_scope",
+                            "fieldValue": "={{ $json.newDigestScope }}"
+                        }
+                    ]
+                },
+                "filters": {
+                    "conditions": [
+                        {
+                            "keyName": "id",
+                            "condition": "eq",
+                            "keyValue": "={{ $json.userId }}"
+                        }
+                    ]
+                }
+            },
+            "id": "b21170fb-b766-472f-95aa-2ff584edf549",
+            "name": "Update User Record",
+            "type": "n8n-nodes-base.supabase",
+            "typeVersion": 1,
+            "position": [
+                1960,
+                200
+            ],
+            "credentials": {
+                "supabaseApi": {
+                    "id": "ASRWWkQ0RSMOpNF1",
+                    "name": "Supabase account"
+                }
+            }
+        },
+        {
+            "parameters": {
+                "method": "GET",
+                "url": "https://slack.com/api/team.profile.get",
+                "authentication": "genericCredentialType",
+                "genericAuthType": "httpHeaderAuth",
+                "options": {}
+            },
+            "id": "f8f7435a-5085-4a88-b5be-01bbc7bd4362",
+            "name": "Get Profile Fields",
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4.2,
+            "position": [
+                310,
+                400
+            ],
+            "credentials": {
+                "httpHeaderAuth": {
+                    "id": "LluVuiMJ8NUbAiG7",
+                    "name": "Slackbot Auth Token"
+                }
+            }
+        }
+    ],
+    "connections": {
+        "Weekly Sunday 10pm PT": {
+            "main": [
+                [
+                    {
+                        "node": "Get Profile Fields",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Get All Users": {
+            "main": [
+                [
+                    {
+                        "node": "Filter Active Users",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Filter Active Users": {
+            "main": [
+                [
+                    {
+                        "node": "Split In Batches",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Split In Batches": {
+            "main": [
+                [],
+                [
+                    {
+                        "node": "Get Slack Profile",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Get Slack Profile": {
+            "main": [
+                [
+                    {
+                        "node": "Extract and Compare",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Extract and Compare": {
+            "main": [
+                [
+                    {
+                        "node": "Has Changed?",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Has Changed?": {
+            "main": [
+                [
+                    {
+                        "node": "Update User Record",
+                        "type": "main",
+                        "index": 0
+                    }
+                ],
+                [
+                    {
+                        "node": "Split In Batches",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Update User Record": {
+            "main": [
+                [
+                    {
+                        "node": "Split In Batches",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Get Profile Fields": {
+            "main": [
+                [
+                    {
+                        "node": "Get All Users",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        }
+    },
+    "settings": {
+        "executionOrder": "v1",
+        "callerPolicy": "workflowsFromSameOwner",
+        "availableInMCP": false
+    },
+    "staticData": {
+        "node:Weekly Sunday 10pm PT": {
+            "recurrenceRules": []
+        }
+    },
+    "meta": null,
+    "pinData": null,
+    "versionId": "03e724f1-dc00-4b30-acac-ae337affcb37",
+    "activeVersionId": "03e724f1-dc00-4b30-acac-ae337affcb37",
+    "versionCounter": 5,
+    "triggerCount": 1,
+    "tags": [],
+    "activeVersion": {
+        "updatedAt": "2026-02-24T22:34:45.576Z",
+        "createdAt": "2026-02-24T22:34:45.576Z",
+        "versionId": "03e724f1-dc00-4b30-acac-ae337affcb37",
+        "workflowId": "EDLS1vIbb4gNebIv",
+        "nodes": [
+            {
+                "parameters": {
+                    "rule": {
+                        "interval": [
+                            {
+                                "field": "cronExpression",
+                                "expression": "0 6 * * 1"
+                            }
+                        ]
+                    }
+                },
+                "id": "2af40c0f-c44a-42a3-ac75-0b672822d2e9",
+                "name": "Weekly Sunday 10pm PT",
+                "type": "n8n-nodes-base.scheduleTrigger",
+                "typeVersion": 1.2,
+                "position": [
+                    200,
+                    400
+                ]
+            },
+            {
+                "parameters": {
+                    "operation": "getAll",
+                    "tableId": "users",
+                    "returnAll": true,
+                    "filters": {
+                        "conditions": []
+                    }
+                },
+                "id": "1c5b87f1-a620-41ab-8bd6-f67a7a7773d2",
+                "name": "Get All Users",
+                "type": "n8n-nodes-base.supabase",
+                "typeVersion": 1,
+                "position": [
+                    640,
+                    400
+                ],
+                "credentials": {
+                    "supabaseApi": {
+                        "id": "ASRWWkQ0RSMOpNF1",
+                        "name": "Supabase account"
+                    }
+                }
+            },
+            {
+                "parameters": {
+                    "jsCode": "// Only users who completed onboarding and have a real Slack ID\nreturn $input.all().filter(item =>\n  item.json.onboarding_state === 'complete' &&\n  item.json.slack_user_id &&\n  !item.json.slack_user_id.startsWith('U_YOUR')\n);\n"
+                },
+                "id": "1a1dbb00-db83-43f3-9afc-e755ea432c17",
+                "name": "Filter Active Users",
+                "type": "n8n-nodes-base.code",
+                "typeVersion": 2,
+                "position": [
+                    860,
+                    400
+                ]
+            },
+            {
+                "parameters": {
+                    "batchSize": 1,
+                    "options": {}
+                },
+                "id": "e04af2a6-2cc0-4367-969b-bd0660a56c75",
+                "name": "Split In Batches",
+                "type": "n8n-nodes-base.splitInBatches",
+                "typeVersion": 3,
+                "position": [
+                    1080,
+                    400
+                ]
+            },
+            {
+                "parameters": {
+                    "method": "GET",
+                    "url": "=https://slack.com/api/users.info?user={{ $json.slack_user_id }}",
+                    "authentication": "genericCredentialType",
+                    "genericAuthType": "httpHeaderAuth",
+                    "options": {}
+                },
+                "id": "4fac1598-4a73-4eef-acbd-abd1b7e80ae0",
+                "name": "Get Slack Profile",
+                "type": "n8n-nodes-base.httpRequest",
+                "typeVersion": 4.2,
+                "position": [
+                    1300,
+                    300
+                ],
+                "credentials": {
+                    "httpHeaderAuth": {
+                        "id": "LluVuiMJ8NUbAiG7",
+                        "name": "Slackbot Auth Token"
+                    }
+                }
+            },
+            {
+                "parameters": {
+                    "jsCode": "// Extract Slack profile fields using custom field metadata\nconst slackProfile = $('Get Slack Profile').first().json;\nconst fieldMeta = $('Get Profile Fields').first().json;\nconst user = $('Split In Batches').first().json;\n\nconst profile = (slackProfile.user && slackProfile.user.profile) || {};\nconst fields = profile.fields || {};\n\n// Build label\u2192value map from custom profile fields\nconst profileFields = fieldMeta.profile && fieldMeta.profile.fields || [];\nconst labelToId = {};\nfor (const f of profileFields) {\n  if (f.label) {\n    labelToId[f.label.toLowerCase()] = f.id;\n  }\n}\n\n// Extract by label\nfunction getCustomField(label) {\n  const fieldId = labelToId[label.toLowerCase()];\n  if (fieldId && fields[fieldId]) {\n    return fields[fieldId].value || '';\n  }\n  return '';\n}\n\n// Try custom fields first, fall back to standard fields\nconst newDepartment = getCustomField('Department') || profile.department || '';\nconst newDivision = getCustomField('Division') || profile.title || '';\n\n// Derive digest_scope from division\nfunction deriveDigestScope(div) {\n  if (!div) return 'my_deals';\n  const lower = div.toLowerCase();\n  if (/^(vp|svp|evp|cro|chief|head of)/.test(lower)) return 'top_pipeline';\n  if (/(manager|director)/.test(lower)) return 'team_deals';\n  return 'my_deals';\n}\n\nconst newDigestScope = deriveDigestScope(newDivision);\n\n// Check if anything changed\nconst changed = (\n  (user.department || '') !== newDepartment ||\n  (user.division || '') !== newDivision ||\n  (user.digest_scope || 'my_deals') !== newDigestScope\n);\n\nreturn [{\n  json: {\n    userId: user.id,\n    slackUserId: user.slack_user_id,\n    email: user.email,\n    oldDepartment: user.department || '',\n    oldDivision: user.division || '',\n    oldDigestScope: user.digest_scope || 'my_deals',\n    newDepartment,\n    newDivision,\n    newDigestScope,\n    changed\n  }\n}];\n"
+                },
+                "id": "f8f3934a-cdb7-42f0-bcdb-6c376b8a64be",
+                "name": "Extract and Compare",
+                "type": "n8n-nodes-base.code",
+                "typeVersion": 2,
+                "position": [
+                    1520,
+                    300
+                ]
+            },
+            {
+                "parameters": {
+                    "conditions": {
+                        "options": {
+                            "version": 2,
+                            "leftValue": "",
+                            "caseSensitive": true,
+                            "typeValidation": "strict"
+                        },
+                        "conditions": [
+                            {
+                                "id": "ba276e26-44e1-4d99-9bd5-c6f12229e0c7",
+                                "leftValue": "={{ $json.changed }}",
+                                "rightValue": true,
+                                "operator": {
+                                    "type": "boolean",
+                                    "operation": "true"
+                                }
+                            }
+                        ],
+                        "combinator": "and"
+                    },
+                    "options": {}
+                },
+                "id": "13fcd3bd-24e1-47f5-a8b7-376428b5c8fe",
+                "name": "Has Changed?",
+                "type": "n8n-nodes-base.if",
+                "typeVersion": 2.2,
+                "position": [
+                    1740,
+                    300
+                ]
+            },
+            {
+                "parameters": {
+                    "operation": "update",
+                    "tableId": "users",
+                    "dataToSend": "defineBelow",
+                    "fieldsUi": {
+                        "fieldValues": [
+                            {
+                                "fieldId": "department",
+                                "fieldValue": "={{ $json.newDepartment }}"
+                            },
+                            {
+                                "fieldId": "division",
+                                "fieldValue": "={{ $json.newDivision }}"
+                            },
+                            {
+                                "fieldId": "digest_scope",
+                                "fieldValue": "={{ $json.newDigestScope }}"
+                            }
+                        ]
+                    },
+                    "filters": {
+                        "conditions": [
+                            {
+                                "keyName": "id",
+                                "condition": "eq",
+                                "keyValue": "={{ $json.userId }}"
+                            }
+                        ]
+                    }
+                },
+                "id": "b21170fb-b766-472f-95aa-2ff584edf549",
+                "name": "Update User Record",
+                "type": "n8n-nodes-base.supabase",
+                "typeVersion": 1,
+                "position": [
+                    1960,
+                    200
+                ],
+                "credentials": {
+                    "supabaseApi": {
+                        "id": "ASRWWkQ0RSMOpNF1",
+                        "name": "Supabase account"
+                    }
+                }
+            },
+            {
+                "parameters": {
+                    "method": "GET",
+                    "url": "https://slack.com/api/team.profile.get",
+                    "authentication": "genericCredentialType",
+                    "genericAuthType": "httpHeaderAuth",
+                    "options": {}
+                },
+                "id": "f8f7435a-5085-4a88-b5be-01bbc7bd4362",
+                "name": "Get Profile Fields",
+                "type": "n8n-nodes-base.httpRequest",
+                "typeVersion": 4.2,
+                "position": [
+                    310,
+                    400
+                ],
+                "credentials": {
+                    "httpHeaderAuth": {
+                        "id": "LluVuiMJ8NUbAiG7",
+                        "name": "Slackbot Auth Token"
+                    }
+                }
+            }
+        ],
+        "connections": {
+            "Weekly Sunday 10pm PT": {
+                "main": [
+                    [
+                        {
+                            "node": "Get Profile Fields",
+                            "type": "main",
+                            "index": 0
+                        }
+                    ]
+                ]
+            },
+            "Get All Users": {
+                "main": [
+                    [
+                        {
+                            "node": "Filter Active Users",
+                            "type": "main",
+                            "index": 0
+                        }
+                    ]
+                ]
+            },
+            "Filter Active Users": {
+                "main": [
+                    [
+                        {
+                            "node": "Split In Batches",
+                            "type": "main",
+                            "index": 0
+                        }
+                    ]
+                ]
+            },
+            "Split In Batches": {
+                "main": [
+                    [],
+                    [
+                        {
+                            "node": "Get Slack Profile",
+                            "type": "main",
+                            "index": 0
+                        }
+                    ]
+                ]
+            },
+            "Get Slack Profile": {
+                "main": [
+                    [
+                        {
+                            "node": "Extract and Compare",
+                            "type": "main",
+                            "index": 0
+                        }
+                    ]
+                ]
+            },
+            "Extract and Compare": {
+                "main": [
+                    [
+                        {
+                            "node": "Has Changed?",
+                            "type": "main",
+                            "index": 0
+                        }
+                    ]
+                ]
+            },
+            "Has Changed?": {
+                "main": [
+                    [
+                        {
+                            "node": "Update User Record",
+                            "type": "main",
+                            "index": 0
+                        }
+                    ],
+                    [
+                        {
+                            "node": "Split In Batches",
+                            "type": "main",
+                            "index": 0
+                        }
+                    ]
+                ]
+            },
+            "Update User Record": {
+                "main": [
+                    [
+                        {
+                            "node": "Split In Batches",
+                            "type": "main",
+                            "index": 0
+                        }
+                    ]
+                ]
+            },
+            "Get Profile Fields": {
+                "main": [
+                    [
+                        {
+                            "node": "Get All Users",
+                            "type": "main",
+                            "index": 0
+                        }
+                    ]
+                ]
+            }
+        },
+        "authors": "Scott Metcalf",
+        "name": null,
+        "description": null,
+        "autosaved": false
+    }
+}

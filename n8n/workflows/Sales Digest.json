@@ -1,0 +1,1706 @@
+{
+    "updatedAt": "2026-03-06T17:05:43.002Z",
+    "createdAt": "2026-02-24T06:47:29.880Z",
+    "id": "7sinwSgjkEA40zDj",
+    "name": "Sales Digest",
+    "description": null,
+    "active": true,
+    "isArchived": false,
+    "nodes": [
+        {
+            "parameters": {
+                "rule": {
+                    "interval": [
+                        {
+                            "field": "cronExpression",
+                            "expression": "0 6 * * 1-5"
+                        }
+                    ]
+                }
+            },
+            "id": "bf43a0d9-d65a-4774-b30f-f2a8b6f57839",
+            "name": "6am Weekday Trigger",
+            "type": "n8n-nodes-base.scheduleTrigger",
+            "typeVersion": 1.2,
+            "position": [
+                208,
+                524
+            ]
+        },
+        {
+            "parameters": {
+                "operation": "getAll",
+                "tableId": "users",
+                "returnAll": true,
+                "filters": {
+                    "conditions": [
+                        {
+                            "keyName": "digest_enabled",
+                            "condition": "eq",
+                            "keyValue": "true"
+                        },
+                        {
+                            "keyName": "onboarding_state",
+                            "condition": "eq",
+                            "keyValue": "complete"
+                        }
+                    ]
+                }
+            },
+            "id": "3f34bc0f-8ca1-4f23-89b2-c7626d5e8629",
+            "name": "Get Digest Users",
+            "type": "n8n-nodes-base.supabase",
+            "typeVersion": 1,
+            "position": [
+                1552,
+                524
+            ],
+            "credentials": {
+                "supabaseApi": {
+                    "id": "ASRWWkQ0RSMOpNF1",
+                    "name": "Supabase account"
+                }
+            }
+        },
+        {
+            "parameters": {
+                "options": {
+                    "reset": false
+                }
+            },
+            "id": "a35ad54d-5820-4924-8a31-964095b66bf3",
+            "name": "Split In Batches",
+            "type": "n8n-nodes-base.splitInBatches",
+            "typeVersion": 3,
+            "position": [
+                2000,
+                524
+            ]
+        },
+        {
+            "parameters": {
+                "jsCode": "const user = $('Filter User Opps').first().json;\n\nconst assistantName = user.assistant_name || 'Aria';\nconst assistantEmoji = user.assistant_emoji || ':robot_face:';\nconst assistantPersona = user.assistant_persona || 'direct, action-oriented, and conversational';\nconst repName = user.repName || (user.email || '').split('@')[0].replace(/\\./g, ' ').replace(/\\b\\w/g, c => c.toUpperCase()) || 'Rep';\nconst timezone = user.timezone || 'America/Los_Angeles';\nconst currentDate = new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });\nconst timeStr = new Date().toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', timeZone: timezone });\n\nconst oppTable = user.oppTable || '(No opportunity data available)';\nconst oppCount = user.userOppCount || 0;\nconst totalOppCount = user.totalOppCount || oppCount;\nconst digestScope = user.digestScope || 'my_deals';\nconst scopeLabel = user.scopeLabel || (repName + \"'s OPEN OPPORTUNITIES\");\nconst dateWindowEnd = user.dateWindowEnd || '';\nconst theme = user.theme || 'full_pipeline';\nconst themeLabel = user.themeLabel || 'Brief';\nconst themeNote = user.themeNote || '';\nconst focus         = user.focus || 'revenue';\n\nconst dayLabel = currentDate.split(',')[0];\nconst emojiClean = assistantEmoji.replace(/:/g, '');\n\n// For person: scope — extract the target's display name from scopeLabel\nconst isPersonScope = digestScope.startsWith('person:');\nconst subjectName = isPersonScope\n  ? scopeLabel.replace(\"'s OPEN OPPORTUNITIES\", '').trim()\n  : repName;\n\n// === Shared Block Kit formatting rules ===\nconst blockKitRules = `OUTPUT FORMAT — CRITICAL:\nRespond with ONLY a valid JSON object. Your ENTIRE response must be the JSON object and nothing else. No prose before or after. No explanation. No markdown code fences (no backticks). No \"let me\" or \"here is\" preamble. Start your response with { and end with }.\n\nYour response must have exactly this shape:\n{\n  \"notification_text\": \"string — one sentence, shown in push notifications\",\n  \"blocks\": [ array of valid Slack Block Kit blocks ]\n}\n\nBLOCK KIT STRUCTURE RULES:\n- Use a \"header\" block for the message title (plain_text only, emoji: true)\n- Use \"section\" blocks with \"mrkdwn\" text for all body content\n- Use \"divider\" blocks between major sections (maximum 2 per message)\n- Use \"section\" with \"fields\" for two-column data (engagement scores, metrics)\n  - MAXIMUM 10 fields per section block (Slack API hard limit)\n  - If you have more than 10 data points, split into multiple section blocks\n- Use \"context\" block at the bottom for timestamp and data source\n- Maximum 50 blocks per message\n\nMRKDWN RULES (inside all text fields):\n- Bold: *text* — single asterisks only\n- Line break: \\\\n\n- Blank line: \\\\n\\\\n\n- Top-level bullets: use the • character (e.g. • Main point)\n- Sub-bullets under a numbered item or heading: indent with 4 spaces before the bullet (e.g.     • Sub-point)\n- This creates visual hierarchy — numbered deals at top level, details indented beneath\n- NO ## headers — use *bold text* on its own line instead\n- NO **double asterisks**\n- NO standard markdown links [text](url) — use <https://url|text>\n- NO dash bullets (-)\n\nEMOJI STATUS INDICATORS — use these consistently:\n🚀 Acceleration / strong momentum\n⚠️ Risk pattern detected\n💎 Hidden upside opportunity\n🔴 Stalled / critical risk\n✅ Healthy / on track\n📈 Engagement rising\n📉 Engagement falling\n➡️ Engagement stable\n🔥 High engagement (80+)`;\n\n\n// === Focus-specific context injected into the system prompt ===\nfunction getFocusContext(focus) {\n  if (focus === 'retention') {\n    return `FOCUS — RETENTION:\nYour briefing covers only renewal and existing customer opportunities. New logo deals are excluded.\nPrioritise: renewal health, time-to-renewal, expansion potential, customer engagement trends, churn risk.\nActions should be customer-success oriented: QBR scheduling, exec sponsor engagement, product adoption nudges, risk escalation.\nDo NOT suggest new outreach tactics or prospecting actions.`;\n  }\n  if (focus === 'technical') {\n    return `FOCUS — TECHNICAL:\nYou are briefing through an SE/solutions lens. Highlight POC status, technical blockers, and integration complexity.\nPrioritise: deals in evaluation or validation stages, technical win/loss indicators, stakeholder technical depth.\nActions should be SE-oriented: POC milestones, technical champion engagement, competitive technical positioning.`;\n  }\n  if (focus === 'executive') {\n    return `FOCUS — EXECUTIVE:\nDeliver a high-altitude strategic view. Skip deal-level minutiae — focus on portfolio health, forecast risk, and org-level patterns.\nPrioritise: total ARR at risk, big-bet deals, cross-functional signals, pipeline coverage.\nActions should be executive: sponsorship asks, resource allocation, forecast decisions.`;\n  }\n  // revenue (default) — no extra constraints\n  return `FOCUS — REVENUE:\nPrioritise new logo acquisition, net new ARR, and close-date velocity. Highlight deals with near-term close potential.\nActions should drive pipeline forward: next meeting, proposal, executive alignment, competitive positioning.`;\n}\n\n// === Role context by scope (data + identity) ===\nfunction buildRoleContext(scope) {\n  const mcpRules = `DEEP LINKS — when mentioning a deal, include a People.ai link using the CRM ID from the data table:\n<https://app.people.ai/opportunities/CRMID|View in People.ai> (replace CRMID with the actual CRM ID)\n\nDo NOT use MCP to search for or list opportunities — they are already provided above.\n\nDEEP LINKS — make each deal name a clickable link using the People.ai internal ID (peopleAiId column):\n<https://app.people.ai/opportunity/PEOPLEAIID|Deal Name Here> (replace PEOPLEAIID with the peopleAiId value and Deal Name with the actual deal name)\nDo NOT add a separate \"View in People.ai\" line — the deal name itself is the link.\nExample: <https://app.people.ai/opportunity/5479658708|HPE AI Forensics Pilot>\nIf the peopleAiId is empty, omit the link and just use plain bold text for the deal name.\n\nYou DO have access to People.ai MCP tools. Use them ONLY for:\n- Revenue stories and engagement analysis on specific deals\n- Recent activity details (emails, meetings, calls) on key accounts\n- Engagement score trends and changes`;\n\n  if (scope === 'my_deals') {\n    return `You are ${assistantName}, a personal sales assistant for ${repName}. You work exclusively for them and know their pipeline intimately.\n\nYour personality: ${assistantPersona}\n\nToday is ${currentDate}. ${repName} is in ${timezone}.\n\n━━━ ${scopeLabel} (${oppCount} deals) ━━━\n${themeNote ? '\\n' + themeNote + '\\n' : ''}\n${oppTable}\n\n${mcpRules}`;\n\n  } else if (scope === 'team_deals') {\n    return `You are ${assistantName}, a sales management assistant for ${repName}. You help them lead their team and stay ahead of pipeline risks.\n\nYour personality: ${assistantPersona}\n\nToday is ${currentDate}. ${repName} is in ${timezone}.\n\n━━━ ${scopeLabel} (${oppCount} deals closing through ${dateWindowEnd}) ━━━\n${themeNote ? '\\n' + themeNote + '\\n' : ''}\n${oppTable}\n\n${mcpRules}`;\n\n  } else if (scope.startsWith('person:')) {\n    return `You are ${assistantName}, a personal sales assistant for ${repName}. They have asked you to review ${subjectName}'s pipeline.\n\nYour personality: ${assistantPersona}\n\nToday is ${currentDate}. ${repName} is in ${timezone}.\n\n━━━ ${scopeLabel} (${oppCount} deals) ━━━\n${themeNote ? '\\n' + themeNote + '\\n' : ''}\n${oppTable}\n\n${mcpRules}\n\nIMPORTANT — PERSON SCOPE:\n- This brief is about *${subjectName}'s* pipeline, not ${repName}'s.\n- Address ${repName} as the reader (e.g. \"Here's Susan's pipeline for you to review...\").\n- Wherever the briefing structure says \"your deals\" or \"your pipeline\", treat that as \"${subjectName}'s deals\" / \"${subjectName}'s pipeline\".\n- Never say \"${repName}, your pipeline...\" — say \"${subjectName} has X deals...\" or \"Here's ${subjectName}'s pipeline...\".`;\n\n  } else {\n    return `You are ${assistantName}, an executive sales intelligence assistant for ${repName}. You provide pipeline visibility and strategic signals at the leadership level.\n\nYour personality: ${assistantPersona}\n\nToday is ${currentDate}. ${repName} is in ${timezone}.\n\n━━━ ${scopeLabel} ━━━\n${themeNote ? '\\n' + themeNote + '\\n' : ''}\n${oppTable}\n\n${mcpRules}`;\n  }\n}\n\n// === Scope-aware footer (includes scope label and theme for transparency) ===\nfunction footer(scope) {\n  const themeNames = {\n    full_pipeline:     'Full Pipeline',\n    engagement_shifts: 'Engagement Shifts',\n    at_risk:           'At-Risk Focus',\n    momentum:          'Momentum',\n    week_review:       'Week Review'\n  };\n  const themeDisplay = themeNames[theme] || theme;\n\n  let base;\n  if (scope === 'team_deals')    base = 'Backstory team intelligence';\n  else if (scope === 'top_pipeline') base = 'Backstory executive intelligence';\n  else                           base = 'Backstory intelligence';\n\n  return `${base} • ${currentDate} • ${timeStr} PT • ${scopeLabel} • ${themeDisplay}`;\n}\n\n// === Theme-specific briefing structure and agent prompt ===\nfunction buildThemePrompts(theme, scope) {\n  // person: scope uses IC-style structure\n  const effectiveScope = scope.startsWith('person:') ? 'my_deals' : scope;\n  const scopeTitle = effectiveScope === 'team_deals' ? ' Team' : effectiveScope === 'top_pipeline' ? ' Pipeline' : '';\n\n  // ── EXEC COMPRESSED FORMAT (3+ deals) ──\n  if (effectiveScope === 'top_pipeline' && oppCount >= 3) {\n    const themeConfigs = {\n      full_pipeline:      { label: 'Pipeline Brief',    section3: 'Top 3 Deals',       section4: 'This Week' },\n      engagement_shifts:  { label: 'Engagement Shifts', section3: 'Top 3 Movers',      section4: 'Watch This Week' },\n      at_risk:            { label: 'At-Risk Deals',     section3: 'Top 3 Risks',        section4: 'Fix It This Week' },\n      momentum:           { label: 'Momentum',          section3: 'Top 3 Accelerators', section4: 'Keep the Momentum' },\n      week_review:        { label: 'Week in Review',    section3: 'Top 3 Moves',        section4: 'Next Week' }\n    };\n    const tc = themeConfigs[theme] || themeConfigs['full_pipeline'];\n    return {\n      briefingStructure: `Write a compressed executive briefing — 60-second read, under 150 words (not counting header/footer). Use ${assistantPersona} personality ONLY in the opening sentence and the closing sentence. All other text is direct and factual.\n\nBLOCK KIT STRUCTURE for this compressed exec format:\n1. header block — \"${emojiClean} ${dayLabel} ${tc.label} — ${assistantName}\"\n2. section block — 1 sentence in ${assistantPersona} voice with the single most important signal\n3. section block — label only: \"*${tc.section3}*\"\n4. One section block PER DEAL (exactly 3 deals), each formatted as:\n   \"*<https://app.people.ai/opportunity/PEOPLEAIID|Deal Name>* — $Amount | [close date + key context]\\\\n    Action sentence — the most critical thing right now\"\n   The 4-space indent on the action line creates visual separation under each deal name.\n   Do NOT combine multiple deals into one block.\n5. section block — label only: \"*${tc.section4}*\"\n6. section block — numbered list, 3 items (use \\\\n between items). For each item link the deal name: *<https://app.people.ai/opportunity/PEOPLEAIID|Deal Name>* — one action sentence\n7. section block — 1 sentence in ${assistantPersona} voice as sign-off\n8. context block — \"${footer(scope)}\"\n\nSTRICT RULES:\n- Exactly 3 deal blocks in item 4. Pick the most important 3.\n- Personality ONLY in items 2 and 7\n- No empty sections — omit any section with nothing to report\n- No sub-bullets within deal entries — action line only`,\n      agentPrompt: `Generate a compressed executive ${tc.label} briefing for ${repName}. ${oppCount} deals are pre-loaded — do NOT use MCP to search for opportunities. Focus on the top 3 most important deals only. Keep under 150 words (excluding header/footer). Output ONLY the Block Kit JSON object, nothing else.`\n    };\n  }\n\n  // ── FULL PIPELINE (Monday) ──\n  if (theme === 'full_pipeline') {\n    if (effectiveScope === 'my_deals') {\n      return {\n        briefingStructure: `Write a 60-second morning briefing following this structure:\n\n1. Header — \"${emojiClean} ${dayLabel} Brief — ${assistantName}\"\n2. The Lead (1-2 sentences) — the single most important thing today\n3. Today's Priorities (2-4 items) — specific actions with account names and reasons, use emoji status indicators\n4. Pipeline Pulse — two-column engagement score grid using section fields\n5. One Thing I'm Watching — one forward-looking observation\n6. Context footer — \"${footer(scope)}\"`,\n\n        agentPrompt: `Generate a pipeline briefing covering ${subjectName}'s ${oppCount} open opportunities for ${repName} to review. The opportunities are already loaded in your system prompt — do NOT use MCP to search for opportunities.\n\nUse People.ai MCP tools to investigate revenue stories and engagement patterns on the top 3-5 most important deals (highest amount, closest close date, or biggest engagement changes). Look for recent activity, meeting patterns, and risk signals.\n\nThen write the briefing as a Block Kit JSON object following the format in your system instructions. Remember: output ONLY the JSON object, nothing else.`\n      };\n    } else if (effectiveScope === 'team_deals') {\n      return {\n        briefingStructure: `Write a 90-second team pipeline briefing following this structure:\n\n1. Header — \"${emojiClean} ${dayLabel} Team Brief — ${assistantName}\"\n2. Team Pulse (2-3 sentences) — overall pipeline health: total pipeline value, deals closing this quarter and next, biggest risks\n3. Reps Who Need Attention (2-3 items) — which reps have deals at risk, declining engagement, or upcoming close dates with no recent activity\n4. Top Coaching Moments — 1-2 deals where manager intervention could change the outcome\n5. Team Pipeline Snapshot — two-column grid: rep name + key metric\n6. One Signal to Watch — a forward-looking team-level pattern\n7. Context footer — \"${footer(scope)}\"`,\n\n        agentPrompt: `Generate the team pipeline briefing for ${repName} (sales manager). Their team's ${oppCount} open deals closing through ${dateWindowEnd} are already loaded — do NOT use MCP to search for opportunities.\n\nUse People.ai MCP tools to investigate team engagement patterns: identify reps with declining engagement, spot coaching opportunities, and find deals where manager intervention could help. Focus on 3-5 highest-risk or highest-value deals.\n\nOutput ONLY the Block Kit JSON object, nothing else.`\n      };\n    } else {\n      return {\n        briefingStructure: `Write a 90-second executive pipeline briefing following this structure:\n\n1. Header — \"${emojiClean} ${dayLabel} Pipeline Brief — ${assistantName}\"\n2. Pipeline at a Glance (2-3 sentences) — total pipeline value, deal count, weighted forecast, deals closing this month\n3. Top Deals to Watch (3-4 items) — highest-value or highest-risk deals with status\n4. Forecast Signals — deal acceleration/stalling patterns, close date movements\n5. Key Numbers — two-column grid: metric name + value\n6. Strategic Signal — one forward-looking observation\n7. Context footer — \"${footer(scope)}\"`,\n\n        agentPrompt: `Generate the executive pipeline briefing for ${repName}. Top ${oppCount} deals by amount closing through ${dateWindowEnd} are loaded (${totalOppCount} total org-wide) — do NOT use MCP to search for opportunities.\n\nUse People.ai MCP tools to analyze pipeline health on the top 3-5 largest deals: velocity, engagement trends, risk signals, forecast-impacting patterns.\n\nOutput ONLY the Block Kit JSON object, nothing else.`\n      };\n    }\n  }\n\n  // ── ENGAGEMENT SHIFTS (Tuesday) ──\n  if (theme === 'engagement_shifts') {\n    const scopeWho = effectiveScope === 'my_deals' ? (isPersonScope ? subjectName + \"'s deals\" : 'your deals') : effectiveScope === 'team_deals' ? \"your team's deals\" : 'deals across the organization';\n\n    return {\n      briefingStructure: `Write a 60-second engagement shift briefing following this structure:\n\n1. Header — \"${emojiClean} ${dayLabel} Engagement Shifts${scopeTitle} — ${assistantName}\"\n2. The Shift (1-2 sentences) — summarize the biggest engagement movements across ${scopeWho}\n3. Going Hot (2-3 deals) — deals with the highest engagement scores or most recent activity. What's driving the engagement? Use 📈 🔥 indicators.\n4. Going Cold (2-3 deals) — deals with low or declining engagement, accounts going quiet. Use 📉 🔴 indicators.${effectiveScope !== 'my_deals' ? '\\n5. Rep Activity Pulse — which reps are most/least active this week (two-column grid)' : '\\n5. Activity Snapshot — two-column grid of engagement scores by deal'}\n6. One Pattern — one insight about what's driving engagement up or down\n7. Context footer — \"${footer(scope)}\"`,\n\n      agentPrompt: `Generate an engagement shifts briefing for ${repName}. ${oppCount} deals are loaded — do NOT use MCP to search for opportunities.\n\nUse People.ai MCP tools to investigate engagement patterns: pull engagement score histories, recent activity timelines, and meeting/email cadence on the 3-5 deals with the most notable engagement movement (both positive and negative). Look for accounts going dark and accounts heating up.\n\nOutput ONLY the Block Kit JSON object, nothing else.`\n    };\n  }\n\n  // ── AT-RISK DEALS (Wednesday) ──\n  if (theme === 'at_risk') {\n    const scopeWho = effectiveScope === 'my_deals' ? (isPersonScope ? subjectName + \"'s pipeline\" : 'your pipeline') : effectiveScope === 'team_deals' ? \"your team's pipeline\" : 'the org pipeline';\n\n    return {\n      briefingStructure: `Write a 60-second at-risk deals briefing following this structure:\n\n1. Header — \"${emojiClean} ${dayLabel} At-Risk Deals${scopeTitle} — ${assistantName}\"\n2. Risk Summary (1-2 sentences) — how many deals are showing risk signals in ${scopeWho}, total value at risk\n3. Critical Risks (2-3 deals) — deals most likely to slip or stall. For each: what's wrong, how long it's been, and what to do about it. Use 🔴 ⚠️ indicators.\n4. Going Dark (1-2 deals) — accounts with zero or minimal recent engagement. These need outreach now. Use 📉 indicators.${effectiveScope === 'team_deals' ? '\\n5. Reps to Check In With — which reps have the most at-risk deals, who needs coaching or support' : effectiveScope === 'top_pipeline' ? '\\n5. Forecast Impact — total dollar value at risk, potential slip from forecast' : '\\n5. Risk vs. Healthy — two-column comparison grid'}\n6. Fix-It Actions — 2-3 concrete next steps to address the biggest risks this week\n7. Context footer — \"${footer(scope)}\"`,\n\n      agentPrompt: `Generate an at-risk deals briefing for ${repName}. ${oppCount} deals flagged with risk signals are loaded — do NOT use MCP to search for opportunities.\n\nUse People.ai MCP tools to investigate the riskiest deals: look for missing activity, declining engagement trends, silent stakeholders, and deals where the close date is approaching without stage progression. Focus on the 3-5 highest-value deals at risk.\n\nOutput ONLY the Block Kit JSON object, nothing else.`\n    };\n  }\n\n  // ── MOMENTUM & WINS (Thursday) ──\n  if (theme === 'momentum') {\n    const scopeWho = effectiveScope === 'my_deals' ? (isPersonScope ? subjectName : 'your deals') : effectiveScope === 'team_deals' ? \"your team\" : 'the organization';\n\n    return {\n      briefingStructure: `Write a 60-second momentum briefing following this structure:\n\n1. Header — \"${emojiClean} ${dayLabel} Momentum & Wins${scopeTitle} — ${assistantName}\"\n2. Momentum Check (1-2 sentences) — what's working across ${scopeWho} right now\n3. Deals on Fire (2-3 deals) — highest engagement, most active, advancing fastest. What's fueling it? Use 🚀 🔥 ✅ indicators.\n4. Hidden Upside (1-2 deals) — deals quietly outperforming expectations or with untapped expansion potential. Use 💎 indicators.${effectiveScope === 'team_deals' ? '\\n5. Rep Wins — which reps are crushing it, what can others learn from their approach' : effectiveScope === 'top_pipeline' ? '\\n5. Pipeline Acceleration — deals that advanced stages, new pipeline created, forecast upside' : '\\n5. Engagement Leaders — two-column grid of your hottest deals by engagement'}\n6. Keep It Going — 1-2 actions to maintain or amplify the momentum\n7. Context footer — \"${footer(scope)}\"`,\n\n      agentPrompt: `Generate a momentum and wins briefing for ${repName}. ${oppCount} deals are loaded (sorted by engagement) — do NOT use MCP to search for opportunities.\n\nUse People.ai MCP tools to validate positive signals: check deal velocity, recent meetings, rising engagement scores, and multithreading on the top 3-5 highest-engagement deals. Celebrate what's working and identify patterns to replicate.\n\nOutput ONLY the Block Kit JSON object, nothing else.`\n    };\n  }\n\n  // ── WEEK IN REVIEW (Friday) ──\n  if (theme === 'week_review') {\n    const scopeWho = effectiveScope === 'my_deals' ? (isPersonScope ? subjectName + \"'s pipeline\" : 'your pipeline') : effectiveScope === 'team_deals' ? \"your team\" : 'the organization';\n\n    return {\n      briefingStructure: `Write a 90-second week in review briefing following this structure:\n\n1. Header — \"${emojiClean} ${dayLabel} Week in Review${scopeTitle} — ${assistantName}\"\n2. This Week's Moves (2-3 sentences) — what changed in ${scopeWho} this week: deals that advanced, engagement shifts, notable activity\n3. Wins & Progress (2-3 items) — deals that moved forward, positive engagement trends, meetings completed. Use ✅ 🚀 indicators.\n4. Missed or Slipping (1-2 items) — deals that stalled or slipped this week, close dates pushed. Use ⚠️ 🔴 indicators.${effectiveScope === 'team_deals' ? '\\n5. Team Scorecard — two-column grid: rep name + their week (active/quiet/strong)' : effectiveScope === 'top_pipeline' ? '\\n5. Weekly Pipeline Delta — key numbers: pipeline added vs. closed, forecast movement' : '\\n5. Week by the Numbers — two-column grid: key pipeline metrics this week vs. last'}\n6. Next Week Preview — deals closing next week, meetings on the calendar, actions to set up for Monday\n7. Context footer — \"${footer(scope)}\"`,\n\n      agentPrompt: `Generate a week in review briefing for ${repName}. ${oppCount} deals are loaded — do NOT use MCP to search for opportunities.\n\nUse People.ai MCP tools to compare this week's activity with previous patterns: look for deals that had new meetings, emails, or engagement changes this week. Identify what moved forward and what went quiet. Also check for meetings or close dates coming up next week.\n\nOutput ONLY the Block Kit JSON object, nothing else.`\n    };\n  }\n\n  // Fallback\n  return buildThemePrompts('full_pipeline', scope);\n}\n\n// === Build the prompts ===\nconst roleContext = buildRoleContext(digestScope);\nconst effectiveScope = isPersonScope ? 'my_deals' : digestScope;\nconst { briefingStructure, agentPrompt } = buildThemePrompts(theme, effectiveScope);\n\n// For person-scope: MCP-first agent prompt since export API has no owner columns\nlet finalAgentPrompt = agentPrompt;\nif (isPersonScope) {\n  const targetEmail = digestScope.replace('person:', '');\n  finalAgentPrompt = `Generate a ${themeLabel} briefing for ${repName} covering ${subjectName}'s open pipeline.\n\nThe pre-fetched opportunity table is empty for person-scope views because People.ai's export API does not filter by owner. Use the People.ai MCP tools to gather ${subjectName}'s deals directly.\n\nSteps:\n1. Use top_records or ask_sales_ai to find open opportunities owned by or associated with ${subjectName} (${targetEmail})\n2. For each significant deal, use get_account_status or ask_sales_ai_about_account to get engagement level, last activity, and risk signals\n3. Compile a ${themeLabel} briefing from what you find — focus on the theme: ${theme}\n\nAddress the briefing to ${repName} (the reader). Reference ${subjectName}'s pipeline, not ${repName}'s.\nOutput ONLY the Block Kit JSON object, nothing else.`;\n}\n\nconst focusContext = getFocusContext(focus);\nconst systemPrompt = roleContext + '\\n\\n' + focusContext + '\\n\\n' + briefingStructure + '\\n\\n' + blockKitRules;\n\nreturn [{\n  json: {\n    userId: user.id,\n    slackUserId: user.slack_user_id,\n    assistantName,\n    assistantEmoji,\n    repName,\n    digestScope,\n    theme,\n    themeLabel,\n    systemPrompt,\n    agentPrompt: finalAgentPrompt\n  }\n}];"
+            },
+            "id": "f1c0a4dd-c5dc-41ff-9b53-b09a2bb23408",
+            "name": "Resolve Identity",
+            "type": "n8n-nodes-base.code",
+            "typeVersion": 2,
+            "position": [
+                2448,
+                400
+            ]
+        },
+        {
+            "parameters": {
+                "method": "POST",
+                "url": "https://slack.com/api/conversations.open",
+                "authentication": "genericCredentialType",
+                "genericAuthType": "httpHeaderAuth",
+                "sendHeaders": true,
+                "headerParameters": {
+                    "parameters": [
+                        {
+                            "name": "Content-Type",
+                            "value": "application/json"
+                        }
+                    ]
+                },
+                "sendBody": true,
+                "specifyBody": "json",
+                "jsonBody": "={{ JSON.stringify({ users: $json.slackUserId }) }}",
+                "options": {}
+            },
+            "id": "34cd9df1-ecab-4642-a083-1c639357136a",
+            "name": "Open Bot DM",
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4.2,
+            "position": [
+                2672,
+                400
+            ],
+            "credentials": {
+                "httpHeaderAuth": {
+                    "id": "LluVuiMJ8NUbAiG7",
+                    "name": "Slackbot Auth Token"
+                }
+            },
+            "continueOnFail": true
+        },
+        {
+            "parameters": {
+                "promptType": "define",
+                "text": "={{ $('Resolve Identity').first().json.agentPrompt }}",
+                "options": {
+                    "systemMessage": "={{ $('Resolve Identity').first().json.systemPrompt }}"
+                }
+            },
+            "id": "2a187f9a-7884-45a8-be40-4d4ad530133d",
+            "name": "Digest Agent",
+            "type": "@n8n/n8n-nodes-langchain.agent",
+            "typeVersion": 1.7,
+            "position": [
+                2896,
+                400
+            ],
+            "continueOnFail": true
+        },
+        {
+            "parameters": {
+                "model": {
+                    "__rl": true,
+                    "mode": "list",
+                    "value": "claude-sonnet-4-5-20250929",
+                    "cachedResultName": "Claude Sonnet 4.5"
+                },
+                "options": {}
+            },
+            "id": "25416c3d-faaa-4e86-8ff4-f5e9adb34694",
+            "name": "Anthropic Chat Model",
+            "type": "@n8n/n8n-nodes-langchain.lmChatAnthropic",
+            "typeVersion": 1.3,
+            "position": [
+                2904,
+                624
+            ],
+            "credentials": {
+                "anthropicApi": {
+                    "id": "rlAz7ZSl4y6AwRUq",
+                    "name": "Anthropic account 2"
+                }
+            }
+        },
+        {
+            "parameters": {
+                "endpointUrl": "https://mcp-canary.people.ai/mcp",
+                "authentication": "multipleHeadersAuth",
+                "options": {}
+            },
+            "id": "d19146cc-17cf-4318-8ac6-15c3a7246a69",
+            "name": "People.ai MCP",
+            "type": "@n8n/n8n-nodes-langchain.mcpClientTool",
+            "typeVersion": 1.2,
+            "position": [
+                3032,
+                624
+            ],
+            "credentials": {
+                "httpMultipleHeadersAuth": {
+                    "id": "wvV5pwBeIL7f2vLG",
+                    "name": "People.ai MCP Multi-Header"
+                }
+            }
+        },
+        {
+            "parameters": {
+                "method": "POST",
+                "url": "https://slack.com/api/chat.postMessage",
+                "authentication": "genericCredentialType",
+                "genericAuthType": "httpHeaderAuth",
+                "sendHeaders": true,
+                "headerParameters": {
+                    "parameters": [
+                        {
+                            "name": "Content-Type",
+                            "value": "application/json"
+                        }
+                    ]
+                },
+                "sendBody": true,
+                "specifyBody": "json",
+                "jsonBody": "={{ JSON.stringify({ channel: $('Open Bot DM').first().json.channel.id, text: $('Parse Blocks').first().json.notificationText, username: $('Resolve Identity').first().json.assistantName, icon_emoji: $('Resolve Identity').first().json.assistantEmoji, blocks: JSON.parse($('Parse Blocks').first().json.blocks), unfurl_links: false, unfurl_media: false }) }}",
+                "options": {}
+            },
+            "id": "608ea94e-c546-4cb1-84fe-db06d7d2e8ce",
+            "name": "Send Digest",
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4.2,
+            "position": [
+                3472,
+                400
+            ],
+            "credentials": {
+                "httpHeaderAuth": {
+                    "id": "LluVuiMJ8NUbAiG7",
+                    "name": "Slackbot Auth Token"
+                }
+            },
+            "continueOnFail": true
+        },
+        {
+            "parameters": {
+                "jsCode": "const user = $('Filter User Opps').first().json;\nconst sendResult = $('Send Digest').first().json;\nconst digestContent = $('Digest Agent').first().json.output || 'Digest sent';\nreturn [{\n  json: {\n    user_id: user.id,\n    message_type: 'digest',\n    channel: 'slack',\n    direction: 'outbound',\n    content: digestContent.substring(0, 5000),\n    metadata: { slack_ts: sendResult.ts, slack_channel: sendResult.channel }\n  }\n}];\n"
+            },
+            "id": "981a3010-c977-4a49-9ac1-a754718b8bc0",
+            "name": "Prepare Message Log",
+            "type": "n8n-nodes-base.code",
+            "typeVersion": 2,
+            "position": [
+                3696,
+                524
+            ],
+            "credentials": {},
+            "continueOnFail": true
+        },
+        {
+            "parameters": {
+                "jsCode": "// Only process users who completed onboarding and have a real Slack ID\nreturn $input.all().filter(item => \n  item.json.onboarding_state === 'complete' && \n  item.json.slack_user_id && \n  !item.json.slack_user_id.startsWith('U_YOUR')\n);"
+            },
+            "id": "1c35f78e-0fb9-430c-91fc-08ee96dc8104",
+            "name": "Filter Active Users",
+            "type": "n8n-nodes-base.code",
+            "typeVersion": 2,
+            "position": [
+                1776,
+                524
+            ]
+        },
+        {
+            "parameters": {
+                "jsCode": "// Parse the agent's Block Kit JSON output\nconst agentOutput = $('Digest Agent').first().json.output;\n\nlet parsed;\ntry {\n  // Try to extract JSON from the output — Claude sometimes wraps it in prose or code fences\n  let cleaned = agentOutput;\n\n  // Remove code fences\n  cleaned = cleaned.replace(/^```json\\s*/i, '').replace(/^```\\s*/i, '').replace(/```\\s*$/i, '').trim();\n\n  // If it doesn't start with {, try to find JSON object in the text\n  if (!cleaned.startsWith('{')) {\n    const jsonMatch = cleaned.match(/\\{[\\s\\S]*\"blocks\"[\\s\\S]*\\}/);\n    if (jsonMatch) {\n      cleaned = jsonMatch[0];\n    }\n  }\n\n  parsed = JSON.parse(cleaned);\n} catch (e) {\n  // Fallback: split raw output into chunks that fit Slack's 3000 char limit per block\n  const maxLen = 2900;\n  const text = agentOutput || 'Briefing generation failed.';\n  const chunks = [];\n  for (let i = 0; i < text.length; i += maxLen) {\n    chunks.push(text.slice(i, i + maxLen));\n  }\n\n  const blocks = chunks.map((chunk, idx) => ({\n    type: \"section\",\n    text: { type: \"mrkdwn\", text: idx === 0 ? chunk : '...' + chunk }\n  }));\n\n  parsed = {\n    notification_text: \"Your briefing is ready\",\n    blocks\n  };\n}\n\n// Enforce Slack limits\nif (parsed.blocks) {\n  parsed.blocks = parsed.blocks.map(block => {\n    // Max 10 fields per section\n    if (block.fields && block.fields.length > 10) {\n      block.fields = block.fields.slice(0, 10);\n    }\n    // Max 3000 chars per text field in section blocks\n    if (block.text && block.text.text && block.text.text.length > 3000) {\n      block.text.text = block.text.text.slice(0, 2997) + '...';\n    }\n    // Max 3000 chars per field text\n    if (block.fields) {\n      block.fields = block.fields.map(f => {\n        if (f.text && f.text.length > 2000) {\n          f.text = f.text.slice(0, 1997) + '...';\n        }\n        return f;\n      });\n    }\n    return block;\n  });\n  // Max 50 blocks\n  if (parsed.blocks.length > 50) {\n    parsed.blocks = parsed.blocks.slice(0, 50);\n  }\n}\n\nreturn [{\n  json: {\n    notificationText: parsed.notification_text || \"Your briefing\",\n    blocks: JSON.stringify(parsed.blocks),\n    rawContent: agentOutput\n  }\n}];"
+            },
+            "id": "e7784d4f-b88e-405c-a163-cc110052eaf2",
+            "name": "Parse Blocks",
+            "type": "n8n-nodes-base.code",
+            "typeVersion": 2,
+            "position": [
+                3248,
+                400
+            ]
+        },
+        {
+            "parameters": {
+                "method": "POST",
+                "url": "https://api.people.ai/v3/auth/tokens",
+                "sendHeaders": true,
+                "headerParameters": {
+                    "parameters": [
+                        {
+                            "name": "Content-Type",
+                            "value": "application/x-www-form-urlencoded"
+                        }
+                    ]
+                },
+                "sendBody": true,
+                "specifyBody": "string",
+                "body": "client_id=YOUR_CLIENT_ID&client_secret=YOUR_CLIENT_SECRET&grant_type=client_credentials",
+                "options": {}
+            },
+            "id": "98800037-55ad-4076-9092-9871037dd645",
+            "name": "Get Auth Token",
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4.2,
+            "position": [
+                432,
+                524
+            ]
+        },
+        {
+            "parameters": {
+                "method": "POST",
+                "url": "https://api.people.ai/v3/beta/insights/export",
+                "sendHeaders": true,
+                "headerParameters": {
+                    "parameters": [
+                        {
+                            "name": "Content-Type",
+                            "value": "application/json"
+                        },
+                        {
+                            "name": "Authorization",
+                            "value": "=Bearer {{ $('Get Auth Token').first().json.access_token }}"
+                        }
+                    ]
+                },
+                "sendBody": true,
+                "specifyBody": "json",
+                "jsonBody": "{\"object\": \"opportunity\", \"filter\": {\"$and\": [{\"attribute\": {\"slug\": \"ootb_opportunity_is_closed\"}, \"clause\": {\"$eq\": false}}]}, \"columns\": [{\"slug\": \"ootb_opportunity_id\"}, {\"slug\": \"ootb_opportunity_crm_id\"}, {\"slug\": \"ootb_opportunity_name\"}, {\"slug\": \"ootb_opportunity_account_name\"}, {\"slug\": \"ootb_opportunity_original_owner\"}, {\"slug\": \"ootb_opportunity_current_stage\"}, {\"slug\": \"ootb_opportunity_close_date\"}, {\"slug\": \"ootb_opportunity_engagement_level\"}, {\"slug\": \"ootb_opportunity_type\"}], \"sort\": [{\"attribute\": {\"slug\": \"ootb_opportunity_close_date\"}, \"direction\": \"asc\"}]}",
+                "options": {}
+            },
+            "id": "1b12700e-72fb-4009-9111-e44737089879",
+            "name": "Fetch Open Opps",
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4.2,
+            "position": [
+                1104,
+                524
+            ]
+        },
+        {
+            "parameters": {
+                "jsCode": "// Parse CSV from People.ai Query API export\nconst csvData = $('Fetch Open Opps').first().json.data;\n\nif (!csvData) {\n  return [{ json: { opps: [], oppCount: 0, error: 'No CSV data returned' } }];\n}\n\nconst lines = csvData.split('\\n').filter(l => l.trim());\nif (lines.length < 2) {\n  return [{ json: { opps: [], oppCount: 0, error: 'CSV has no data rows' } }];\n}\n\nfunction parseCsvLine(line) {\n  const result = [];\n  let current = '';\n  let inQuotes = false;\n  for (let i = 0; i < line.length; i++) {\n    const ch = line[i];\n    if (ch === '\"') {\n      if (inQuotes && i + 1 < line.length && line[i + 1] === '\"') { current += '\"'; i++; }\n      else { inQuotes = !inQuotes; }\n    } else if (ch === ',' && !inQuotes) {\n      result.push(current.trim());\n      current = '';\n    } else {\n      current += ch;\n    }\n  }\n  result.push(current.trim());\n  return result;\n}\n\nconst headers = parseCsvLine(lines[0]);\nconst headerMap = {};\nheaders.forEach((h, i) => {\n  headerMap[h] = i;\n  headerMap[h.toLowerCase()] = i;\n});\n\nfunction getField(row, ...names) {\n  for (const name of names) {\n    const idx = headerMap[name] ?? headerMap[name.toLowerCase()];\n    if (idx !== undefined && row[idx] !== undefined && row[idx] !== '') {\n      return row[idx];\n    }\n  }\n  return '';\n}\n\nconst opps = [];\nfor (let i = 1; i < lines.length; i++) {\n  const row = parseCsvLine(lines[i]);\n  if (row.length < 2) continue;\n\n  opps.push({\n    peopleAiId: getField(row, 'Opportunity ID', 'ootb_opportunity_id', 'ID', 'Id'),\n    owners:     getField(row, 'Opportunity Owner (name)', 'Opportunity Owner', 'Opportunity Owners'),\n    ownerId:    getField(row, 'Opportunity Owner (id)'),\n    name:       getField(row, 'Opportunity Name',    'ootb_opportunity_name'),\n    account:    getField(row, 'Account Name',         'ootb_opportunity_account_name'),\n    closeDate:  getField(row, 'Close Date',           'ootb_opportunity_close_date'),\n    stage:      getField(row, 'Stage',                'ootb_opportunity_current_stage', 'Current Stage'),\n    amount:     '',\n    crmId:      getField(row, 'Record ID',            'ootb_opportunity_crm_id', 'CRM ID'),\n    engagement: getField(row, 'Opportunity Engagement Level', 'ootb_opportunity_engagement_level', 'Engagement Level')\n  });\n}\n\nreturn [{ json: { opps, oppCount: opps.length, headers } }];"
+            },
+            "id": "b500efd3-243f-4762-a48d-1980e3e7b5f8",
+            "name": "Parse Opps CSV",
+            "type": "n8n-nodes-base.code",
+            "typeVersion": 2,
+            "position": [
+                1328,
+                524
+            ]
+        },
+        {
+            "parameters": {
+                "jsCode": "// Filter opportunities for this user based on digest_scope and daily theme\nconst user         = $input.first().json;\nconst allOpps      = $('Parse Opps CSV').first().json.opps || [];\nconst hierarchyData = $('Parse Hierarchy').first().json;\n\nconst userEmail  = (user.email || '').toLowerCase().trim();\nconst digestScope = user.digest_scope || 'my_deals';\n\n// Derive rep name from email (fallback)\nconst emailLocal = userEmail.split('@')[0] || '';\nconst repName    = emailLocal.split('.').map(p => p.charAt(0).toUpperCase() + p.slice(1)).join(' ');\nconst repLower   = repName.toLowerCase();\n\n// Quarter/date helpers\nconst now = new Date();\nconst curYear = now.getFullYear();\nconst curMonth = now.getMonth(); // 0-indexed\n\nfunction getQuarterEnd(monthsAhead) {\n  const target = new Date(now);\n  target.setMonth(target.getMonth() + monthsAhead);\n  const m = target.getMonth();\n  const q = Math.floor(m / 3);\n  const qEndMonth = (q + 1) * 3 - 1; // last month of quarter\n  const qEndYear  = target.getFullYear();\n  return new Date(qEndYear, qEndMonth + 1, 0); // last day of that month\n}\n\nconst fiscalYearEnd = new Date(curYear, 11, 31);\nconst twoQtrEnd     = getQuarterEnd(6);\n\nfunction parseCloseDate(str) {\n  if (!str) return null;\n  const d = new Date(str);\n  return isNaN(d.getTime()) ? null : d;\n}\n\nfunction isBefore(d, cutoff) {\n  return d && d <= cutoff;\n}\n\n// Daily theme (Monday=1 ... Friday=5)\nconst dayOfWeek = now.getDay();\nconst themes = {\n  1: 'full_pipeline',\n  2: 'engagement_shifts',\n  3: 'at_risk',\n  4: 'momentum',\n  5: 'week_review'\n};\nconst theme = themes[dayOfWeek] || 'full_pipeline';\n\n// ── Scope filtering ──────────────────────────────────────────\n\nlet userOpps = [];\nlet scopeLabel = '';\nlet hierarchyMissing = false;\n\nif (digestScope === 'my_deals') {\n  // IC: own deals within fiscal year\n  userOpps = allOpps.filter(opp => {\n    const owners = (opp.owners || opp.ownerName || opp.owner || '').toLowerCase();\n    if (!owners.includes(repLower)) return false;\n    const cd = parseCloseDate(opp.closeDate || opp['Close Date'] || opp.close_date);\n    return !cd || isBefore(cd, fiscalYearEnd);\n  });\n  scopeLabel = `${repName}'s Deals`;\n\n} else if (digestScope === 'team_deals') {\n  const managerToReports = hierarchyData.managerToReports || {};\n\n  // Collect direct reports — try email key first (most reliable), then name key\n  const reportSet = new Map(); // email → {name, email}\n\n  // 1. Direct lookup by manager email (preferred)\n  const byEmail = managerToReports[userEmail] || [];\n  for (const r of byEmail) {\n    if (r.email) reportSet.set(r.email, r);\n  }\n\n  // 2. Fuzzy lookup by manager name (fallback)\n  for (const [mgrKey, reports] of Object.entries(managerToReports)) {\n    if (mgrKey === userEmail) continue; // already handled\n    if (mgrKey.includes(repLower) || repLower.includes(mgrKey)) {\n      for (const r of reports) {\n        if (r.email && !reportSet.has(r.email)) reportSet.set(r.email, r);\n      }\n    }\n  }\n\n  // 3. Infer from hierarchy: find users whose managerEmail === userEmail\n  const hierarchyMap = hierarchyData.hierarchy || {};\n  for (const [email, info] of Object.entries(hierarchyMap)) {\n    const mgrEmail = (info.managerEmail || '').toLowerCase().trim();\n    if (mgrEmail === userEmail && !reportSet.has(email)) {\n      reportSet.set(email, { name: info.name, email });\n    }\n  }\n\n  const reportEntries = Array.from(reportSet.values());\n  const reportNames   = reportEntries.map(r => (r.name || '').toLowerCase()).filter(Boolean);\n  const reportEmails  = reportEntries.map(r => (r.email || '').toLowerCase()).filter(Boolean);\n\n  if (reportEntries.length > 0) {\n    // Filter opps by direct report owners\n    userOpps = allOpps.filter(opp => {\n      const owners     = (opp.owners || opp.ownerName || opp.owner || '').toLowerCase();\n      const ownerEmail = (opp.ownerEmail || opp.owner_email || '').toLowerCase();\n      const cd = parseCloseDate(opp.closeDate || opp['Close Date'] || opp.close_date);\n      if (!isBefore(cd, twoQtrEnd)) return false;\n      // Match by email first, then by name\n      if (ownerEmail && reportEmails.some(e => ownerEmail.includes(e) || e.includes(ownerEmail))) return true;\n      return reportNames.some(n => n && owners.includes(n));\n    });\n    scopeLabel = `${repName}'s Team Pipeline`;\n  } else {\n    // Hierarchy unavailable — fall back to top pipeline (all opps, sorted by amount)\n    hierarchyMissing = true;\n    userOpps = allOpps\n      .filter(opp => {\n        const cd = parseCloseDate(opp.closeDate || opp['Close Date'] || opp.close_date);\n        return isBefore(cd, twoQtrEnd);\n      })\n      .sort((a, b) => {\n        const amtA = parseFloat(String(a.amount || a.Amount || 0).replace(/[$,]/g, '')) || 0;\n        const amtB = parseFloat(String(b.amount || b.Amount || 0).replace(/[$,]/g, '')) || 0;\n        return amtB - amtA;\n      })\n      .slice(0, 25);\n    scopeLabel = 'Top Pipeline (hierarchy unavailable)';\n  }\n\n} else if (digestScope === 'top_pipeline') {\n  // Exec: top 25 deals by amount within 2 quarters\n  userOpps = allOpps\n    .filter(opp => {\n      const cd = parseCloseDate(opp.closeDate || opp['Close Date'] || opp.close_date);\n      return isBefore(cd, twoQtrEnd);\n    })\n    .sort((a, b) => {\n      const amtA = parseFloat(String(a.amount || a.Amount || 0).replace(/[$,]/g, '')) || 0;\n      const amtB = parseFloat(String(b.amount || b.Amount || 0).replace(/[$,]/g, '')) || 0;\n      return amtB - amtA;\n    })\n    .slice(0, 25);\n  scopeLabel = 'Top Pipeline';\n\n} else if (digestScope && digestScope.startsWith('person:')) {\n  // Custom: specific person's deals\n  const targetEmail = digestScope.replace('person:', '').toLowerCase().trim();\n  const targetLocal = targetEmail.split('@')[0] || '';\n  const targetName  = targetLocal.split('.').map(p => p.charAt(0).toUpperCase() + p.slice(1)).join(' ').toLowerCase();\n  userOpps = allOpps.filter(opp => {\n    const owners     = (opp.owners || opp.ownerName || opp.owner || '').toLowerCase();\n    const ownerEmail = (opp.ownerEmail || opp.owner_email || '').toLowerCase();\n    const cd = parseCloseDate(opp.closeDate || opp['Close Date'] || opp.close_date);\n    if (!isBefore(cd, fiscalYearEnd)) return false;\n    if (ownerEmail && ownerEmail.includes(targetEmail)) return true;\n    return owners.includes(targetName);\n  });\n  scopeLabel = `${targetEmail}'s Deals`;\n\n} else {\n  // Default fallback: my_deals\n  userOpps = allOpps.filter(opp => {\n    const owners = (opp.owners || opp.ownerName || opp.owner || '').toLowerCase();\n    return owners.includes(repLower);\n  });\n  scopeLabel = `${repName}'s Deals`;\n}\n\n// ── Theme filtering ──────────────────────────────────────────\n\nlet themeNote = '';\n\nif (theme === 'at_risk') {\n  const RISK_STAGES = ['discovery', 'qualification', 'needs analysis', 'value proposition'];\n  const soonMs = 30 * 24 * 60 * 60 * 1000;\n  userOpps = userOpps.filter(opp => {\n    const score = parseFloat(opp.engagementScore || opp.engagement_score || opp.score || 100);\n    const cd    = parseCloseDate(opp.closeDate || opp['Close Date'] || opp.close_date);\n    const stage = (opp.stage || opp.Stage || '').toLowerCase();\n    const closingSoon = cd && (cd - now) < soonMs;\n    const earlyStage  = RISK_STAGES.some(s => stage.includes(s));\n    return score < 40 || (closingSoon && earlyStage);\n  });\n  themeNote = 'Focused on at-risk deals (low engagement or closing soon in early stage)';\n} else if (theme === 'momentum') {\n  userOpps = [...userOpps].sort((a, b) => {\n    const sA = parseFloat(a.engagementScore || a.engagement_score || a.score || 0);\n    const sB = parseFloat(b.engagementScore || b.engagement_score || b.score || 0);\n    return sB - sA;\n  });\n  themeNote = 'Sorted by engagement momentum (highest first)';\n}\n\n// ── Build opp table ──────────────────────────────────────────\n\nfunction fmt(opp) {\n  const name   = opp.name || opp.Name || opp.opportunityName || 'Unknown';\n  const amount = opp.amount || opp.Amount || '';\n  const stage  = opp.stage || opp.Stage || '';\n  const close  = opp.closeDate || opp['Close Date'] || opp.close_date || '';\n  const owner  = opp.owners || opp.ownerName || opp.owner || '';\n  const score  = opp.engagementScore || opp.engagement_score || opp.score || '';\n  return `| ${name} | ${amount} | ${stage} | ${close} | ${owner} | ${score} |`;\n}\n\nlet oppTable = '';\nif (userOpps.length > 0) {\n  const header = '| Deal | Amount | Stage | Close Date | Owner | Engagement |\\n|------|--------|-------|------------|-------|------------|';\n  oppTable = header + '\\n' + userOpps.slice(0, 30).map(fmt).join('\\n');\n} else {\n  oppTable = '(no deals matched the current filter)';\n}\n\n// Hierarchy warning for debugging\nconst hierarchyWarning = hierarchyMissing\n  ? '\\n\\n⚠️ Note: Manager hierarchy data was not available in the export — showing top pipeline as fallback.'\n  : '';\n\nreturn [{\n  json: {\n    ...user,\n    userOpps,\n    userOppCount: userOpps.length,\n    scopeLabel,\n    themeNote,\n    themeLabel: { full_pipeline: 'Brief', engagement_shifts: 'Engagement Shifts', at_risk: 'At-Risk', momentum: 'Momentum', week_review: 'Week in Review' }[theme] || 'Brief',\n    dateWindowEnd: twoQtrEnd.toISOString().split('T')[0],\n    oppTable: oppTable + hierarchyWarning,\n    digestScope,\n    theme,\n    userEmail,\n    repName,\n    totalOppCount: allOpps.length,\n    reportCount: digestScope === 'team_deals' ? (userOpps.length) : undefined,\n    hierarchyMissing: hierarchyMissing || undefined,\n  }\n}];\n"
+            },
+            "id": "c31c7793-f754-40fc-bcf2-93589305d21d",
+            "name": "Filter User Opps",
+            "type": "n8n-nodes-base.code",
+            "typeVersion": 2,
+            "position": [
+                2224,
+                400
+            ]
+        },
+        {
+            "parameters": {
+                "method": "POST",
+                "url": "https://api.people.ai/v3/beta/insights/export",
+                "sendHeaders": true,
+                "headerParameters": {
+                    "parameters": [
+                        {
+                            "name": "Content-Type",
+                            "value": "application/json"
+                        },
+                        {
+                            "name": "Authorization",
+                            "value": "=Bearer {{ $('Get Auth Token').first().json.access_token }}"
+                        }
+                    ]
+                },
+                "sendBody": true,
+                "specifyBody": "json",
+                "jsonBody": "{\"object\": \"user\", \"columns\": [{\"slug\": \"ootb_user_name\"}, {\"slug\": \"ootb_user_email\"}, {\"slug\": \"ootb_user_manager\"}, {\"slug\": \"ootb_user_manager_email\"}]}",
+                "options": {}
+            },
+            "id": "283691cc-1810-47b4-8019-c27b1ffa6583",
+            "name": "Fetch User Hierarchy",
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4.2,
+            "position": [
+                656,
+                524
+            ]
+        },
+        {
+            "parameters": {
+                "jsCode": "// Parse CSV from People.ai User hierarchy export\nconst csvData = $('Fetch User Hierarchy').first().json.data;\n\nif (!csvData) {\n  return [{ json: { hierarchy: {}, managerToReports: {}, userCount: 0, error: 'No hierarchy data returned' } }];\n}\n\nconst lines = csvData.split('\\n').filter(l => l.trim());\nif (lines.length < 2) {\n  return [{ json: { hierarchy: {}, managerToReports: {}, userCount: 0, error: 'Hierarchy CSV has no data rows' } }];\n}\n\nfunction parseCsvLine(line) {\n  const result = [];\n  let current = '';\n  let inQuotes = false;\n  for (let i = 0; i < line.length; i++) {\n    const ch = line[i];\n    if (ch === '\"') {\n      if (inQuotes && i + 1 < line.length && line[i + 1] === '\"') {\n        current += '\"';\n        i++;\n      } else {\n        inQuotes = !inQuotes;\n      }\n    } else if (ch === ',' && !inQuotes) {\n      result.push(current.trim());\n      current = '';\n    } else {\n      current += ch;\n    }\n  }\n  result.push(current.trim());\n  return result;\n}\n\nconst headers = parseCsvLine(lines[0]);\nconst headerMap = {};\nheaders.forEach((h, i) => { headerMap[h] = i; });\n\nfunction getField(row, ...names) {\n  for (const name of names) {\n    if (headerMap[name] !== undefined && row[headerMap[name]]) {\n      return row[headerMap[name]];\n    }\n  }\n  return '';\n}\n\nconst hierarchy = {};\nconst managerToReports = {};\n\nfunction addReport(key, report) {\n  if (!key) return;\n  const k = key.toLowerCase().trim();\n  if (!k) return;\n  if (!managerToReports[k]) managerToReports[k] = [];\n  // Avoid duplicates\n  if (!managerToReports[k].some(r => r.email === report.email)) {\n    managerToReports[k].push(report);\n  }\n}\n\nfor (let i = 1; i < lines.length; i++) {\n  const row = parseCsvLine(lines[i]);\n  if (row.length < headers.length) continue;\n\n  const name  = getField(row, 'ootb_user_name', 'User Name', 'Name');\n  const email = getField(row, 'ootb_user_email', 'User Email', 'Email').toLowerCase().trim();\n  const manager      = getField(row, 'ootb_user_manager', 'Manager', 'User Manager');\n  const managerEmail = getField(row, 'ootb_user_manager_email', 'Manager Email', 'User Manager Email').toLowerCase().trim();\n\n  if (email) {\n    hierarchy[email] = { name, email, manager, managerEmail };\n  }\n\n  // Key by manager email (preferred — exact match, no fuzzy needed)\n  if (managerEmail) {\n    addReport(managerEmail, { name, email });\n  }\n  // Key by manager name (fallback for when email isn't available)\n  if (manager) {\n    addReport(manager, { name, email });\n  }\n}\n\nreturn [{ json: { hierarchy, managerToReports, userCount: Object.keys(hierarchy).length } }];\n"
+            },
+            "id": "5b30051a-60ad-4a7f-93c5-4847985e84f3",
+            "name": "Parse Hierarchy",
+            "type": "n8n-nodes-base.code",
+            "typeVersion": 2,
+            "position": [
+                880,
+                524
+            ]
+        },
+        {
+            "id": "7116ff65-4050-4b65-97e3-3d4294672b96",
+            "name": "Log to Messages",
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4.2,
+            "position": [
+                3920,
+                524
+            ],
+            "parameters": {
+                "method": "POST",
+                "url": "https://rhrlnkbphxntxxxcrgvv.supabase.co/rest/v1/messages",
+                "authentication": "predefinedCredentialType",
+                "nodeCredentialType": "supabaseApi",
+                "sendHeaders": true,
+                "headerParameters": {
+                    "parameters": [
+                        {
+                            "name": "Prefer",
+                            "value": "return=representation"
+                        }
+                    ]
+                },
+                "sendBody": true,
+                "specifyBody": "json",
+                "jsonBody": "={{ JSON.stringify($json) }}",
+                "options": {}
+            },
+            "credentials": {
+                "supabaseApi": {
+                    "id": "ASRWWkQ0RSMOpNF1",
+                    "name": "Supabase account"
+                }
+            }
+        },
+        {
+            "parameters": {
+                "jsCode": "// Gather data for conversation bookend (Sales Digest).\n// Runs inside the SplitInBatches loop after Log to Messages.\n\nconst identity = $('Resolve Identity').first().json;\nconst sendResult = $('Send Digest').first().json;\nconst agentOutput = $('Digest Agent').first().json.output || '';\nconst filterData = $('Filter User Opps').first().json;\n\n// userId / organizationId: Resolve Identity outputs these but they may be\n// undefined because Filter User Opps doesn't spread the original user record.\n// Fall back to the Log to Messages Supabase response which echoes user_id.\nlet userId = identity.userId || null;\nlet organizationId = null;\ntry {\n  // Log to Messages inserts into messages table — its response has user_id\n  const logResp = $('Log to Messages').first().json;\n  if (!userId && logResp.user_id) userId = logResp.user_id;\n} catch(e) {}\n\n// Channel and thread_ts from the Send Digest Slack response\nconst channelId = sendResult.channel || '';\nconst threadTs = sendResult.ts || '';\n\nconst agentConfig = {\n  model: 'claude-sonnet-4-5-20250929',\n  mcpEndpoint: 'https://mcp-canary.people.ai/mcp',\n  assistantName: identity.assistantName || 'Aria',\n  assistantEmoji: identity.assistantEmoji || ':robot_face:',\n  digestScope: identity.digestScope || 'my_deals',\n  theme: identity.theme || 'full_pipeline'\n};\n\n// Digest conversations expire after 4 hours (not continuable, but recorded)\nconst expiresAt = new Date(Date.now() + 4 * 60 * 60 * 1000).toISOString();\n\nreturn [{\n  json: {\n    organizationId: organizationId,\n    userId: userId,\n    channelId: channelId,\n    threadTs: threadTs,\n    workflowType: 'digest',\n    agentConfig: agentConfig,\n    expiresAt: expiresAt,\n    userMessage: 'Daily digest',\n    assistantMessage: agentOutput\n  }\n}];\n"
+            },
+            "id": "525c19cc-b3d7-45bd-bb3b-d53eae8359d4",
+            "name": "Prepare Digest Conversation Data",
+            "type": "n8n-nodes-base.code",
+            "typeVersion": 2,
+            "position": [
+                4200,
+                524
+            ],
+            "continueOnFail": true
+        },
+        {
+            "parameters": {
+                "method": "POST",
+                "url": "https://rhrlnkbphxntxxxcrgvv.supabase.co/rest/v1/conversations",
+                "authentication": "predefinedCredentialType",
+                "nodeCredentialType": "supabaseApi",
+                "sendHeaders": true,
+                "headerParameters": {
+                    "parameters": [
+                        {
+                            "name": "Prefer",
+                            "value": "return=representation"
+                        },
+                        {
+                            "name": "Content-Type",
+                            "value": "application/json"
+                        }
+                    ]
+                },
+                "sendBody": true,
+                "specifyBody": "json",
+                "jsonBody": "={{ JSON.stringify({\n  organization_id: $json.organizationId,\n  user_id: $json.userId,\n  slack_channel_id: $json.channelId,\n  slack_thread_ts: $json.threadTs,\n  workflow_type: $json.workflowType,\n  agent_config: $json.agentConfig,\n  status: \"completed\",\n  expires_at: $json.expiresAt\n}) }}",
+                "options": {}
+            },
+            "id": "245d1687-515a-497b-b079-4dbc844e28d4",
+            "name": "Create Digest Conversation",
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4.2,
+            "position": [
+                4480,
+                524
+            ],
+            "credentials": {
+                "supabaseApi": {
+                    "id": "ASRWWkQ0RSMOpNF1",
+                    "name": "Supabase account"
+                }
+            },
+            "continueOnFail": true
+        },
+        {
+            "parameters": {
+                "method": "POST",
+                "url": "https://rhrlnkbphxntxxxcrgvv.supabase.co/rest/v1/messages",
+                "authentication": "predefinedCredentialType",
+                "nodeCredentialType": "supabaseApi",
+                "sendHeaders": true,
+                "headerParameters": {
+                    "parameters": [
+                        {
+                            "name": "Prefer",
+                            "value": "return=representation"
+                        },
+                        {
+                            "name": "Content-Type",
+                            "value": "application/json"
+                        }
+                    ]
+                },
+                "sendBody": true,
+                "specifyBody": "json",
+                "jsonBody": "={{ JSON.stringify({\n  user_id: $(\"Prepare Digest Conversation Data\").first().json.userId,\n  message_type: \"conversation\",\n  channel: \"slack\",\n  direction: \"inbound\",\n  content: $(\"Prepare Digest Conversation Data\").first().json.userMessage,\n  conversation_id: $json.id,\n  slack_thread_ts: $(\"Prepare Digest Conversation Data\").first().json.threadTs,\n  role: \"user\"\n}) }}",
+                "options": {}
+            },
+            "id": "d2f73bb9-a1f0-4b26-a1b2-feaddd77571a",
+            "name": "Log Digest User Message",
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4.2,
+            "position": [
+                4760,
+                524
+            ],
+            "credentials": {
+                "supabaseApi": {
+                    "id": "ASRWWkQ0RSMOpNF1",
+                    "name": "Supabase account"
+                }
+            },
+            "continueOnFail": true
+        },
+        {
+            "parameters": {
+                "method": "POST",
+                "url": "https://rhrlnkbphxntxxxcrgvv.supabase.co/rest/v1/messages",
+                "authentication": "predefinedCredentialType",
+                "nodeCredentialType": "supabaseApi",
+                "sendHeaders": true,
+                "headerParameters": {
+                    "parameters": [
+                        {
+                            "name": "Prefer",
+                            "value": "return=representation"
+                        },
+                        {
+                            "name": "Content-Type",
+                            "value": "application/json"
+                        }
+                    ]
+                },
+                "sendBody": true,
+                "specifyBody": "json",
+                "jsonBody": "={{ JSON.stringify({\n  user_id: $(\"Prepare Digest Conversation Data\").first().json.userId,\n  message_type: \"conversation\",\n  channel: \"slack\",\n  direction: \"outbound\",\n  content: $(\"Prepare Digest Conversation Data\").first().json.assistantMessage,\n  conversation_id: $(\"Create Digest Conversation\").first().json.id,\n  slack_thread_ts: $(\"Prepare Digest Conversation Data\").first().json.threadTs,\n  role: \"assistant\"\n}) }}",
+                "options": {}
+            },
+            "id": "27af10af-9b1d-4f8e-85bb-0f9bec939073",
+            "name": "Log Digest Assistant Message",
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4.2,
+            "position": [
+                5040,
+                524
+            ],
+            "credentials": {
+                "supabaseApi": {
+                    "id": "ASRWWkQ0RSMOpNF1",
+                    "name": "Supabase account"
+                }
+            },
+            "continueOnFail": true
+        }
+    ],
+    "connections": {
+        "6am Weekday Trigger": {
+            "main": [
+                [
+                    {
+                        "node": "Get Auth Token",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Get Auth Token": {
+            "main": [
+                [
+                    {
+                        "node": "Fetch User Hierarchy",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Fetch Open Opps": {
+            "main": [
+                [
+                    {
+                        "node": "Parse Opps CSV",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Parse Opps CSV": {
+            "main": [
+                [
+                    {
+                        "node": "Get Digest Users",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Get Digest Users": {
+            "main": [
+                [
+                    {
+                        "node": "Filter Active Users",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Filter Active Users": {
+            "main": [
+                [
+                    {
+                        "node": "Split In Batches",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Split In Batches": {
+            "main": [
+                [],
+                [
+                    {
+                        "node": "Filter User Opps",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Filter User Opps": {
+            "main": [
+                [
+                    {
+                        "node": "Resolve Identity",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Resolve Identity": {
+            "main": [
+                [
+                    {
+                        "node": "Open Bot DM",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Open Bot DM": {
+            "main": [
+                [
+                    {
+                        "node": "Digest Agent",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Digest Agent": {
+            "main": [
+                [
+                    {
+                        "node": "Parse Blocks",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Parse Blocks": {
+            "main": [
+                [
+                    {
+                        "node": "Send Digest",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Send Digest": {
+            "main": [
+                [
+                    {
+                        "node": "Prepare Message Log",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Log to Messages": {
+            "main": [
+                [
+                    {
+                        "node": "Prepare Digest Conversation Data",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Anthropic Chat Model": {
+            "ai_languageModel": [
+                [
+                    {
+                        "node": "Digest Agent",
+                        "type": "ai_languageModel",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "People.ai MCP": {
+            "ai_tool": [
+                [
+                    {
+                        "node": "Digest Agent",
+                        "type": "ai_tool",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Fetch User Hierarchy": {
+            "main": [
+                [
+                    {
+                        "node": "Parse Hierarchy",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Parse Hierarchy": {
+            "main": [
+                [
+                    {
+                        "node": "Fetch Open Opps",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Prepare Message Log": {
+            "main": [
+                [
+                    {
+                        "node": "Log to Messages",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Prepare Digest Conversation Data": {
+            "main": [
+                [
+                    {
+                        "node": "Create Digest Conversation",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Create Digest Conversation": {
+            "main": [
+                [
+                    {
+                        "node": "Log Digest User Message",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Log Digest User Message": {
+            "main": [
+                [
+                    {
+                        "node": "Log Digest Assistant Message",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Log Digest Assistant Message": {
+            "main": [
+                [
+                    {
+                        "node": "Split In Batches",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        }
+    },
+    "settings": {
+        "executionOrder": "v1",
+        "saveExecutionProgress": true,
+        "saveManualExecutions": true,
+        "timezone": "America/Los_Angeles",
+        "callerPolicy": "workflowsFromSameOwner",
+        "availableInMCP": false
+    },
+    "staticData": {
+        "node:6am Weekday Trigger": {
+            "recurrenceRules": []
+        }
+    },
+    "meta": null,
+    "pinData": {},
+    "versionId": "9f8c4e49-7475-479f-9910-da9ab2821df7",
+    "activeVersionId": "9f8c4e49-7475-479f-9910-da9ab2821df7",
+    "versionCounter": 147,
+    "triggerCount": 1,
+    "shared": [
+        {
+            "updatedAt": "2026-02-24T06:47:29.883Z",
+            "createdAt": "2026-02-24T06:47:29.883Z",
+            "role": "workflow:owner",
+            "workflowId": "7sinwSgjkEA40zDj",
+            "projectId": "85jtzrEPriGDXgHV",
+            "project": {
+                "updatedAt": "2025-11-24T07:01:19.205Z",
+                "createdAt": "2025-11-24T06:56:53.862Z",
+                "id": "85jtzrEPriGDXgHV",
+                "name": "Scott Metcalf <metcalf.scott@gmail.com>",
+                "type": "personal",
+                "icon": null,
+                "description": null,
+                "creatorId": "bfa163c1-bd53-4c0f-b0ba-8dc3626f7c79"
+            }
+        }
+    ],
+    "tags": [],
+    "activeVersion": {
+        "updatedAt": "2026-03-06T17:05:43.004Z",
+        "createdAt": "2026-03-06T17:05:43.004Z",
+        "versionId": "9f8c4e49-7475-479f-9910-da9ab2821df7",
+        "workflowId": "7sinwSgjkEA40zDj",
+        "nodes": [
+            {
+                "parameters": {
+                    "rule": {
+                        "interval": [
+                            {
+                                "field": "cronExpression",
+                                "expression": "0 6 * * 1-5"
+                            }
+                        ]
+                    }
+                },
+                "id": "bf43a0d9-d65a-4774-b30f-f2a8b6f57839",
+                "name": "6am Weekday Trigger",
+                "type": "n8n-nodes-base.scheduleTrigger",
+                "typeVersion": 1.2,
+                "position": [
+                    208,
+                    524
+                ]
+            },
+            {
+                "parameters": {
+                    "operation": "getAll",
+                    "tableId": "users",
+                    "returnAll": true,
+                    "filters": {
+                        "conditions": [
+                            {
+                                "keyName": "digest_enabled",
+                                "condition": "eq",
+                                "keyValue": "true"
+                            },
+                            {
+                                "keyName": "onboarding_state",
+                                "condition": "eq",
+                                "keyValue": "complete"
+                            }
+                        ]
+                    }
+                },
+                "id": "3f34bc0f-8ca1-4f23-89b2-c7626d5e8629",
+                "name": "Get Digest Users",
+                "type": "n8n-nodes-base.supabase",
+                "typeVersion": 1,
+                "position": [
+                    1552,
+                    524
+                ],
+                "credentials": {
+                    "supabaseApi": {
+                        "id": "ASRWWkQ0RSMOpNF1",
+                        "name": "Supabase account"
+                    }
+                }
+            },
+            {
+                "parameters": {
+                    "options": {
+                        "reset": false
+                    }
+                },
+                "id": "a35ad54d-5820-4924-8a31-964095b66bf3",
+                "name": "Split In Batches",
+                "type": "n8n-nodes-base.splitInBatches",
+                "typeVersion": 3,
+                "position": [
+                    2000,
+                    524
+                ]
+            },
+            {
+                "parameters": {
+                    "jsCode": "const user = $('Filter User Opps').first().json;\n\nconst assistantName = user.assistant_name || 'Aria';\nconst assistantEmoji = user.assistant_emoji || ':robot_face:';\nconst assistantPersona = user.assistant_persona || 'direct, action-oriented, and conversational';\nconst repName = user.repName || (user.email || '').split('@')[0].replace(/\\./g, ' ').replace(/\\b\\w/g, c => c.toUpperCase()) || 'Rep';\nconst timezone = user.timezone || 'America/Los_Angeles';\nconst currentDate = new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });\nconst timeStr = new Date().toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', timeZone: timezone });\n\nconst oppTable = user.oppTable || '(No opportunity data available)';\nconst oppCount = user.userOppCount || 0;\nconst totalOppCount = user.totalOppCount || oppCount;\nconst digestScope = user.digestScope || 'my_deals';\nconst scopeLabel = user.scopeLabel || (repName + \"'s OPEN OPPORTUNITIES\");\nconst dateWindowEnd = user.dateWindowEnd || '';\nconst theme = user.theme || 'full_pipeline';\nconst themeLabel = user.themeLabel || 'Brief';\nconst themeNote = user.themeNote || '';\nconst focus         = user.focus || 'revenue';\n\nconst dayLabel = currentDate.split(',')[0];\nconst emojiClean = assistantEmoji.replace(/:/g, '');\n\n// For person: scope — extract the target's display name from scopeLabel\nconst isPersonScope = digestScope.startsWith('person:');\nconst subjectName = isPersonScope\n  ? scopeLabel.replace(\"'s OPEN OPPORTUNITIES\", '').trim()\n  : repName;\n\n// === Shared Block Kit formatting rules ===\nconst blockKitRules = `OUTPUT FORMAT — CRITICAL:\nRespond with ONLY a valid JSON object. Your ENTIRE response must be the JSON object and nothing else. No prose before or after. No explanation. No markdown code fences (no backticks). No \"let me\" or \"here is\" preamble. Start your response with { and end with }.\n\nYour response must have exactly this shape:\n{\n  \"notification_text\": \"string — one sentence, shown in push notifications\",\n  \"blocks\": [ array of valid Slack Block Kit blocks ]\n}\n\nBLOCK KIT STRUCTURE RULES:\n- Use a \"header\" block for the message title (plain_text only, emoji: true)\n- Use \"section\" blocks with \"mrkdwn\" text for all body content\n- Use \"divider\" blocks between major sections (maximum 2 per message)\n- Use \"section\" with \"fields\" for two-column data (engagement scores, metrics)\n  - MAXIMUM 10 fields per section block (Slack API hard limit)\n  - If you have more than 10 data points, split into multiple section blocks\n- Use \"context\" block at the bottom for timestamp and data source\n- Maximum 50 blocks per message\n\nMRKDWN RULES (inside all text fields):\n- Bold: *text* — single asterisks only\n- Line break: \\\\n\n- Blank line: \\\\n\\\\n\n- Top-level bullets: use the • character (e.g. • Main point)\n- Sub-bullets under a numbered item or heading: indent with 4 spaces before the bullet (e.g.     • Sub-point)\n- This creates visual hierarchy — numbered deals at top level, details indented beneath\n- NO ## headers — use *bold text* on its own line instead\n- NO **double asterisks**\n- NO standard markdown links [text](url) — use <https://url|text>\n- NO dash bullets (-)\n\nEMOJI STATUS INDICATORS — use these consistently:\n🚀 Acceleration / strong momentum\n⚠️ Risk pattern detected\n💎 Hidden upside opportunity\n🔴 Stalled / critical risk\n✅ Healthy / on track\n📈 Engagement rising\n📉 Engagement falling\n➡️ Engagement stable\n🔥 High engagement (80+)`;\n\n\n// === Focus-specific context injected into the system prompt ===\nfunction getFocusContext(focus) {\n  if (focus === 'retention') {\n    return `FOCUS — RETENTION:\nYour briefing covers only renewal and existing customer opportunities. New logo deals are excluded.\nPrioritise: renewal health, time-to-renewal, expansion potential, customer engagement trends, churn risk.\nActions should be customer-success oriented: QBR scheduling, exec sponsor engagement, product adoption nudges, risk escalation.\nDo NOT suggest new outreach tactics or prospecting actions.`;\n  }\n  if (focus === 'technical') {\n    return `FOCUS — TECHNICAL:\nYou are briefing through an SE/solutions lens. Highlight POC status, technical blockers, and integration complexity.\nPrioritise: deals in evaluation or validation stages, technical win/loss indicators, stakeholder technical depth.\nActions should be SE-oriented: POC milestones, technical champion engagement, competitive technical positioning.`;\n  }\n  if (focus === 'executive') {\n    return `FOCUS — EXECUTIVE:\nDeliver a high-altitude strategic view. Skip deal-level minutiae — focus on portfolio health, forecast risk, and org-level patterns.\nPrioritise: total ARR at risk, big-bet deals, cross-functional signals, pipeline coverage.\nActions should be executive: sponsorship asks, resource allocation, forecast decisions.`;\n  }\n  // revenue (default) — no extra constraints\n  return `FOCUS — REVENUE:\nPrioritise new logo acquisition, net new ARR, and close-date velocity. Highlight deals with near-term close potential.\nActions should drive pipeline forward: next meeting, proposal, executive alignment, competitive positioning.`;\n}\n\n// === Role context by scope (data + identity) ===\nfunction buildRoleContext(scope) {\n  const mcpRules = `DEEP LINKS — when mentioning a deal, include a People.ai link using the CRM ID from the data table:\n<https://app.people.ai/opportunities/CRMID|View in People.ai> (replace CRMID with the actual CRM ID)\n\nDo NOT use MCP to search for or list opportunities — they are already provided above.\n\nDEEP LINKS — make each deal name a clickable link using the People.ai internal ID (peopleAiId column):\n<https://app.people.ai/opportunity/PEOPLEAIID|Deal Name Here> (replace PEOPLEAIID with the peopleAiId value and Deal Name with the actual deal name)\nDo NOT add a separate \"View in People.ai\" line — the deal name itself is the link.\nExample: <https://app.people.ai/opportunity/5479658708|HPE AI Forensics Pilot>\nIf the peopleAiId is empty, omit the link and just use plain bold text for the deal name.\n\nYou DO have access to People.ai MCP tools. Use them ONLY for:\n- Revenue stories and engagement analysis on specific deals\n- Recent activity details (emails, meetings, calls) on key accounts\n- Engagement score trends and changes`;\n\n  if (scope === 'my_deals') {\n    return `You are ${assistantName}, a personal sales assistant for ${repName}. You work exclusively for them and know their pipeline intimately.\n\nYour personality: ${assistantPersona}\n\nToday is ${currentDate}. ${repName} is in ${timezone}.\n\n━━━ ${scopeLabel} (${oppCount} deals) ━━━\n${themeNote ? '\\n' + themeNote + '\\n' : ''}\n${oppTable}\n\n${mcpRules}`;\n\n  } else if (scope === 'team_deals') {\n    return `You are ${assistantName}, a sales management assistant for ${repName}. You help them lead their team and stay ahead of pipeline risks.\n\nYour personality: ${assistantPersona}\n\nToday is ${currentDate}. ${repName} is in ${timezone}.\n\n━━━ ${scopeLabel} (${oppCount} deals closing through ${dateWindowEnd}) ━━━\n${themeNote ? '\\n' + themeNote + '\\n' : ''}\n${oppTable}\n\n${mcpRules}`;\n\n  } else if (scope.startsWith('person:')) {\n    return `You are ${assistantName}, a personal sales assistant for ${repName}. They have asked you to review ${subjectName}'s pipeline.\n\nYour personality: ${assistantPersona}\n\nToday is ${currentDate}. ${repName} is in ${timezone}.\n\n━━━ ${scopeLabel} (${oppCount} deals) ━━━\n${themeNote ? '\\n' + themeNote + '\\n' : ''}\n${oppTable}\n\n${mcpRules}\n\nIMPORTANT — PERSON SCOPE:\n- This brief is about *${subjectName}'s* pipeline, not ${repName}'s.\n- Address ${repName} as the reader (e.g. \"Here's Susan's pipeline for you to review...\").\n- Wherever the briefing structure says \"your deals\" or \"your pipeline\", treat that as \"${subjectName}'s deals\" / \"${subjectName}'s pipeline\".\n- Never say \"${repName}, your pipeline...\" — say \"${subjectName} has X deals...\" or \"Here's ${subjectName}'s pipeline...\".`;\n\n  } else {\n    return `You are ${assistantName}, an executive sales intelligence assistant for ${repName}. You provide pipeline visibility and strategic signals at the leadership level.\n\nYour personality: ${assistantPersona}\n\nToday is ${currentDate}. ${repName} is in ${timezone}.\n\n━━━ ${scopeLabel} ━━━\n${themeNote ? '\\n' + themeNote + '\\n' : ''}\n${oppTable}\n\n${mcpRules}`;\n  }\n}\n\n// === Scope-aware footer (includes scope label and theme for transparency) ===\nfunction footer(scope) {\n  const themeNames = {\n    full_pipeline:     'Full Pipeline',\n    engagement_shifts: 'Engagement Shifts',\n    at_risk:           'At-Risk Focus',\n    momentum:          'Momentum',\n    week_review:       'Week Review'\n  };\n  const themeDisplay = themeNames[theme] || theme;\n\n  let base;\n  if (scope === 'team_deals')    base = 'Backstory team intelligence';\n  else if (scope === 'top_pipeline') base = 'Backstory executive intelligence';\n  else                           base = 'Backstory intelligence';\n\n  return `${base} • ${currentDate} • ${timeStr} PT • ${scopeLabel} • ${themeDisplay}`;\n}\n\n// === Theme-specific briefing structure and agent prompt ===\nfunction buildThemePrompts(theme, scope) {\n  // person: scope uses IC-style structure\n  const effectiveScope = scope.startsWith('person:') ? 'my_deals' : scope;\n  const scopeTitle = effectiveScope === 'team_deals' ? ' Team' : effectiveScope === 'top_pipeline' ? ' Pipeline' : '';\n\n  // ── EXEC COMPRESSED FORMAT (3+ deals) ──\n  if (effectiveScope === 'top_pipeline' && oppCount >= 3) {\n    const themeConfigs = {\n      full_pipeline:      { label: 'Pipeline Brief',    section3: 'Top 3 Deals',       section4: 'This Week' },\n      engagement_shifts:  { label: 'Engagement Shifts', section3: 'Top 3 Movers',      section4: 'Watch This Week' },\n      at_risk:            { label: 'At-Risk Deals',     section3: 'Top 3 Risks',        section4: 'Fix It This Week' },\n      momentum:           { label: 'Momentum',          section3: 'Top 3 Accelerators', section4: 'Keep the Momentum' },\n      week_review:        { label: 'Week in Review',    section3: 'Top 3 Moves',        section4: 'Next Week' }\n    };\n    const tc = themeConfigs[theme] || themeConfigs['full_pipeline'];\n    return {\n      briefingStructure: `Write a compressed executive briefing — 60-second read, under 150 words (not counting header/footer). Use ${assistantPersona} personality ONLY in the opening sentence and the closing sentence. All other text is direct and factual.\n\nBLOCK KIT STRUCTURE for this compressed exec format:\n1. header block — \"${emojiClean} ${dayLabel} ${tc.label} — ${assistantName}\"\n2. section block — 1 sentence in ${assistantPersona} voice with the single most important signal\n3. section block — label only: \"*${tc.section3}*\"\n4. One section block PER DEAL (exactly 3 deals), each formatted as:\n   \"*<https://app.people.ai/opportunity/PEOPLEAIID|Deal Name>* — $Amount | [close date + key context]\\\\n    Action sentence — the most critical thing right now\"\n   The 4-space indent on the action line creates visual separation under each deal name.\n   Do NOT combine multiple deals into one block.\n5. section block — label only: \"*${tc.section4}*\"\n6. section block — numbered list, 3 items (use \\\\n between items). For each item link the deal name: *<https://app.people.ai/opportunity/PEOPLEAIID|Deal Name>* — one action sentence\n7. section block — 1 sentence in ${assistantPersona} voice as sign-off\n8. context block — \"${footer(scope)}\"\n\nSTRICT RULES:\n- Exactly 3 deal blocks in item 4. Pick the most important 3.\n- Personality ONLY in items 2 and 7\n- No empty sections — omit any section with nothing to report\n- No sub-bullets within deal entries — action line only`,\n      agentPrompt: `Generate a compressed executive ${tc.label} briefing for ${repName}. ${oppCount} deals are pre-loaded — do NOT use MCP to search for opportunities. Focus on the top 3 most important deals only. Keep under 150 words (excluding header/footer). Output ONLY the Block Kit JSON object, nothing else.`\n    };\n  }\n\n  // ── FULL PIPELINE (Monday) ──\n  if (theme === 'full_pipeline') {\n    if (effectiveScope === 'my_deals') {\n      return {\n        briefingStructure: `Write a 60-second morning briefing following this structure:\n\n1. Header — \"${emojiClean} ${dayLabel} Brief — ${assistantName}\"\n2. The Lead (1-2 sentences) — the single most important thing today\n3. Today's Priorities (2-4 items) — specific actions with account names and reasons, use emoji status indicators\n4. Pipeline Pulse — two-column engagement score grid using section fields\n5. One Thing I'm Watching — one forward-looking observation\n6. Context footer — \"${footer(scope)}\"`,\n\n        agentPrompt: `Generate a pipeline briefing covering ${subjectName}'s ${oppCount} open opportunities for ${repName} to review. The opportunities are already loaded in your system prompt — do NOT use MCP to search for opportunities.\n\nUse People.ai MCP tools to investigate revenue stories and engagement patterns on the top 3-5 most important deals (highest amount, closest close date, or biggest engagement changes). Look for recent activity, meeting patterns, and risk signals.\n\nThen write the briefing as a Block Kit JSON object following the format in your system instructions. Remember: output ONLY the JSON object, nothing else.`\n      };\n    } else if (effectiveScope === 'team_deals') {\n      return {\n        briefingStructure: `Write a 90-second team pipeline briefing following this structure:\n\n1. Header — \"${emojiClean} ${dayLabel} Team Brief — ${assistantName}\"\n2. Team Pulse (2-3 sentences) — overall pipeline health: total pipeline value, deals closing this quarter and next, biggest risks\n3. Reps Who Need Attention (2-3 items) — which reps have deals at risk, declining engagement, or upcoming close dates with no recent activity\n4. Top Coaching Moments — 1-2 deals where manager intervention could change the outcome\n5. Team Pipeline Snapshot — two-column grid: rep name + key metric\n6. One Signal to Watch — a forward-looking team-level pattern\n7. Context footer — \"${footer(scope)}\"`,\n\n        agentPrompt: `Generate the team pipeline briefing for ${repName} (sales manager). Their team's ${oppCount} open deals closing through ${dateWindowEnd} are already loaded — do NOT use MCP to search for opportunities.\n\nUse People.ai MCP tools to investigate team engagement patterns: identify reps with declining engagement, spot coaching opportunities, and find deals where manager intervention could help. Focus on 3-5 highest-risk or highest-value deals.\n\nOutput ONLY the Block Kit JSON object, nothing else.`\n      };\n    } else {\n      return {\n        briefingStructure: `Write a 90-second executive pipeline briefing following this structure:\n\n1. Header — \"${emojiClean} ${dayLabel} Pipeline Brief — ${assistantName}\"\n2. Pipeline at a Glance (2-3 sentences) — total pipeline value, deal count, weighted forecast, deals closing this month\n3. Top Deals to Watch (3-4 items) — highest-value or highest-risk deals with status\n4. Forecast Signals — deal acceleration/stalling patterns, close date movements\n5. Key Numbers — two-column grid: metric name + value\n6. Strategic Signal — one forward-looking observation\n7. Context footer — \"${footer(scope)}\"`,\n\n        agentPrompt: `Generate the executive pipeline briefing for ${repName}. Top ${oppCount} deals by amount closing through ${dateWindowEnd} are loaded (${totalOppCount} total org-wide) — do NOT use MCP to search for opportunities.\n\nUse People.ai MCP tools to analyze pipeline health on the top 3-5 largest deals: velocity, engagement trends, risk signals, forecast-impacting patterns.\n\nOutput ONLY the Block Kit JSON object, nothing else.`\n      };\n    }\n  }\n\n  // ── ENGAGEMENT SHIFTS (Tuesday) ──\n  if (theme === 'engagement_shifts') {\n    const scopeWho = effectiveScope === 'my_deals' ? (isPersonScope ? subjectName + \"'s deals\" : 'your deals') : effectiveScope === 'team_deals' ? \"your team's deals\" : 'deals across the organization';\n\n    return {\n      briefingStructure: `Write a 60-second engagement shift briefing following this structure:\n\n1. Header — \"${emojiClean} ${dayLabel} Engagement Shifts${scopeTitle} — ${assistantName}\"\n2. The Shift (1-2 sentences) — summarize the biggest engagement movements across ${scopeWho}\n3. Going Hot (2-3 deals) — deals with the highest engagement scores or most recent activity. What's driving the engagement? Use 📈 🔥 indicators.\n4. Going Cold (2-3 deals) — deals with low or declining engagement, accounts going quiet. Use 📉 🔴 indicators.${effectiveScope !== 'my_deals' ? '\\n5. Rep Activity Pulse — which reps are most/least active this week (two-column grid)' : '\\n5. Activity Snapshot — two-column grid of engagement scores by deal'}\n6. One Pattern — one insight about what's driving engagement up or down\n7. Context footer — \"${footer(scope)}\"`,\n\n      agentPrompt: `Generate an engagement shifts briefing for ${repName}. ${oppCount} deals are loaded — do NOT use MCP to search for opportunities.\n\nUse People.ai MCP tools to investigate engagement patterns: pull engagement score histories, recent activity timelines, and meeting/email cadence on the 3-5 deals with the most notable engagement movement (both positive and negative). Look for accounts going dark and accounts heating up.\n\nOutput ONLY the Block Kit JSON object, nothing else.`\n    };\n  }\n\n  // ── AT-RISK DEALS (Wednesday) ──\n  if (theme === 'at_risk') {\n    const scopeWho = effectiveScope === 'my_deals' ? (isPersonScope ? subjectName + \"'s pipeline\" : 'your pipeline') : effectiveScope === 'team_deals' ? \"your team's pipeline\" : 'the org pipeline';\n\n    return {\n      briefingStructure: `Write a 60-second at-risk deals briefing following this structure:\n\n1. Header — \"${emojiClean} ${dayLabel} At-Risk Deals${scopeTitle} — ${assistantName}\"\n2. Risk Summary (1-2 sentences) — how many deals are showing risk signals in ${scopeWho}, total value at risk\n3. Critical Risks (2-3 deals) — deals most likely to slip or stall. For each: what's wrong, how long it's been, and what to do about it. Use 🔴 ⚠️ indicators.\n4. Going Dark (1-2 deals) — accounts with zero or minimal recent engagement. These need outreach now. Use 📉 indicators.${effectiveScope === 'team_deals' ? '\\n5. Reps to Check In With — which reps have the most at-risk deals, who needs coaching or support' : effectiveScope === 'top_pipeline' ? '\\n5. Forecast Impact — total dollar value at risk, potential slip from forecast' : '\\n5. Risk vs. Healthy — two-column comparison grid'}\n6. Fix-It Actions — 2-3 concrete next steps to address the biggest risks this week\n7. Context footer — \"${footer(scope)}\"`,\n\n      agentPrompt: `Generate an at-risk deals briefing for ${repName}. ${oppCount} deals flagged with risk signals are loaded — do NOT use MCP to search for opportunities.\n\nUse People.ai MCP tools to investigate the riskiest deals: look for missing activity, declining engagement trends, silent stakeholders, and deals where the close date is approaching without stage progression. Focus on the 3-5 highest-value deals at risk.\n\nOutput ONLY the Block Kit JSON object, nothing else.`\n    };\n  }\n\n  // ── MOMENTUM & WINS (Thursday) ──\n  if (theme === 'momentum') {\n    const scopeWho = effectiveScope === 'my_deals' ? (isPersonScope ? subjectName : 'your deals') : effectiveScope === 'team_deals' ? \"your team\" : 'the organization';\n\n    return {\n      briefingStructure: `Write a 60-second momentum briefing following this structure:\n\n1. Header — \"${emojiClean} ${dayLabel} Momentum & Wins${scopeTitle} — ${assistantName}\"\n2. Momentum Check (1-2 sentences) — what's working across ${scopeWho} right now\n3. Deals on Fire (2-3 deals) — highest engagement, most active, advancing fastest. What's fueling it? Use 🚀 🔥 ✅ indicators.\n4. Hidden Upside (1-2 deals) — deals quietly outperforming expectations or with untapped expansion potential. Use 💎 indicators.${effectiveScope === 'team_deals' ? '\\n5. Rep Wins — which reps are crushing it, what can others learn from their approach' : effectiveScope === 'top_pipeline' ? '\\n5. Pipeline Acceleration — deals that advanced stages, new pipeline created, forecast upside' : '\\n5. Engagement Leaders — two-column grid of your hottest deals by engagement'}\n6. Keep It Going — 1-2 actions to maintain or amplify the momentum\n7. Context footer — \"${footer(scope)}\"`,\n\n      agentPrompt: `Generate a momentum and wins briefing for ${repName}. ${oppCount} deals are loaded (sorted by engagement) — do NOT use MCP to search for opportunities.\n\nUse People.ai MCP tools to validate positive signals: check deal velocity, recent meetings, rising engagement scores, and multithreading on the top 3-5 highest-engagement deals. Celebrate what's working and identify patterns to replicate.\n\nOutput ONLY the Block Kit JSON object, nothing else.`\n    };\n  }\n\n  // ── WEEK IN REVIEW (Friday) ──\n  if (theme === 'week_review') {\n    const scopeWho = effectiveScope === 'my_deals' ? (isPersonScope ? subjectName + \"'s pipeline\" : 'your pipeline') : effectiveScope === 'team_deals' ? \"your team\" : 'the organization';\n\n    return {\n      briefingStructure: `Write a 90-second week in review briefing following this structure:\n\n1. Header — \"${emojiClean} ${dayLabel} Week in Review${scopeTitle} — ${assistantName}\"\n2. This Week's Moves (2-3 sentences) — what changed in ${scopeWho} this week: deals that advanced, engagement shifts, notable activity\n3. Wins & Progress (2-3 items) — deals that moved forward, positive engagement trends, meetings completed. Use ✅ 🚀 indicators.\n4. Missed or Slipping (1-2 items) — deals that stalled or slipped this week, close dates pushed. Use ⚠️ 🔴 indicators.${effectiveScope === 'team_deals' ? '\\n5. Team Scorecard — two-column grid: rep name + their week (active/quiet/strong)' : effectiveScope === 'top_pipeline' ? '\\n5. Weekly Pipeline Delta — key numbers: pipeline added vs. closed, forecast movement' : '\\n5. Week by the Numbers — two-column grid: key pipeline metrics this week vs. last'}\n6. Next Week Preview — deals closing next week, meetings on the calendar, actions to set up for Monday\n7. Context footer — \"${footer(scope)}\"`,\n\n      agentPrompt: `Generate a week in review briefing for ${repName}. ${oppCount} deals are loaded — do NOT use MCP to search for opportunities.\n\nUse People.ai MCP tools to compare this week's activity with previous patterns: look for deals that had new meetings, emails, or engagement changes this week. Identify what moved forward and what went quiet. Also check for meetings or close dates coming up next week.\n\nOutput ONLY the Block Kit JSON object, nothing else.`\n    };\n  }\n\n  // Fallback\n  return buildThemePrompts('full_pipeline', scope);\n}\n\n// === Build the prompts ===\nconst roleContext = buildRoleContext(digestScope);\nconst effectiveScope = isPersonScope ? 'my_deals' : digestScope;\nconst { briefingStructure, agentPrompt } = buildThemePrompts(theme, effectiveScope);\n\n// For person-scope: MCP-first agent prompt since export API has no owner columns\nlet finalAgentPrompt = agentPrompt;\nif (isPersonScope) {\n  const targetEmail = digestScope.replace('person:', '');\n  finalAgentPrompt = `Generate a ${themeLabel} briefing for ${repName} covering ${subjectName}'s open pipeline.\n\nThe pre-fetched opportunity table is empty for person-scope views because People.ai's export API does not filter by owner. Use the People.ai MCP tools to gather ${subjectName}'s deals directly.\n\nSteps:\n1. Use top_records or ask_sales_ai to find open opportunities owned by or associated with ${subjectName} (${targetEmail})\n2. For each significant deal, use get_account_status or ask_sales_ai_about_account to get engagement level, last activity, and risk signals\n3. Compile a ${themeLabel} briefing from what you find — focus on the theme: ${theme}\n\nAddress the briefing to ${repName} (the reader). Reference ${subjectName}'s pipeline, not ${repName}'s.\nOutput ONLY the Block Kit JSON object, nothing else.`;\n}\n\nconst focusContext = getFocusContext(focus);\nconst systemPrompt = roleContext + '\\n\\n' + focusContext + '\\n\\n' + briefingStructure + '\\n\\n' + blockKitRules;\n\nreturn [{\n  json: {\n    userId: user.id,\n    slackUserId: user.slack_user_id,\n    assistantName,\n    assistantEmoji,\n    repName,\n    digestScope,\n    theme,\n    themeLabel,\n    systemPrompt,\n    agentPrompt: finalAgentPrompt\n  }\n}];"
+                },
+                "id": "f1c0a4dd-c5dc-41ff-9b53-b09a2bb23408",
+                "name": "Resolve Identity",
+                "type": "n8n-nodes-base.code",
+                "typeVersion": 2,
+                "position": [
+                    2448,
+                    400
+                ]
+            },
+            {
+                "parameters": {
+                    "method": "POST",
+                    "url": "https://slack.com/api/conversations.open",
+                    "authentication": "genericCredentialType",
+                    "genericAuthType": "httpHeaderAuth",
+                    "sendHeaders": true,
+                    "headerParameters": {
+                        "parameters": [
+                            {
+                                "name": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ]
+                    },
+                    "sendBody": true,
+                    "specifyBody": "json",
+                    "jsonBody": "={{ JSON.stringify({ users: $json.slackUserId }) }}",
+                    "options": {}
+                },
+                "id": "34cd9df1-ecab-4642-a083-1c639357136a",
+                "name": "Open Bot DM",
+                "type": "n8n-nodes-base.httpRequest",
+                "typeVersion": 4.2,
+                "position": [
+                    2672,
+                    400
+                ],
+                "credentials": {
+                    "httpHeaderAuth": {
+                        "id": "LluVuiMJ8NUbAiG7",
+                        "name": "Slackbot Auth Token"
+                    }
+                },
+                "continueOnFail": true
+            },
+            {
+                "parameters": {
+                    "promptType": "define",
+                    "text": "={{ $('Resolve Identity').first().json.agentPrompt }}",
+                    "options": {
+                        "systemMessage": "={{ $('Resolve Identity').first().json.systemPrompt }}"
+                    }
+                },
+                "id": "2a187f9a-7884-45a8-be40-4d4ad530133d",
+                "name": "Digest Agent",
+                "type": "@n8n/n8n-nodes-langchain.agent",
+                "typeVersion": 1.7,
+                "position": [
+                    2896,
+                    400
+                ],
+                "continueOnFail": true
+            },
+            {
+                "parameters": {
+                    "model": {
+                        "__rl": true,
+                        "mode": "list",
+                        "value": "claude-sonnet-4-5-20250929",
+                        "cachedResultName": "Claude Sonnet 4.5"
+                    },
+                    "options": {}
+                },
+                "id": "25416c3d-faaa-4e86-8ff4-f5e9adb34694",
+                "name": "Anthropic Chat Model",
+                "type": "@n8n/n8n-nodes-langchain.lmChatAnthropic",
+                "typeVersion": 1.3,
+                "position": [
+                    2904,
+                    624
+                ],
+                "credentials": {
+                    "anthropicApi": {
+                        "id": "rlAz7ZSl4y6AwRUq",
+                        "name": "Anthropic account 2"
+                    }
+                }
+            },
+            {
+                "parameters": {
+                    "endpointUrl": "https://mcp-canary.people.ai/mcp",
+                    "authentication": "multipleHeadersAuth",
+                    "options": {}
+                },
+                "id": "d19146cc-17cf-4318-8ac6-15c3a7246a69",
+                "name": "People.ai MCP",
+                "type": "@n8n/n8n-nodes-langchain.mcpClientTool",
+                "typeVersion": 1.2,
+                "position": [
+                    3032,
+                    624
+                ],
+                "credentials": {
+                    "httpMultipleHeadersAuth": {
+                        "id": "wvV5pwBeIL7f2vLG",
+                        "name": "People.ai MCP Multi-Header"
+                    }
+                }
+            },
+            {
+                "parameters": {
+                    "method": "POST",
+                    "url": "https://slack.com/api/chat.postMessage",
+                    "authentication": "genericCredentialType",
+                    "genericAuthType": "httpHeaderAuth",
+                    "sendHeaders": true,
+                    "headerParameters": {
+                        "parameters": [
+                            {
+                                "name": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ]
+                    },
+                    "sendBody": true,
+                    "specifyBody": "json",
+                    "jsonBody": "={{ JSON.stringify({ channel: $('Open Bot DM').first().json.channel.id, text: $('Parse Blocks').first().json.notificationText, username: $('Resolve Identity').first().json.assistantName, icon_emoji: $('Resolve Identity').first().json.assistantEmoji, blocks: JSON.parse($('Parse Blocks').first().json.blocks), unfurl_links: false, unfurl_media: false }) }}",
+                    "options": {}
+                },
+                "id": "608ea94e-c546-4cb1-84fe-db06d7d2e8ce",
+                "name": "Send Digest",
+                "type": "n8n-nodes-base.httpRequest",
+                "typeVersion": 4.2,
+                "position": [
+                    3472,
+                    400
+                ],
+                "credentials": {
+                    "httpHeaderAuth": {
+                        "id": "LluVuiMJ8NUbAiG7",
+                        "name": "Slackbot Auth Token"
+                    }
+                },
+                "continueOnFail": true
+            },
+            {
+                "parameters": {
+                    "jsCode": "const user = $('Filter User Opps').first().json;\nconst sendResult = $('Send Digest').first().json;\nconst digestContent = $('Digest Agent').first().json.output || 'Digest sent';\nreturn [{\n  json: {\n    user_id: user.id,\n    message_type: 'digest',\n    channel: 'slack',\n    direction: 'outbound',\n    content: digestContent.substring(0, 5000),\n    metadata: { slack_ts: sendResult.ts, slack_channel: sendResult.channel }\n  }\n}];\n"
+                },
+                "id": "981a3010-c977-4a49-9ac1-a754718b8bc0",
+                "name": "Prepare Message Log",
+                "type": "n8n-nodes-base.code",
+                "typeVersion": 2,
+                "position": [
+                    3696,
+                    524
+                ],
+                "credentials": {},
+                "continueOnFail": true
+            },
+            {
+                "parameters": {
+                    "jsCode": "// Only process users who completed onboarding and have a real Slack ID\nreturn $input.all().filter(item => \n  item.json.onboarding_state === 'complete' && \n  item.json.slack_user_id && \n  !item.json.slack_user_id.startsWith('U_YOUR')\n);"
+                },
+                "id": "1c35f78e-0fb9-430c-91fc-08ee96dc8104",
+                "name": "Filter Active Users",
+                "type": "n8n-nodes-base.code",
+                "typeVersion": 2,
+                "position": [
+                    1776,
+                    524
+                ]
+            },
+            {
+                "parameters": {
+                    "jsCode": "// Parse the agent's Block Kit JSON output\nconst agentOutput = $('Digest Agent').first().json.output;\n\nlet parsed;\ntry {\n  // Try to extract JSON from the output — Claude sometimes wraps it in prose or code fences\n  let cleaned = agentOutput;\n\n  // Remove code fences\n  cleaned = cleaned.replace(/^```json\\s*/i, '').replace(/^```\\s*/i, '').replace(/```\\s*$/i, '').trim();\n\n  // If it doesn't start with {, try to find JSON object in the text\n  if (!cleaned.startsWith('{')) {\n    const jsonMatch = cleaned.match(/\\{[\\s\\S]*\"blocks\"[\\s\\S]*\\}/);\n    if (jsonMatch) {\n      cleaned = jsonMatch[0];\n    }\n  }\n\n  parsed = JSON.parse(cleaned);\n} catch (e) {\n  // Fallback: split raw output into chunks that fit Slack's 3000 char limit per block\n  const maxLen = 2900;\n  const text = agentOutput || 'Briefing generation failed.';\n  const chunks = [];\n  for (let i = 0; i < text.length; i += maxLen) {\n    chunks.push(text.slice(i, i + maxLen));\n  }\n\n  const blocks = chunks.map((chunk, idx) => ({\n    type: \"section\",\n    text: { type: \"mrkdwn\", text: idx === 0 ? chunk : '...' + chunk }\n  }));\n\n  parsed = {\n    notification_text: \"Your briefing is ready\",\n    blocks\n  };\n}\n\n// Enforce Slack limits\nif (parsed.blocks) {\n  parsed.blocks = parsed.blocks.map(block => {\n    // Max 10 fields per section\n    if (block.fields && block.fields.length > 10) {\n      block.fields = block.fields.slice(0, 10);\n    }\n    // Max 3000 chars per text field in section blocks\n    if (block.text && block.text.text && block.text.text.length > 3000) {\n      block.text.text = block.text.text.slice(0, 2997) + '...';\n    }\n    // Max 3000 chars per field text\n    if (block.fields) {\n      block.fields = block.fields.map(f => {\n        if (f.text && f.text.length > 2000) {\n          f.text = f.text.slice(0, 1997) + '...';\n        }\n        return f;\n      });\n    }\n    return block;\n  });\n  // Max 50 blocks\n  if (parsed.blocks.length > 50) {\n    parsed.blocks = parsed.blocks.slice(0, 50);\n  }\n}\n\nreturn [{\n  json: {\n    notificationText: parsed.notification_text || \"Your briefing\",\n    blocks: JSON.stringify(parsed.blocks),\n    rawContent: agentOutput\n  }\n}];"
+                },
+                "id": "e7784d4f-b88e-405c-a163-cc110052eaf2",
+                "name": "Parse Blocks",
+                "type": "n8n-nodes-base.code",
+                "typeVersion": 2,
+                "position": [
+                    3248,
+                    400
+                ]
+            },
+            {
+                "parameters": {
+                    "method": "POST",
+                    "url": "https://api.people.ai/v3/auth/tokens",
+                    "sendHeaders": true,
+                    "headerParameters": {
+                        "parameters": [
+                            {
+                                "name": "Content-Type",
+                                "value": "application/x-www-form-urlencoded"
+                            }
+                        ]
+                    },
+                    "sendBody": true,
+                    "specifyBody": "string",
+                    "body": "client_id=YOUR_CLIENT_ID&client_secret=YOUR_CLIENT_SECRET&grant_type=client_credentials",
+                    "options": {}
+                },
+                "id": "98800037-55ad-4076-9092-9871037dd645",
+                "name": "Get Auth Token",
+                "type": "n8n-nodes-base.httpRequest",
+                "typeVersion": 4.2,
+                "position": [
+                    432,
+                    524
+                ]
+            },
+            {
+                "parameters": {
+                    "method": "POST",
+                    "url": "https://api.people.ai/v3/beta/insights/export",
+                    "sendHeaders": true,
+                    "headerParameters": {
+                        "parameters": [
+                            {
+                                "name": "Content-Type",
+                                "value": "application/json"
+                            },
+                            {
+                                "name": "Authorization",
+                                "value": "=Bearer {{ $('Get Auth Token').first().json.access_token }}"
+                            }
+                        ]
+                    },
+                    "sendBody": true,
+                    "specifyBody": "json",
+                    "jsonBody": "{\"object\": \"opportunity\", \"filter\": {\"$and\": [{\"attribute\": {\"slug\": \"ootb_opportunity_is_closed\"}, \"clause\": {\"$eq\": false}}]}, \"columns\": [{\"slug\": \"ootb_opportunity_id\"}, {\"slug\": \"ootb_opportunity_crm_id\"}, {\"slug\": \"ootb_opportunity_name\"}, {\"slug\": \"ootb_opportunity_account_name\"}, {\"slug\": \"ootb_opportunity_original_owner\"}, {\"slug\": \"ootb_opportunity_current_stage\"}, {\"slug\": \"ootb_opportunity_close_date\"}, {\"slug\": \"ootb_opportunity_engagement_level\"}, {\"slug\": \"ootb_opportunity_type\"}], \"sort\": [{\"attribute\": {\"slug\": \"ootb_opportunity_close_date\"}, \"direction\": \"asc\"}]}",
+                    "options": {}
+                },
+                "id": "1b12700e-72fb-4009-9111-e44737089879",
+                "name": "Fetch Open Opps",
+                "type": "n8n-nodes-base.httpRequest",
+                "typeVersion": 4.2,
+                "position": [
+                    1104,
+                    524
+                ]
+            },
+            {
+                "parameters": {
+                    "jsCode": "// Parse CSV from People.ai Query API export\nconst csvData = $('Fetch Open Opps').first().json.data;\n\nif (!csvData) {\n  return [{ json: { opps: [], oppCount: 0, error: 'No CSV data returned' } }];\n}\n\nconst lines = csvData.split('\\n').filter(l => l.trim());\nif (lines.length < 2) {\n  return [{ json: { opps: [], oppCount: 0, error: 'CSV has no data rows' } }];\n}\n\nfunction parseCsvLine(line) {\n  const result = [];\n  let current = '';\n  let inQuotes = false;\n  for (let i = 0; i < line.length; i++) {\n    const ch = line[i];\n    if (ch === '\"') {\n      if (inQuotes && i + 1 < line.length && line[i + 1] === '\"') { current += '\"'; i++; }\n      else { inQuotes = !inQuotes; }\n    } else if (ch === ',' && !inQuotes) {\n      result.push(current.trim());\n      current = '';\n    } else {\n      current += ch;\n    }\n  }\n  result.push(current.trim());\n  return result;\n}\n\nconst headers = parseCsvLine(lines[0]);\nconst headerMap = {};\nheaders.forEach((h, i) => {\n  headerMap[h] = i;\n  headerMap[h.toLowerCase()] = i;\n});\n\nfunction getField(row, ...names) {\n  for (const name of names) {\n    const idx = headerMap[name] ?? headerMap[name.toLowerCase()];\n    if (idx !== undefined && row[idx] !== undefined && row[idx] !== '') {\n      return row[idx];\n    }\n  }\n  return '';\n}\n\nconst opps = [];\nfor (let i = 1; i < lines.length; i++) {\n  const row = parseCsvLine(lines[i]);\n  if (row.length < 2) continue;\n\n  opps.push({\n    peopleAiId: getField(row, 'Opportunity ID', 'ootb_opportunity_id', 'ID', 'Id'),\n    owners:     getField(row, 'Opportunity Owner (name)', 'Opportunity Owner', 'Opportunity Owners'),\n    ownerId:    getField(row, 'Opportunity Owner (id)'),\n    name:       getField(row, 'Opportunity Name',    'ootb_opportunity_name'),\n    account:    getField(row, 'Account Name',         'ootb_opportunity_account_name'),\n    closeDate:  getField(row, 'Close Date',           'ootb_opportunity_close_date'),\n    stage:      getField(row, 'Stage',                'ootb_opportunity_current_stage', 'Current Stage'),\n    amount:     '',\n    crmId:      getField(row, 'Record ID',            'ootb_opportunity_crm_id', 'CRM ID'),\n    engagement: getField(row, 'Opportunity Engagement Level', 'ootb_opportunity_engagement_level', 'Engagement Level')\n  });\n}\n\nreturn [{ json: { opps, oppCount: opps.length, headers } }];"
+                },
+                "id": "b500efd3-243f-4762-a48d-1980e3e7b5f8",
+                "name": "Parse Opps CSV",
+                "type": "n8n-nodes-base.code",
+                "typeVersion": 2,
+                "position": [
+                    1328,
+                    524
+                ]
+            },
+            {
+                "parameters": {
+                    "jsCode": "// Filter opportunities for this user based on digest_scope and daily theme\nconst user         = $input.first().json;\nconst allOpps      = $('Parse Opps CSV').first().json.opps || [];\nconst hierarchyData = $('Parse Hierarchy').first().json;\n\nconst userEmail  = (user.email || '').toLowerCase().trim();\nconst digestScope = user.digest_scope || 'my_deals';\n\n// Derive rep name from email (fallback)\nconst emailLocal = userEmail.split('@')[0] || '';\nconst repName    = emailLocal.split('.').map(p => p.charAt(0).toUpperCase() + p.slice(1)).join(' ');\nconst repLower   = repName.toLowerCase();\n\n// Quarter/date helpers\nconst now = new Date();\nconst curYear = now.getFullYear();\nconst curMonth = now.getMonth(); // 0-indexed\n\nfunction getQuarterEnd(monthsAhead) {\n  const target = new Date(now);\n  target.setMonth(target.getMonth() + monthsAhead);\n  const m = target.getMonth();\n  const q = Math.floor(m / 3);\n  const qEndMonth = (q + 1) * 3 - 1; // last month of quarter\n  const qEndYear  = target.getFullYear();\n  return new Date(qEndYear, qEndMonth + 1, 0); // last day of that month\n}\n\nconst fiscalYearEnd = new Date(curYear, 11, 31);\nconst twoQtrEnd     = getQuarterEnd(6);\n\nfunction parseCloseDate(str) {\n  if (!str) return null;\n  const d = new Date(str);\n  return isNaN(d.getTime()) ? null : d;\n}\n\nfunction isBefore(d, cutoff) {\n  return d && d <= cutoff;\n}\n\n// Daily theme (Monday=1 ... Friday=5)\nconst dayOfWeek = now.getDay();\nconst themes = {\n  1: 'full_pipeline',\n  2: 'engagement_shifts',\n  3: 'at_risk',\n  4: 'momentum',\n  5: 'week_review'\n};\nconst theme = themes[dayOfWeek] || 'full_pipeline';\n\n// ── Scope filtering ──────────────────────────────────────────\n\nlet userOpps = [];\nlet scopeLabel = '';\nlet hierarchyMissing = false;\n\nif (digestScope === 'my_deals') {\n  // IC: own deals within fiscal year\n  userOpps = allOpps.filter(opp => {\n    const owners = (opp.owners || opp.ownerName || opp.owner || '').toLowerCase();\n    if (!owners.includes(repLower)) return false;\n    const cd = parseCloseDate(opp.closeDate || opp['Close Date'] || opp.close_date);\n    return !cd || isBefore(cd, fiscalYearEnd);\n  });\n  scopeLabel = `${repName}'s Deals`;\n\n} else if (digestScope === 'team_deals') {\n  const managerToReports = hierarchyData.managerToReports || {};\n\n  // Collect direct reports — try email key first (most reliable), then name key\n  const reportSet = new Map(); // email → {name, email}\n\n  // 1. Direct lookup by manager email (preferred)\n  const byEmail = managerToReports[userEmail] || [];\n  for (const r of byEmail) {\n    if (r.email) reportSet.set(r.email, r);\n  }\n\n  // 2. Fuzzy lookup by manager name (fallback)\n  for (const [mgrKey, reports] of Object.entries(managerToReports)) {\n    if (mgrKey === userEmail) continue; // already handled\n    if (mgrKey.includes(repLower) || repLower.includes(mgrKey)) {\n      for (const r of reports) {\n        if (r.email && !reportSet.has(r.email)) reportSet.set(r.email, r);\n      }\n    }\n  }\n\n  // 3. Infer from hierarchy: find users whose managerEmail === userEmail\n  const hierarchyMap = hierarchyData.hierarchy || {};\n  for (const [email, info] of Object.entries(hierarchyMap)) {\n    const mgrEmail = (info.managerEmail || '').toLowerCase().trim();\n    if (mgrEmail === userEmail && !reportSet.has(email)) {\n      reportSet.set(email, { name: info.name, email });\n    }\n  }\n\n  const reportEntries = Array.from(reportSet.values());\n  const reportNames   = reportEntries.map(r => (r.name || '').toLowerCase()).filter(Boolean);\n  const reportEmails  = reportEntries.map(r => (r.email || '').toLowerCase()).filter(Boolean);\n\n  if (reportEntries.length > 0) {\n    // Filter opps by direct report owners\n    userOpps = allOpps.filter(opp => {\n      const owners     = (opp.owners || opp.ownerName || opp.owner || '').toLowerCase();\n      const ownerEmail = (opp.ownerEmail || opp.owner_email || '').toLowerCase();\n      const cd = parseCloseDate(opp.closeDate || opp['Close Date'] || opp.close_date);\n      if (!isBefore(cd, twoQtrEnd)) return false;\n      // Match by email first, then by name\n      if (ownerEmail && reportEmails.some(e => ownerEmail.includes(e) || e.includes(ownerEmail))) return true;\n      return reportNames.some(n => n && owners.includes(n));\n    });\n    scopeLabel = `${repName}'s Team Pipeline`;\n  } else {\n    // Hierarchy unavailable — fall back to top pipeline (all opps, sorted by amount)\n    hierarchyMissing = true;\n    userOpps = allOpps\n      .filter(opp => {\n        const cd = parseCloseDate(opp.closeDate || opp['Close Date'] || opp.close_date);\n        return isBefore(cd, twoQtrEnd);\n      })\n      .sort((a, b) => {\n        const amtA = parseFloat(String(a.amount || a.Amount || 0).replace(/[$,]/g, '')) || 0;\n        const amtB = parseFloat(String(b.amount || b.Amount || 0).replace(/[$,]/g, '')) || 0;\n        return amtB - amtA;\n      })\n      .slice(0, 25);\n    scopeLabel = 'Top Pipeline (hierarchy unavailable)';\n  }\n\n} else if (digestScope === 'top_pipeline') {\n  // Exec: top 25 deals by amount within 2 quarters\n  userOpps = allOpps\n    .filter(opp => {\n      const cd = parseCloseDate(opp.closeDate || opp['Close Date'] || opp.close_date);\n      return isBefore(cd, twoQtrEnd);\n    })\n    .sort((a, b) => {\n      const amtA = parseFloat(String(a.amount || a.Amount || 0).replace(/[$,]/g, '')) || 0;\n      const amtB = parseFloat(String(b.amount || b.Amount || 0).replace(/[$,]/g, '')) || 0;\n      return amtB - amtA;\n    })\n    .slice(0, 25);\n  scopeLabel = 'Top Pipeline';\n\n} else if (digestScope && digestScope.startsWith('person:')) {\n  // Custom: specific person's deals\n  const targetEmail = digestScope.replace('person:', '').toLowerCase().trim();\n  const targetLocal = targetEmail.split('@')[0] || '';\n  const targetName  = targetLocal.split('.').map(p => p.charAt(0).toUpperCase() + p.slice(1)).join(' ').toLowerCase();\n  userOpps = allOpps.filter(opp => {\n    const owners     = (opp.owners || opp.ownerName || opp.owner || '').toLowerCase();\n    const ownerEmail = (opp.ownerEmail || opp.owner_email || '').toLowerCase();\n    const cd = parseCloseDate(opp.closeDate || opp['Close Date'] || opp.close_date);\n    if (!isBefore(cd, fiscalYearEnd)) return false;\n    if (ownerEmail && ownerEmail.includes(targetEmail)) return true;\n    return owners.includes(targetName);\n  });\n  scopeLabel = `${targetEmail}'s Deals`;\n\n} else {\n  // Default fallback: my_deals\n  userOpps = allOpps.filter(opp => {\n    const owners = (opp.owners || opp.ownerName || opp.owner || '').toLowerCase();\n    return owners.includes(repLower);\n  });\n  scopeLabel = `${repName}'s Deals`;\n}\n\n// ── Theme filtering ──────────────────────────────────────────\n\nlet themeNote = '';\n\nif (theme === 'at_risk') {\n  const RISK_STAGES = ['discovery', 'qualification', 'needs analysis', 'value proposition'];\n  const soonMs = 30 * 24 * 60 * 60 * 1000;\n  userOpps = userOpps.filter(opp => {\n    const score = parseFloat(opp.engagementScore || opp.engagement_score || opp.score || 100);\n    const cd    = parseCloseDate(opp.closeDate || opp['Close Date'] || opp.close_date);\n    const stage = (opp.stage || opp.Stage || '').toLowerCase();\n    const closingSoon = cd && (cd - now) < soonMs;\n    const earlyStage  = RISK_STAGES.some(s => stage.includes(s));\n    return score < 40 || (closingSoon && earlyStage);\n  });\n  themeNote = 'Focused on at-risk deals (low engagement or closing soon in early stage)';\n} else if (theme === 'momentum') {\n  userOpps = [...userOpps].sort((a, b) => {\n    const sA = parseFloat(a.engagementScore || a.engagement_score || a.score || 0);\n    const sB = parseFloat(b.engagementScore || b.engagement_score || b.score || 0);\n    return sB - sA;\n  });\n  themeNote = 'Sorted by engagement momentum (highest first)';\n}\n\n// ── Build opp table ──────────────────────────────────────────\n\nfunction fmt(opp) {\n  const name   = opp.name || opp.Name || opp.opportunityName || 'Unknown';\n  const amount = opp.amount || opp.Amount || '';\n  const stage  = opp.stage || opp.Stage || '';\n  const close  = opp.closeDate || opp['Close Date'] || opp.close_date || '';\n  const owner  = opp.owners || opp.ownerName || opp.owner || '';\n  const score  = opp.engagementScore || opp.engagement_score || opp.score || '';\n  return `| ${name} | ${amount} | ${stage} | ${close} | ${owner} | ${score} |`;\n}\n\nlet oppTable = '';\nif (userOpps.length > 0) {\n  const header = '| Deal | Amount | Stage | Close Date | Owner | Engagement |\\n|------|--------|-------|------------|-------|------------|';\n  oppTable = header + '\\n' + userOpps.slice(0, 30).map(fmt).join('\\n');\n} else {\n  oppTable = '(no deals matched the current filter)';\n}\n\n// Hierarchy warning for debugging\nconst hierarchyWarning = hierarchyMissing\n  ? '\\n\\n⚠️ Note: Manager hierarchy data was not available in the export — showing top pipeline as fallback.'\n  : '';\n\nreturn [{\n  json: {\n    ...user,\n    userOpps,\n    userOppCount: userOpps.length,\n    scopeLabel,\n    themeNote,\n    themeLabel: { full_pipeline: 'Brief', engagement_shifts: 'Engagement Shifts', at_risk: 'At-Risk', momentum: 'Momentum', week_review: 'Week in Review' }[theme] || 'Brief',\n    dateWindowEnd: twoQtrEnd.toISOString().split('T')[0],\n    oppTable: oppTable + hierarchyWarning,\n    digestScope,\n    theme,\n    userEmail,\n    repName,\n    totalOppCount: allOpps.length,\n    reportCount: digestScope === 'team_deals' ? (userOpps.length) : undefined,\n    hierarchyMissing: hierarchyMissing || undefined,\n  }\n}];\n"
+                },
+                "id": "c31c7793-f754-40fc-bcf2-93589305d21d",
+                "name": "Filter User Opps",
+                "type": "n8n-nodes-base.code",
+                "typeVersion": 2,
+                "position": [
+                    2224,
+                    400
+                ]
+            },
+            {
+                "parameters": {
+                    "method": "POST",
+                    "url": "https://api.people.ai/v3/beta/insights/export",
+                    "sendHeaders": true,
+                    "headerParameters": {
+                        "parameters": [
+                            {
+                                "name": "Content-Type",
+                                "value": "application/json"
+                            },
+                            {
+                                "name": "Authorization",
+                                "value": "=Bearer {{ $('Get Auth Token').first().json.access_token }}"
+                            }
+                        ]
+                    },
+                    "sendBody": true,
+                    "specifyBody": "json",
+                    "jsonBody": "{\"object\": \"user\", \"columns\": [{\"slug\": \"ootb_user_name\"}, {\"slug\": \"ootb_user_email\"}, {\"slug\": \"ootb_user_manager\"}, {\"slug\": \"ootb_user_manager_email\"}]}",
+                    "options": {}
+                },
+                "id": "283691cc-1810-47b4-8019-c27b1ffa6583",
+                "name": "Fetch User Hierarchy",
+                "type": "n8n-nodes-base.httpRequest",
+                "typeVersion": 4.2,
+                "position": [
+                    656,
+                    524
+                ]
+            },
+            {
+                "parameters": {
+                    "jsCode": "// Parse CSV from People.ai User hierarchy export\nconst csvData = $('Fetch User Hierarchy').first().json.data;\n\nif (!csvData) {\n  return [{ json: { hierarchy: {}, managerToReports: {}, userCount: 0, error: 'No hierarchy data returned' } }];\n}\n\nconst lines = csvData.split('\\n').filter(l => l.trim());\nif (lines.length < 2) {\n  return [{ json: { hierarchy: {}, managerToReports: {}, userCount: 0, error: 'Hierarchy CSV has no data rows' } }];\n}\n\nfunction parseCsvLine(line) {\n  const result = [];\n  let current = '';\n  let inQuotes = false;\n  for (let i = 0; i < line.length; i++) {\n    const ch = line[i];\n    if (ch === '\"') {\n      if (inQuotes && i + 1 < line.length && line[i + 1] === '\"') {\n        current += '\"';\n        i++;\n      } else {\n        inQuotes = !inQuotes;\n      }\n    } else if (ch === ',' && !inQuotes) {\n      result.push(current.trim());\n      current = '';\n    } else {\n      current += ch;\n    }\n  }\n  result.push(current.trim());\n  return result;\n}\n\nconst headers = parseCsvLine(lines[0]);\nconst headerMap = {};\nheaders.forEach((h, i) => { headerMap[h] = i; });\n\nfunction getField(row, ...names) {\n  for (const name of names) {\n    if (headerMap[name] !== undefined && row[headerMap[name]]) {\n      return row[headerMap[name]];\n    }\n  }\n  return '';\n}\n\nconst hierarchy = {};\nconst managerToReports = {};\n\nfunction addReport(key, report) {\n  if (!key) return;\n  const k = key.toLowerCase().trim();\n  if (!k) return;\n  if (!managerToReports[k]) managerToReports[k] = [];\n  // Avoid duplicates\n  if (!managerToReports[k].some(r => r.email === report.email)) {\n    managerToReports[k].push(report);\n  }\n}\n\nfor (let i = 1; i < lines.length; i++) {\n  const row = parseCsvLine(lines[i]);\n  if (row.length < headers.length) continue;\n\n  const name  = getField(row, 'ootb_user_name', 'User Name', 'Name');\n  const email = getField(row, 'ootb_user_email', 'User Email', 'Email').toLowerCase().trim();\n  const manager      = getField(row, 'ootb_user_manager', 'Manager', 'User Manager');\n  const managerEmail = getField(row, 'ootb_user_manager_email', 'Manager Email', 'User Manager Email').toLowerCase().trim();\n\n  if (email) {\n    hierarchy[email] = { name, email, manager, managerEmail };\n  }\n\n  // Key by manager email (preferred — exact match, no fuzzy needed)\n  if (managerEmail) {\n    addReport(managerEmail, { name, email });\n  }\n  // Key by manager name (fallback for when email isn't available)\n  if (manager) {\n    addReport(manager, { name, email });\n  }\n}\n\nreturn [{ json: { hierarchy, managerToReports, userCount: Object.keys(hierarchy).length } }];\n"
+                },
+                "id": "5b30051a-60ad-4a7f-93c5-4847985e84f3",
+                "name": "Parse Hierarchy",
+                "type": "n8n-nodes-base.code",
+                "typeVersion": 2,
+                "position": [
+                    880,
+                    524
+                ]
+            },
+            {
+                "id": "7116ff65-4050-4b65-97e3-3d4294672b96",
+                "name": "Log to Messages",
+                "type": "n8n-nodes-base.httpRequest",
+                "typeVersion": 4.2,
+                "position": [
+                    3920,
+                    524
+                ],
+                "parameters": {
+                    "method": "POST",
+                    "url": "https://rhrlnkbphxntxxxcrgvv.supabase.co/rest/v1/messages",
+                    "authentication": "predefinedCredentialType",
+                    "nodeCredentialType": "supabaseApi",
+                    "sendHeaders": true,
+                    "headerParameters": {
+                        "parameters": [
+                            {
+                                "name": "Prefer",
+                                "value": "return=representation"
+                            }
+                        ]
+                    },
+                    "sendBody": true,
+                    "specifyBody": "json",
+                    "jsonBody": "={{ JSON.stringify($json) }}",
+                    "options": {}
+                },
+                "credentials": {
+                    "supabaseApi": {
+                        "id": "ASRWWkQ0RSMOpNF1",
+                        "name": "Supabase account"
+                    }
+                }
+            },
+            {
+                "parameters": {
+                    "jsCode": "// Gather data for conversation bookend (Sales Digest).\n// Runs inside the SplitInBatches loop after Log to Messages.\n\nconst identity = $('Resolve Identity').first().json;\nconst sendResult = $('Send Digest').first().json;\nconst agentOutput = $('Digest Agent').first().json.output || '';\nconst filterData = $('Filter User Opps').first().json;\n\n// userId / organizationId: Resolve Identity outputs these but they may be\n// undefined because Filter User Opps doesn't spread the original user record.\n// Fall back to the Log to Messages Supabase response which echoes user_id.\nlet userId = identity.userId || null;\nlet organizationId = null;\ntry {\n  // Log to Messages inserts into messages table — its response has user_id\n  const logResp = $('Log to Messages').first().json;\n  if (!userId && logResp.user_id) userId = logResp.user_id;\n} catch(e) {}\n\n// Channel and thread_ts from the Send Digest Slack response\nconst channelId = sendResult.channel || '';\nconst threadTs = sendResult.ts || '';\n\nconst agentConfig = {\n  model: 'claude-sonnet-4-5-20250929',\n  mcpEndpoint: 'https://mcp-canary.people.ai/mcp',\n  assistantName: identity.assistantName || 'Aria',\n  assistantEmoji: identity.assistantEmoji || ':robot_face:',\n  digestScope: identity.digestScope || 'my_deals',\n  theme: identity.theme || 'full_pipeline'\n};\n\n// Digest conversations expire after 4 hours (not continuable, but recorded)\nconst expiresAt = new Date(Date.now() + 4 * 60 * 60 * 1000).toISOString();\n\nreturn [{\n  json: {\n    organizationId: organizationId,\n    userId: userId,\n    channelId: channelId,\n    threadTs: threadTs,\n    workflowType: 'digest',\n    agentConfig: agentConfig,\n    expiresAt: expiresAt,\n    userMessage: 'Daily digest',\n    assistantMessage: agentOutput\n  }\n}];\n"
+                },
+                "id": "525c19cc-b3d7-45bd-bb3b-d53eae8359d4",
+                "name": "Prepare Digest Conversation Data",
+                "type": "n8n-nodes-base.code",
+                "typeVersion": 2,
+                "position": [
+                    4200,
+                    524
+                ],
+                "continueOnFail": true
+            },
+            {
+                "parameters": {
+                    "method": "POST",
+                    "url": "https://rhrlnkbphxntxxxcrgvv.supabase.co/rest/v1/conversations",
+                    "authentication": "predefinedCredentialType",
+                    "nodeCredentialType": "supabaseApi",
+                    "sendHeaders": true,
+                    "headerParameters": {
+                        "parameters": [
+                            {
+                                "name": "Prefer",
+                                "value": "return=representation"
+                            },
+                            {
+                                "name": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ]
+                    },
+                    "sendBody": true,
+                    "specifyBody": "json",
+                    "jsonBody": "={{ JSON.stringify({\n  organization_id: $json.organizationId,\n  user_id: $json.userId,\n  slack_channel_id: $json.channelId,\n  slack_thread_ts: $json.threadTs,\n  workflow_type: $json.workflowType,\n  agent_config: $json.agentConfig,\n  status: \"completed\",\n  expires_at: $json.expiresAt\n}) }}",
+                    "options": {}
+                },
+                "id": "245d1687-515a-497b-b079-4dbc844e28d4",
+                "name": "Create Digest Conversation",
+                "type": "n8n-nodes-base.httpRequest",
+                "typeVersion": 4.2,
+                "position": [
+                    4480,
+                    524
+                ],
+                "credentials": {
+                    "supabaseApi": {
+                        "id": "ASRWWkQ0RSMOpNF1",
+                        "name": "Supabase account"
+                    }
+                },
+                "continueOnFail": true
+            },
+            {
+                "parameters": {
+                    "method": "POST",
+                    "url": "https://rhrlnkbphxntxxxcrgvv.supabase.co/rest/v1/messages",
+                    "authentication": "predefinedCredentialType",
+                    "nodeCredentialType": "supabaseApi",
+                    "sendHeaders": true,
+                    "headerParameters": {
+                        "parameters": [
+                            {
+                                "name": "Prefer",
+                                "value": "return=representation"
+                            },
+                            {
+                                "name": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ]
+                    },
+                    "sendBody": true,
+                    "specifyBody": "json",
+                    "jsonBody": "={{ JSON.stringify({\n  user_id: $(\"Prepare Digest Conversation Data\").first().json.userId,\n  message_type: \"conversation\",\n  channel: \"slack\",\n  direction: \"inbound\",\n  content: $(\"Prepare Digest Conversation Data\").first().json.userMessage,\n  conversation_id: $json.id,\n  slack_thread_ts: $(\"Prepare Digest Conversation Data\").first().json.threadTs,\n  role: \"user\"\n}) }}",
+                    "options": {}
+                },
+                "id": "d2f73bb9-a1f0-4b26-a1b2-feaddd77571a",
+                "name": "Log Digest User Message",
+                "type": "n8n-nodes-base.httpRequest",
+                "typeVersion": 4.2,
+                "position": [
+                    4760,
+                    524
+                ],
+                "credentials": {
+                    "supabaseApi": {
+                        "id": "ASRWWkQ0RSMOpNF1",
+                        "name": "Supabase account"
+                    }
+                },
+                "continueOnFail": true
+            },
+            {
+                "parameters": {
+                    "method": "POST",
+                    "url": "https://rhrlnkbphxntxxxcrgvv.supabase.co/rest/v1/messages",
+                    "authentication": "predefinedCredentialType",
+                    "nodeCredentialType": "supabaseApi",
+                    "sendHeaders": true,
+                    "headerParameters": {
+                        "parameters": [
+                            {
+                                "name": "Prefer",
+                                "value": "return=representation"
+                            },
+                            {
+                                "name": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ]
+                    },
+                    "sendBody": true,
+                    "specifyBody": "json",
+                    "jsonBody": "={{ JSON.stringify({\n  user_id: $(\"Prepare Digest Conversation Data\").first().json.userId,\n  message_type: \"conversation\",\n  channel: \"slack\",\n  direction: \"outbound\",\n  content: $(\"Prepare Digest Conversation Data\").first().json.assistantMessage,\n  conversation_id: $(\"Create Digest Conversation\").first().json.id,\n  slack_thread_ts: $(\"Prepare Digest Conversation Data\").first().json.threadTs,\n  role: \"assistant\"\n}) }}",
+                    "options": {}
+                },
+                "id": "27af10af-9b1d-4f8e-85bb-0f9bec939073",
+                "name": "Log Digest Assistant Message",
+                "type": "n8n-nodes-base.httpRequest",
+                "typeVersion": 4.2,
+                "position": [
+                    5040,
+                    524
+                ],
+                "credentials": {
+                    "supabaseApi": {
+                        "id": "ASRWWkQ0RSMOpNF1",
+                        "name": "Supabase account"
+                    }
+                },
+                "continueOnFail": true
+            }
+        ],
+        "connections": {
+            "6am Weekday Trigger": {
+                "main": [
+                    [
+                        {
+                            "node": "Get Auth Token",
+                            "type": "main",
+                            "index": 0
+                        }
+                    ]
+                ]
+            },
+            "Get Auth Token": {
+                "main": [
+                    [
+                        {
+                            "node": "Fetch User Hierarchy",
+                            "type": "main",
+                            "index": 0
+                        }
+                    ]
+                ]
+            },
+            "Fetch Open Opps": {
+                "main": [
+                    [
+                        {
+                            "node": "Parse Opps CSV",
+                            "type": "main",
+                            "index": 0
+                        }
+                    ]
+                ]
+            },
+            "Parse Opps CSV": {
+                "main": [
+                    [
+                        {
+                            "node": "Get Digest Users",
+                            "type": "main",
+                            "index": 0
+                        }
+                    ]
+                ]
+            },
+            "Get Digest Users": {
+                "main": [
+                    [
+                        {
+                            "node": "Filter Active Users",
+                            "type": "main",
+                            "index": 0
+                        }
+                    ]
+                ]
+            },
+            "Filter Active Users": {
+                "main": [
+                    [
+                        {
+                            "node": "Split In Batches",
+                            "type": "main",
+                            "index": 0
+                        }
+                    ]
+                ]
+            },
+            "Split In Batches": {
+                "main": [
+                    [],
+                    [
+                        {
+                            "node": "Filter User Opps",
+                            "type": "main",
+                            "index": 0
+                        }
+                    ]
+                ]
+            },
+            "Filter User Opps": {
+                "main": [
+                    [
+                        {
+                            "node": "Resolve Identity",
+                            "type": "main",
+                            "index": 0
+                        }
+                    ]
+                ]
+            },
+            "Resolve Identity": {
+                "main": [
+                    [
+                        {
+                            "node": "Open Bot DM",
+                            "type": "main",
+                            "index": 0
+                        }
+                    ]
+                ]
+            },
+            "Open Bot DM": {
+                "main": [
+                    [
+                        {
+                            "node": "Digest Agent",
+                            "type": "main",
+                            "index": 0
+                        }
+                    ]
+                ]
+            },
+            "Digest Agent": {
+                "main": [
+                    [
+                        {
+                            "node": "Parse Blocks",
+                            "type": "main",
+                            "index": 0
+                        }
+                    ]
+                ]
+            },
+            "Parse Blocks": {
+                "main": [
+                    [
+                        {
+                            "node": "Send Digest",
+                            "type": "main",
+                            "index": 0
+                        }
+                    ]
+                ]
+            },
+            "Send Digest": {
+                "main": [
+                    [
+                        {
+                            "node": "Prepare Message Log",
+                            "type": "main",
+                            "index": 0
+                        }
+                    ]
+                ]
+            },
+            "Log to Messages": {
+                "main": [
+                    [
+                        {
+                            "node": "Prepare Digest Conversation Data",
+                            "type": "main",
+                            "index": 0
+                        }
+                    ]
+                ]
+            },
+            "Anthropic Chat Model": {
+                "ai_languageModel": [
+                    [
+                        {
+                            "node": "Digest Agent",
+                            "type": "ai_languageModel",
+                            "index": 0
+                        }
+                    ]
+                ]
+            },
+            "People.ai MCP": {
+                "ai_tool": [
+                    [
+                        {
+                            "node": "Digest Agent",
+                            "type": "ai_tool",
+                            "index": 0
+                        }
+                    ]
+                ]
+            },
+            "Fetch User Hierarchy": {
+                "main": [
+                    [
+                        {
+                            "node": "Parse Hierarchy",
+                            "type": "main",
+                            "index": 0
+                        }
+                    ]
+                ]
+            },
+            "Parse Hierarchy": {
+                "main": [
+                    [
+                        {
+                            "node": "Fetch Open Opps",
+                            "type": "main",
+                            "index": 0
+                        }
+                    ]
+                ]
+            },
+            "Prepare Message Log": {
+                "main": [
+                    [
+                        {
+                            "node": "Log to Messages",
+                            "type": "main",
+                            "index": 0
+                        }
+                    ]
+                ]
+            },
+            "Prepare Digest Conversation Data": {
+                "main": [
+                    [
+                        {
+                            "node": "Create Digest Conversation",
+                            "type": "main",
+                            "index": 0
+                        }
+                    ]
+                ]
+            },
+            "Create Digest Conversation": {
+                "main": [
+                    [
+                        {
+                            "node": "Log Digest User Message",
+                            "type": "main",
+                            "index": 0
+                        }
+                    ]
+                ]
+            },
+            "Log Digest User Message": {
+                "main": [
+                    [
+                        {
+                            "node": "Log Digest Assistant Message",
+                            "type": "main",
+                            "index": 0
+                        }
+                    ]
+                ]
+            },
+            "Log Digest Assistant Message": {
+                "main": [
+                    [
+                        {
+                            "node": "Split In Batches",
+                            "type": "main",
+                            "index": 0
+                        }
+                    ]
+                ]
+            }
+        },
+        "authors": "Scott Metcalf",
+        "name": null,
+        "description": null,
+        "autosaved": false,
+        "workflowPublishHistory": [
+            {
+                "createdAt": "2026-03-06T17:05:43.074Z",
+                "id": 810,
+                "workflowId": "7sinwSgjkEA40zDj",
+                "versionId": "9f8c4e49-7475-479f-9910-da9ab2821df7",
+                "event": "activated",
+                "userId": "bfa163c1-bd53-4c0f-b0ba-8dc3626f7c79"
+            },
+            {
+                "createdAt": "2026-03-06T17:05:43.048Z",
+                "id": 809,
+                "workflowId": "7sinwSgjkEA40zDj",
+                "versionId": "9f8c4e49-7475-479f-9910-da9ab2821df7",
+                "event": "deactivated",
+                "userId": "bfa163c1-bd53-4c0f-b0ba-8dc3626f7c79"
+            }
+        ]
+    }
+}

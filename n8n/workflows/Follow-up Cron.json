@@ -1,0 +1,1107 @@
+{
+    "updatedAt": "2026-03-04T23:33:20.354Z",
+    "createdAt": "2026-03-04T00:59:29.239Z",
+    "id": "JhDuCvZdFN4PFTOW",
+    "name": "Follow-up Cron",
+    "description": null,
+    "active": true,
+    "isArchived": false,
+    "nodes": [
+        {
+            "parameters": {
+                "rule": {
+                    "interval": [
+                        {
+                            "field": "minutes",
+                            "minutesInterval": 15
+                        }
+                    ]
+                }
+            },
+            "id": "cd18c603-7a37-47d3-a90c-8a5350db0dbd",
+            "name": "Every 15 Minutes",
+            "type": "n8n-nodes-base.scheduleTrigger",
+            "typeVersion": 1.2,
+            "position": [
+                250,
+                300
+            ]
+        },
+        {
+            "parameters": {
+                "method": "POST",
+                "url": "https://api.people.ai/v3/auth/tokens",
+                "sendHeaders": true,
+                "headerParameters": {
+                    "parameters": [
+                        {
+                            "name": "Content-Type",
+                            "value": "application/x-www-form-urlencoded"
+                        }
+                    ]
+                },
+                "sendBody": true,
+                "specifyBody": "string",
+                "body": "client_id=YOUR_CLIENT_ID&client_secret=YOUR_CLIENT_SECRET&grant_type=client_credentials",
+                "options": {}
+            },
+            "id": "429b2c07-d2f6-42d0-a833-6f22f3092026",
+            "name": "Get Auth Token",
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4.2,
+            "position": [
+                500,
+                300
+            ]
+        },
+        {
+            "parameters": {
+                "jsCode": "// Build People.ai export query for today's external meetings\n// Same pattern as Meeting Prep Cron, but we look for meetings that already happened\nconst now = Date.now();\nconst startOfDay = new Date();\nstartOfDay.setHours(0, 0, 0, 0);\nconst endOfDay = new Date();\nendOfDay.setHours(23, 59, 59, 999);\n\nconst query = {\n  object: \"activity\",\n  filter: {\n    \"$and\": [\n      { attribute: { slug: \"ootb_activity_type\" }, clause: { \"$eq\": \"meeting\" } },\n      { attribute: { slug: \"ootb_activity_external\" }, clause: { \"$eq\": true } },\n      { attribute: { slug: \"ootb_activity_timestamp\" }, clause: { \"$gte\": startOfDay.getTime() } },\n      { attribute: { slug: \"ootb_activity_timestamp\" }, clause: { \"$lte\": now } }\n    ]\n  },\n  columns: [\n    { slug: \"ootb_activity_uid\" },\n    { slug: \"ootb_activity_timestamp\" },\n    { slug: \"ootb_activity_subject\" },\n    { slug: \"ootb_activity_originator\" },\n    { slug: \"ootb_activity_account_name\" },\n    { slug: \"ootb_activity_account_id\" },\n    { slug: \"ootb_activity_opportunity_name\" },\n    { slug: \"ootb_activity_participants\" }\n  ],\n  sort: [{ attribute: { slug: \"ootb_activity_timestamp\" }, direction: \"desc\" }]\n};\n\nreturn [{ json: { query: JSON.stringify(query) } }];\n"
+            },
+            "id": "762f5040-605f-4f29-a809-5b448945baff",
+            "name": "Build Query",
+            "type": "n8n-nodes-base.code",
+            "typeVersion": 2,
+            "position": [
+                750,
+                300
+            ]
+        },
+        {
+            "parameters": {
+                "method": "POST",
+                "url": "https://api.people.ai/v3/beta/insights/export",
+                "sendHeaders": true,
+                "headerParameters": {
+                    "parameters": [
+                        {
+                            "name": "Content-Type",
+                            "value": "application/json"
+                        },
+                        {
+                            "name": "Authorization",
+                            "value": "=Bearer {{ $('Get Auth Token').first().json.access_token }}"
+                        }
+                    ]
+                },
+                "sendBody": true,
+                "specifyBody": "json",
+                "jsonBody": "={{ $json.query }}",
+                "options": {}
+            },
+            "id": "5f6a9041-be63-4881-ab90-d97863f69248",
+            "name": "Fetch Today Meetings",
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4.2,
+            "position": [
+                1000,
+                300
+            ],
+            "continueOnFail": true
+        },
+        {
+            "parameters": {
+                "jsCode": "// Parse CSV response from People.ai meetings export\nconst raw = $('Fetch Today Meetings').first().json.data || '';\nif (!raw || raw.trim().length === 0) {\n  return [{ json: { meetings: [], meetingCount: 0 } }];\n}\n\nconst lines = raw.split('\\n');\nif (lines.length < 2) {\n  return [{ json: { meetings: [], meetingCount: 0 } }];\n}\n\n// Parse CSV header\nconst headerLine = lines[0];\nconst headers = [];\nlet field = '';\nlet inQuotes = false;\nfor (let i = 0; i < headerLine.length; i++) {\n  const c = headerLine[i];\n  if (c === '\"') { inQuotes = !inQuotes; }\n  else if (c === ',' && !inQuotes) { headers.push(field.trim()); field = ''; }\n  else { field += c; }\n}\nheaders.push(field.trim());\n\n// Parse CSV rows\nfunction parseCSVRow(line) {\n  const fields = [];\n  let f = '';\n  let q = false;\n  for (let i = 0; i < line.length; i++) {\n    const c = line[i];\n    if (c === '\"') {\n      if (q && i + 1 < line.length && line[i + 1] === '\"') { f += '\"'; i++; }\n      else { q = !q; }\n    } else if (c === ',' && !q) { fields.push(f.trim()); f = ''; }\n    else { f += c; }\n  }\n  fields.push(f.trim());\n  return fields;\n}\n\nfunction getVal(row, name) {\n  const idx = headers.findIndex(h => h.toLowerCase().includes(name.toLowerCase()));\n  return idx >= 0 ? (row[idx] || '') : '';\n}\n\nconst meetings = [];\nfor (let i = 1; i < lines.length; i++) {\n  if (!lines[i].trim()) continue;\n  const row = parseCSVRow(lines[i]);\n\n  const tsRaw = getVal(row, 'timestamp');\n  let tsMs = 0;\n  if (tsRaw) {\n    // Could be ISO string or epoch ms\n    const num = Number(tsRaw);\n    if (!isNaN(num) && num > 1e12) { tsMs = num; }\n    else { tsMs = new Date(tsRaw).getTime(); }\n  }\n  if (!tsMs || isNaN(tsMs)) continue;\n\n  meetings.push({\n    activityUid: getVal(row, 'uid') || getVal(row, 'activity_uid'),\n    timestamp: tsMs,\n    subject: getVal(row, 'subject'),\n    originator: getVal(row, 'originator'),\n    accountName: getVal(row, 'account_name') || getVal(row, 'account'),\n    accountId: getVal(row, 'account_id'),\n    opportunityName: getVal(row, 'opportunity_name') || getVal(row, 'opportunity'),\n    participants: getVal(row, 'participants'),\n  });\n}\n\nreturn [{ json: { meetings, meetingCount: meetings.length, headers } }];\n"
+            },
+            "id": "afb2c3a5-40f3-4abd-9e1f-bbcf3fc382e5",
+            "name": "Parse Meetings",
+            "type": "n8n-nodes-base.code",
+            "typeVersion": 2,
+            "position": [
+                1250,
+                300
+            ]
+        },
+        {
+            "parameters": {
+                "method": "GET",
+                "url": "https://rhrlnkbphxntxxxcrgvv.supabase.co/rest/v1/users?onboarding_state=eq.complete&select=id,slack_user_id,email,assistant_name,assistant_emoji,organization_id,onboarding_state,followup_delay_minutes,followup_enabled",
+                "authentication": "predefinedCredentialType",
+                "nodeCredentialType": "supabaseApi",
+                "options": {}
+            },
+            "id": "13606746-9806-4320-9853-f4e9b9a2abcf",
+            "name": "Get Followup Users",
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4.2,
+            "position": [
+                1500,
+                300
+            ],
+            "credentials": {
+                "supabaseApi": {
+                    "id": "ASRWWkQ0RSMOpNF1",
+                    "name": "Supabase account"
+                }
+            }
+        },
+        {
+            "parameters": {
+                "method": "GET",
+                "url": "=https://rhrlnkbphxntxxxcrgvv.supabase.co/rest/v1/messages?message_type=eq.followup_prompt&sent_at=gte.{{ new Date(new Date().setHours(0,0,0,0)).toISOString() }}&select=user_id,metadata",
+                "authentication": "predefinedCredentialType",
+                "nodeCredentialType": "supabaseApi",
+                "options": {}
+            },
+            "id": "26b0fbf3-719a-4d82-9174-452af0a9c57d",
+            "name": "Check Sent Followups",
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4.2,
+            "position": [
+                1750,
+                300
+            ],
+            "credentials": {
+                "supabaseApi": {
+                    "id": "ASRWWkQ0RSMOpNF1",
+                    "name": "Supabase account"
+                }
+            },
+            "alwaysOutputData": true
+        },
+        {
+            "parameters": {
+                "jsCode": "// Match users to meetings that ended within their follow-up window\nconst meetings = $('Parse Meetings').first().json.meetings || [];\nconst usersAll = $('Get Followup Users').all().map(i => i.json);\nconst sentAll = $('Check Sent Followups').all().map(i => i.json);\n\n// Filter valid users\nconst users = usersAll.filter(u => u && u.id && u.onboarding_state === 'complete');\n\n// Build dedup set: userId:activityUid\nconst sentSet = new Set();\nfor (const msg of sentAll) {\n  if (msg && msg.metadata) {\n    try {\n      const meta = typeof msg.metadata === 'string' ? JSON.parse(msg.metadata) : msg.metadata;\n      if (meta.activity_uid && msg.user_id) {\n        sentSet.add(msg.user_id + ':' + meta.activity_uid);\n      }\n    } catch(e) {}\n  }\n}\n\nconst now = Date.now();\nconst output = [];\n\n// Assume meetings last ~60 minutes\nconst MEETING_DURATION_MS = 60 * 60 * 1000;\n\nfor (const user of users) {\n  const delayMs = (user.followup_delay_minutes || 30) * 60 * 1000;\n  const followupEnabled = user.followup_enabled !== false;\n  if (!followupEnabled) continue;\n\n  // Derive rep name from email\n  const repName = user.email\n    ? user.email.split('@')[0].split('.').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')\n    : 'there';\n\n  for (const meeting of meetings) {\n    // Estimated end time = meeting start + 60 min\n    const estimatedEnd = meeting.timestamp + MEETING_DURATION_MS;\n    const timeSinceEnd = now - estimatedEnd;\n\n    // Follow-up window: delay \u00b1 15 min\n    // e.g., 30 min delay \u2192 send between 15 and 45 min after meeting ends\n    const windowStart = delayMs - 15 * 60 * 1000;\n    const windowEnd = delayMs + 15 * 60 * 1000;\n\n    if (timeSinceEnd < windowStart || timeSinceEnd > windowEnd) continue;\n\n    // Skip if already sent\n    const dedupKey = user.id + ':' + meeting.activityUid;\n    if (sentSet.has(dedupKey)) continue;\n\n    // Skip meetings without account context\n    if (!meeting.accountName) continue;\n\n    output.push({\n      json: {\n        userId: user.id,\n        slackUserId: user.slack_user_id,\n        email: user.email,\n        repName,\n        assistantName: user.assistant_name || 'Aria',\n        assistantEmoji: user.assistant_emoji || ':robot_face:',\n        organizationId: user.organization_id,\n        meetingSubject: meeting.subject,\n        accountName: meeting.accountName,\n        accountId: meeting.accountId,\n        opportunityName: meeting.opportunityName,\n        participants: meeting.participants,\n        activityUid: meeting.activityUid,\n        meetingTimestamp: meeting.timestamp,\n        minutesSinceEnd: Math.round(timeSinceEnd / 60000),\n      }\n    });\n  }\n}\n\nif (output.length === 0) {\n  return [{ json: { noMatches: true } }];\n}\n\nreturn output;\n"
+            },
+            "id": "11d00dcc-9c5f-4296-9c5f-366a417cdb30",
+            "name": "Match Users to Ended Meetings",
+            "type": "n8n-nodes-base.code",
+            "typeVersion": 2,
+            "position": [
+                2000,
+                300
+            ]
+        },
+        {
+            "parameters": {
+                "conditions": {
+                    "options": {
+                        "version": 2,
+                        "leftValue": "",
+                        "caseSensitive": true,
+                        "typeValidation": "strict"
+                    },
+                    "conditions": [
+                        {
+                            "id": "0bc48827-bc2a-40b5-9437-85e9cc08b14c",
+                            "leftValue": "={{ $json.noMatches }}",
+                            "rightValue": true,
+                            "operator": {
+                                "type": "boolean",
+                                "operation": "notEquals"
+                            }
+                        }
+                    ],
+                    "combinator": "and"
+                },
+                "options": {}
+            },
+            "id": "65e46fcc-367a-4077-9665-4e8154fb047f",
+            "name": "Has Matches?",
+            "type": "n8n-nodes-base.if",
+            "typeVersion": 2.2,
+            "position": [
+                2250,
+                300
+            ]
+        },
+        {
+            "parameters": {
+                "options": {}
+            },
+            "id": "99049da1-8099-4d01-b616-95b7fff29f8c",
+            "name": "Split In Batches",
+            "type": "n8n-nodes-base.splitInBatches",
+            "typeVersion": 3,
+            "position": [
+                2500,
+                300
+            ]
+        },
+        {
+            "parameters": {
+                "jsCode": "const data = $input.first().json;\n\nconst timeAgo = data.minutesSinceEnd < 60\n  ? `${data.minutesSinceEnd} minutes ago`\n  : `${Math.round(data.minutesSinceEnd / 60)} hours ago`;\n\nconst text = `You met with *${data.accountName}* ${timeAgo}` +\n  (data.meetingSubject ? ` \u2014 _${data.meetingSubject}_` : '') +\n  `\\n\\nWant me to draft a follow-up?`;\n\n// Interactive blocks with buttons\nconst blocks = [\n  {\n    type: \"section\",\n    text: { type: \"mrkdwn\", text: text }\n  },\n  {\n    type: \"actions\",\n    elements: [\n      {\n        type: \"button\",\n        text: { type: \"plain_text\", text: \":email:  Draft Follow-up\", emoji: true },\n        style: \"primary\",\n        action_id: \"followup_draft\",\n        value: JSON.stringify({\n          accountName: data.accountName,\n          accountId: data.accountId,\n          activityUid: data.activityUid,\n          meetingSubject: data.meetingSubject,\n          participants: data.participants,\n          userId: data.userId,\n          dbUserId: data.userId,\n          slackUserId: data.slackUserId,\n          organizationId: data.organizationId,\n          assistantName: data.assistantName,\n          assistantEmoji: data.assistantEmoji,\n          repName: data.repName,\n        })\n      },\n      {\n        type: \"button\",\n        text: { type: \"plain_text\", text: \"Skip\", emoji: true },\n        action_id: \"followup_skip\",\n        value: JSON.stringify({ activityUid: data.activityUid })\n      }\n    ]\n  }\n];\n\nreturn [{\n  json: {\n    ...data,\n    promptText: text,\n    blocks: JSON.stringify(blocks)\n  }\n}];\n"
+            },
+            "id": "3f4d7a49-445a-43dc-b1cc-b8c36462b0c4",
+            "name": "Build Follow-up Prompt",
+            "type": "n8n-nodes-base.code",
+            "typeVersion": 2,
+            "position": [
+                2750,
+                300
+            ]
+        },
+        {
+            "parameters": {
+                "method": "POST",
+                "url": "https://slack.com/api/conversations.open",
+                "authentication": "genericCredentialType",
+                "genericAuthType": "httpHeaderAuth",
+                "sendHeaders": true,
+                "headerParameters": {
+                    "parameters": [
+                        {
+                            "name": "Content-Type",
+                            "value": "application/json"
+                        }
+                    ]
+                },
+                "sendBody": true,
+                "specifyBody": "json",
+                "jsonBody": "={{ JSON.stringify({ users: $json.slackUserId }) }}",
+                "options": {}
+            },
+            "id": "c8dddbb2-a3f0-4dad-ac65-0046a069ec30",
+            "name": "Open Bot DM",
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4.2,
+            "position": [
+                3000,
+                300
+            ],
+            "credentials": {
+                "httpHeaderAuth": {
+                    "id": "LluVuiMJ8NUbAiG7",
+                    "name": "Slackbot Auth Token"
+                }
+            }
+        },
+        {
+            "parameters": {
+                "method": "POST",
+                "url": "https://slack.com/api/chat.postMessage",
+                "authentication": "genericCredentialType",
+                "genericAuthType": "httpHeaderAuth",
+                "sendHeaders": true,
+                "headerParameters": {
+                    "parameters": [
+                        {
+                            "name": "Content-Type",
+                            "value": "application/json"
+                        }
+                    ]
+                },
+                "sendBody": true,
+                "specifyBody": "json",
+                "jsonBody": "={{ JSON.stringify({ channel: $json.channel.id, text: $(\"Build Follow-up Prompt\").first().json.promptText, blocks: JSON.parse($(\"Build Follow-up Prompt\").first().json.blocks), username: $(\"Build Follow-up Prompt\").first().json.assistantName, icon_emoji: $(\"Build Follow-up Prompt\").first().json.assistantEmoji }) }}",
+                "options": {}
+            },
+            "id": "695a141b-d877-4e65-8269-3e82ef946c5d",
+            "name": "Send Follow-up Prompt",
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4.2,
+            "position": [
+                3250,
+                300
+            ],
+            "credentials": {
+                "httpHeaderAuth": {
+                    "id": "LluVuiMJ8NUbAiG7",
+                    "name": "Slackbot Auth Token"
+                }
+            }
+        },
+        {
+            "parameters": {
+                "jsCode": "const data = $('Build Follow-up Prompt').first().json;\nconst sendResult = $('Send Follow-up Prompt').first().json;\n\nreturn [{\n  json: {\n    user_id: data.userId,\n    message_type: 'followup_prompt',\n    channel: 'slack',\n    direction: 'outbound',\n    content: data.promptText,\n    metadata: JSON.stringify({\n      activity_uid: data.activityUid,\n      account_name: data.accountName,\n      meeting_subject: data.meetingSubject,\n      slack_ts: sendResult.ts || null,\n      slack_channel: sendResult.channel || null\n    }),\n  }\n}];\n"
+            },
+            "id": "4c870b97-d7fc-4311-bc2b-4b62a8aa7e28",
+            "name": "Prepare Log Data",
+            "type": "n8n-nodes-base.code",
+            "typeVersion": 2,
+            "position": [
+                3500,
+                300
+            ]
+        },
+        {
+            "parameters": {
+                "method": "POST",
+                "url": "https://rhrlnkbphxntxxxcrgvv.supabase.co/rest/v1/messages",
+                "authentication": "predefinedCredentialType",
+                "nodeCredentialType": "supabaseApi",
+                "sendHeaders": true,
+                "headerParameters": {
+                    "parameters": [
+                        {
+                            "name": "Prefer",
+                            "value": "return=representation"
+                        },
+                        {
+                            "name": "Content-Type",
+                            "value": "application/json"
+                        }
+                    ]
+                },
+                "sendBody": true,
+                "specifyBody": "json",
+                "jsonBody": "={{ JSON.stringify($json) }}",
+                "options": {}
+            },
+            "id": "7c247953-e79e-4848-8dd1-d53801a9290a",
+            "name": "Log Follow-up Prompt",
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4.2,
+            "position": [
+                3750,
+                300
+            ],
+            "credentials": {
+                "supabaseApi": {
+                    "id": "ASRWWkQ0RSMOpNF1",
+                    "name": "Supabase account"
+                }
+            }
+        }
+    ],
+    "connections": {
+        "Every 15 Minutes": {
+            "main": [
+                [
+                    {
+                        "node": "Get Auth Token",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Get Auth Token": {
+            "main": [
+                [
+                    {
+                        "node": "Build Query",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Build Query": {
+            "main": [
+                [
+                    {
+                        "node": "Fetch Today Meetings",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Fetch Today Meetings": {
+            "main": [
+                [
+                    {
+                        "node": "Parse Meetings",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Parse Meetings": {
+            "main": [
+                [
+                    {
+                        "node": "Get Followup Users",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Get Followup Users": {
+            "main": [
+                [
+                    {
+                        "node": "Check Sent Followups",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Check Sent Followups": {
+            "main": [
+                [
+                    {
+                        "node": "Match Users to Ended Meetings",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Match Users to Ended Meetings": {
+            "main": [
+                [
+                    {
+                        "node": "Has Matches?",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Has Matches?": {
+            "main": [
+                [
+                    {
+                        "node": "Split In Batches",
+                        "type": "main",
+                        "index": 0
+                    }
+                ],
+                []
+            ]
+        },
+        "Split In Batches": {
+            "main": [
+                [],
+                [
+                    {
+                        "node": "Build Follow-up Prompt",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Build Follow-up Prompt": {
+            "main": [
+                [
+                    {
+                        "node": "Open Bot DM",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Open Bot DM": {
+            "main": [
+                [
+                    {
+                        "node": "Send Follow-up Prompt",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Send Follow-up Prompt": {
+            "main": [
+                [
+                    {
+                        "node": "Prepare Log Data",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Prepare Log Data": {
+            "main": [
+                [
+                    {
+                        "node": "Log Follow-up Prompt",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Log Follow-up Prompt": {
+            "main": [
+                [
+                    {
+                        "node": "Split In Batches",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        }
+    },
+    "settings": {
+        "executionOrder": "v1",
+        "callerPolicy": "workflowsFromSameOwner",
+        "availableInMCP": false
+    },
+    "staticData": {
+        "node:Every 15 Minutes": {
+            "recurrenceRules": []
+        }
+    },
+    "meta": null,
+    "pinData": null,
+    "versionId": "0d3463ca-fc5b-4aec-af70-baf2e760d4b8",
+    "activeVersionId": "0d3463ca-fc5b-4aec-af70-baf2e760d4b8",
+    "versionCounter": 13,
+    "triggerCount": 1,
+    "shared": [
+        {
+            "updatedAt": "2026-03-04T00:59:29.241Z",
+            "createdAt": "2026-03-04T00:59:29.241Z",
+            "role": "workflow:owner",
+            "workflowId": "JhDuCvZdFN4PFTOW",
+            "projectId": "85jtzrEPriGDXgHV",
+            "project": {
+                "updatedAt": "2025-11-24T07:01:19.205Z",
+                "createdAt": "2025-11-24T06:56:53.862Z",
+                "id": "85jtzrEPriGDXgHV",
+                "name": "Scott Metcalf <metcalf.scott@gmail.com>",
+                "type": "personal",
+                "icon": null,
+                "description": null,
+                "creatorId": "bfa163c1-bd53-4c0f-b0ba-8dc3626f7c79"
+            }
+        }
+    ],
+    "tags": [],
+    "activeVersion": {
+        "updatedAt": "2026-03-04T23:33:20.355Z",
+        "createdAt": "2026-03-04T23:33:20.355Z",
+        "versionId": "0d3463ca-fc5b-4aec-af70-baf2e760d4b8",
+        "workflowId": "JhDuCvZdFN4PFTOW",
+        "nodes": [
+            {
+                "parameters": {
+                    "rule": {
+                        "interval": [
+                            {
+                                "field": "minutes",
+                                "minutesInterval": 15
+                            }
+                        ]
+                    }
+                },
+                "id": "cd18c603-7a37-47d3-a90c-8a5350db0dbd",
+                "name": "Every 15 Minutes",
+                "type": "n8n-nodes-base.scheduleTrigger",
+                "typeVersion": 1.2,
+                "position": [
+                    250,
+                    300
+                ]
+            },
+            {
+                "parameters": {
+                    "method": "POST",
+                    "url": "https://api.people.ai/v3/auth/tokens",
+                    "sendHeaders": true,
+                    "headerParameters": {
+                        "parameters": [
+                            {
+                                "name": "Content-Type",
+                                "value": "application/x-www-form-urlencoded"
+                            }
+                        ]
+                    },
+                    "sendBody": true,
+                    "specifyBody": "string",
+                    "body": "client_id=YOUR_CLIENT_ID&client_secret=YOUR_CLIENT_SECRET&grant_type=client_credentials",
+                    "options": {}
+                },
+                "id": "429b2c07-d2f6-42d0-a833-6f22f3092026",
+                "name": "Get Auth Token",
+                "type": "n8n-nodes-base.httpRequest",
+                "typeVersion": 4.2,
+                "position": [
+                    500,
+                    300
+                ]
+            },
+            {
+                "parameters": {
+                    "jsCode": "// Build People.ai export query for today's external meetings\n// Same pattern as Meeting Prep Cron, but we look for meetings that already happened\nconst now = Date.now();\nconst startOfDay = new Date();\nstartOfDay.setHours(0, 0, 0, 0);\nconst endOfDay = new Date();\nendOfDay.setHours(23, 59, 59, 999);\n\nconst query = {\n  object: \"activity\",\n  filter: {\n    \"$and\": [\n      { attribute: { slug: \"ootb_activity_type\" }, clause: { \"$eq\": \"meeting\" } },\n      { attribute: { slug: \"ootb_activity_external\" }, clause: { \"$eq\": true } },\n      { attribute: { slug: \"ootb_activity_timestamp\" }, clause: { \"$gte\": startOfDay.getTime() } },\n      { attribute: { slug: \"ootb_activity_timestamp\" }, clause: { \"$lte\": now } }\n    ]\n  },\n  columns: [\n    { slug: \"ootb_activity_uid\" },\n    { slug: \"ootb_activity_timestamp\" },\n    { slug: \"ootb_activity_subject\" },\n    { slug: \"ootb_activity_originator\" },\n    { slug: \"ootb_activity_account_name\" },\n    { slug: \"ootb_activity_account_id\" },\n    { slug: \"ootb_activity_opportunity_name\" },\n    { slug: \"ootb_activity_participants\" }\n  ],\n  sort: [{ attribute: { slug: \"ootb_activity_timestamp\" }, direction: \"desc\" }]\n};\n\nreturn [{ json: { query: JSON.stringify(query) } }];\n"
+                },
+                "id": "762f5040-605f-4f29-a809-5b448945baff",
+                "name": "Build Query",
+                "type": "n8n-nodes-base.code",
+                "typeVersion": 2,
+                "position": [
+                    750,
+                    300
+                ]
+            },
+            {
+                "parameters": {
+                    "method": "POST",
+                    "url": "https://api.people.ai/v3/beta/insights/export",
+                    "sendHeaders": true,
+                    "headerParameters": {
+                        "parameters": [
+                            {
+                                "name": "Content-Type",
+                                "value": "application/json"
+                            },
+                            {
+                                "name": "Authorization",
+                                "value": "=Bearer {{ $('Get Auth Token').first().json.access_token }}"
+                            }
+                        ]
+                    },
+                    "sendBody": true,
+                    "specifyBody": "json",
+                    "jsonBody": "={{ $json.query }}",
+                    "options": {}
+                },
+                "id": "5f6a9041-be63-4881-ab90-d97863f69248",
+                "name": "Fetch Today Meetings",
+                "type": "n8n-nodes-base.httpRequest",
+                "typeVersion": 4.2,
+                "position": [
+                    1000,
+                    300
+                ],
+                "continueOnFail": true
+            },
+            {
+                "parameters": {
+                    "jsCode": "// Parse CSV response from People.ai meetings export\nconst raw = $('Fetch Today Meetings').first().json.data || '';\nif (!raw || raw.trim().length === 0) {\n  return [{ json: { meetings: [], meetingCount: 0 } }];\n}\n\nconst lines = raw.split('\\n');\nif (lines.length < 2) {\n  return [{ json: { meetings: [], meetingCount: 0 } }];\n}\n\n// Parse CSV header\nconst headerLine = lines[0];\nconst headers = [];\nlet field = '';\nlet inQuotes = false;\nfor (let i = 0; i < headerLine.length; i++) {\n  const c = headerLine[i];\n  if (c === '\"') { inQuotes = !inQuotes; }\n  else if (c === ',' && !inQuotes) { headers.push(field.trim()); field = ''; }\n  else { field += c; }\n}\nheaders.push(field.trim());\n\n// Parse CSV rows\nfunction parseCSVRow(line) {\n  const fields = [];\n  let f = '';\n  let q = false;\n  for (let i = 0; i < line.length; i++) {\n    const c = line[i];\n    if (c === '\"') {\n      if (q && i + 1 < line.length && line[i + 1] === '\"') { f += '\"'; i++; }\n      else { q = !q; }\n    } else if (c === ',' && !q) { fields.push(f.trim()); f = ''; }\n    else { f += c; }\n  }\n  fields.push(f.trim());\n  return fields;\n}\n\nfunction getVal(row, name) {\n  const idx = headers.findIndex(h => h.toLowerCase().includes(name.toLowerCase()));\n  return idx >= 0 ? (row[idx] || '') : '';\n}\n\nconst meetings = [];\nfor (let i = 1; i < lines.length; i++) {\n  if (!lines[i].trim()) continue;\n  const row = parseCSVRow(lines[i]);\n\n  const tsRaw = getVal(row, 'timestamp');\n  let tsMs = 0;\n  if (tsRaw) {\n    // Could be ISO string or epoch ms\n    const num = Number(tsRaw);\n    if (!isNaN(num) && num > 1e12) { tsMs = num; }\n    else { tsMs = new Date(tsRaw).getTime(); }\n  }\n  if (!tsMs || isNaN(tsMs)) continue;\n\n  meetings.push({\n    activityUid: getVal(row, 'uid') || getVal(row, 'activity_uid'),\n    timestamp: tsMs,\n    subject: getVal(row, 'subject'),\n    originator: getVal(row, 'originator'),\n    accountName: getVal(row, 'account_name') || getVal(row, 'account'),\n    accountId: getVal(row, 'account_id'),\n    opportunityName: getVal(row, 'opportunity_name') || getVal(row, 'opportunity'),\n    participants: getVal(row, 'participants'),\n  });\n}\n\nreturn [{ json: { meetings, meetingCount: meetings.length, headers } }];\n"
+                },
+                "id": "afb2c3a5-40f3-4abd-9e1f-bbcf3fc382e5",
+                "name": "Parse Meetings",
+                "type": "n8n-nodes-base.code",
+                "typeVersion": 2,
+                "position": [
+                    1250,
+                    300
+                ]
+            },
+            {
+                "parameters": {
+                    "method": "GET",
+                    "url": "https://rhrlnkbphxntxxxcrgvv.supabase.co/rest/v1/users?onboarding_state=eq.complete&select=id,slack_user_id,email,assistant_name,assistant_emoji,organization_id,onboarding_state,followup_delay_minutes,followup_enabled",
+                    "authentication": "predefinedCredentialType",
+                    "nodeCredentialType": "supabaseApi",
+                    "options": {}
+                },
+                "id": "13606746-9806-4320-9853-f4e9b9a2abcf",
+                "name": "Get Followup Users",
+                "type": "n8n-nodes-base.httpRequest",
+                "typeVersion": 4.2,
+                "position": [
+                    1500,
+                    300
+                ],
+                "credentials": {
+                    "supabaseApi": {
+                        "id": "ASRWWkQ0RSMOpNF1",
+                        "name": "Supabase account"
+                    }
+                }
+            },
+            {
+                "parameters": {
+                    "method": "GET",
+                    "url": "=https://rhrlnkbphxntxxxcrgvv.supabase.co/rest/v1/messages?message_type=eq.followup_prompt&sent_at=gte.{{ new Date(new Date().setHours(0,0,0,0)).toISOString() }}&select=user_id,metadata",
+                    "authentication": "predefinedCredentialType",
+                    "nodeCredentialType": "supabaseApi",
+                    "options": {}
+                },
+                "id": "26b0fbf3-719a-4d82-9174-452af0a9c57d",
+                "name": "Check Sent Followups",
+                "type": "n8n-nodes-base.httpRequest",
+                "typeVersion": 4.2,
+                "position": [
+                    1750,
+                    300
+                ],
+                "credentials": {
+                    "supabaseApi": {
+                        "id": "ASRWWkQ0RSMOpNF1",
+                        "name": "Supabase account"
+                    }
+                },
+                "alwaysOutputData": true
+            },
+            {
+                "parameters": {
+                    "jsCode": "// Match users to meetings that ended within their follow-up window\nconst meetings = $('Parse Meetings').first().json.meetings || [];\nconst usersAll = $('Get Followup Users').all().map(i => i.json);\nconst sentAll = $('Check Sent Followups').all().map(i => i.json);\n\n// Filter valid users\nconst users = usersAll.filter(u => u && u.id && u.onboarding_state === 'complete');\n\n// Build dedup set: userId:activityUid\nconst sentSet = new Set();\nfor (const msg of sentAll) {\n  if (msg && msg.metadata) {\n    try {\n      const meta = typeof msg.metadata === 'string' ? JSON.parse(msg.metadata) : msg.metadata;\n      if (meta.activity_uid && msg.user_id) {\n        sentSet.add(msg.user_id + ':' + meta.activity_uid);\n      }\n    } catch(e) {}\n  }\n}\n\nconst now = Date.now();\nconst output = [];\n\n// Assume meetings last ~60 minutes\nconst MEETING_DURATION_MS = 60 * 60 * 1000;\n\nfor (const user of users) {\n  const delayMs = (user.followup_delay_minutes || 30) * 60 * 1000;\n  const followupEnabled = user.followup_enabled !== false;\n  if (!followupEnabled) continue;\n\n  // Derive rep name from email\n  const repName = user.email\n    ? user.email.split('@')[0].split('.').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')\n    : 'there';\n\n  for (const meeting of meetings) {\n    // Estimated end time = meeting start + 60 min\n    const estimatedEnd = meeting.timestamp + MEETING_DURATION_MS;\n    const timeSinceEnd = now - estimatedEnd;\n\n    // Follow-up window: delay \u00b1 15 min\n    // e.g., 30 min delay \u2192 send between 15 and 45 min after meeting ends\n    const windowStart = delayMs - 15 * 60 * 1000;\n    const windowEnd = delayMs + 15 * 60 * 1000;\n\n    if (timeSinceEnd < windowStart || timeSinceEnd > windowEnd) continue;\n\n    // Skip if already sent\n    const dedupKey = user.id + ':' + meeting.activityUid;\n    if (sentSet.has(dedupKey)) continue;\n\n    // Skip meetings without account context\n    if (!meeting.accountName) continue;\n\n    output.push({\n      json: {\n        userId: user.id,\n        slackUserId: user.slack_user_id,\n        email: user.email,\n        repName,\n        assistantName: user.assistant_name || 'Aria',\n        assistantEmoji: user.assistant_emoji || ':robot_face:',\n        organizationId: user.organization_id,\n        meetingSubject: meeting.subject,\n        accountName: meeting.accountName,\n        accountId: meeting.accountId,\n        opportunityName: meeting.opportunityName,\n        participants: meeting.participants,\n        activityUid: meeting.activityUid,\n        meetingTimestamp: meeting.timestamp,\n        minutesSinceEnd: Math.round(timeSinceEnd / 60000),\n      }\n    });\n  }\n}\n\nif (output.length === 0) {\n  return [{ json: { noMatches: true } }];\n}\n\nreturn output;\n"
+                },
+                "id": "11d00dcc-9c5f-4296-9c5f-366a417cdb30",
+                "name": "Match Users to Ended Meetings",
+                "type": "n8n-nodes-base.code",
+                "typeVersion": 2,
+                "position": [
+                    2000,
+                    300
+                ]
+            },
+            {
+                "parameters": {
+                    "conditions": {
+                        "options": {
+                            "version": 2,
+                            "leftValue": "",
+                            "caseSensitive": true,
+                            "typeValidation": "strict"
+                        },
+                        "conditions": [
+                            {
+                                "id": "0bc48827-bc2a-40b5-9437-85e9cc08b14c",
+                                "leftValue": "={{ $json.noMatches }}",
+                                "rightValue": true,
+                                "operator": {
+                                    "type": "boolean",
+                                    "operation": "notEquals"
+                                }
+                            }
+                        ],
+                        "combinator": "and"
+                    },
+                    "options": {}
+                },
+                "id": "65e46fcc-367a-4077-9665-4e8154fb047f",
+                "name": "Has Matches?",
+                "type": "n8n-nodes-base.if",
+                "typeVersion": 2.2,
+                "position": [
+                    2250,
+                    300
+                ]
+            },
+            {
+                "parameters": {
+                    "options": {}
+                },
+                "id": "99049da1-8099-4d01-b616-95b7fff29f8c",
+                "name": "Split In Batches",
+                "type": "n8n-nodes-base.splitInBatches",
+                "typeVersion": 3,
+                "position": [
+                    2500,
+                    300
+                ]
+            },
+            {
+                "parameters": {
+                    "jsCode": "const data = $input.first().json;\n\nconst timeAgo = data.minutesSinceEnd < 60\n  ? `${data.minutesSinceEnd} minutes ago`\n  : `${Math.round(data.minutesSinceEnd / 60)} hours ago`;\n\nconst text = `You met with *${data.accountName}* ${timeAgo}` +\n  (data.meetingSubject ? ` \u2014 _${data.meetingSubject}_` : '') +\n  `\\n\\nWant me to draft a follow-up?`;\n\n// Interactive blocks with buttons\nconst blocks = [\n  {\n    type: \"section\",\n    text: { type: \"mrkdwn\", text: text }\n  },\n  {\n    type: \"actions\",\n    elements: [\n      {\n        type: \"button\",\n        text: { type: \"plain_text\", text: \":email:  Draft Follow-up\", emoji: true },\n        style: \"primary\",\n        action_id: \"followup_draft\",\n        value: JSON.stringify({\n          accountName: data.accountName,\n          accountId: data.accountId,\n          activityUid: data.activityUid,\n          meetingSubject: data.meetingSubject,\n          participants: data.participants,\n          userId: data.userId,\n          dbUserId: data.userId,\n          slackUserId: data.slackUserId,\n          organizationId: data.organizationId,\n          assistantName: data.assistantName,\n          assistantEmoji: data.assistantEmoji,\n          repName: data.repName,\n        })\n      },\n      {\n        type: \"button\",\n        text: { type: \"plain_text\", text: \"Skip\", emoji: true },\n        action_id: \"followup_skip\",\n        value: JSON.stringify({ activityUid: data.activityUid })\n      }\n    ]\n  }\n];\n\nreturn [{\n  json: {\n    ...data,\n    promptText: text,\n    blocks: JSON.stringify(blocks)\n  }\n}];\n"
+                },
+                "id": "3f4d7a49-445a-43dc-b1cc-b8c36462b0c4",
+                "name": "Build Follow-up Prompt",
+                "type": "n8n-nodes-base.code",
+                "typeVersion": 2,
+                "position": [
+                    2750,
+                    300
+                ]
+            },
+            {
+                "parameters": {
+                    "method": "POST",
+                    "url": "https://slack.com/api/conversations.open",
+                    "authentication": "genericCredentialType",
+                    "genericAuthType": "httpHeaderAuth",
+                    "sendHeaders": true,
+                    "headerParameters": {
+                        "parameters": [
+                            {
+                                "name": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ]
+                    },
+                    "sendBody": true,
+                    "specifyBody": "json",
+                    "jsonBody": "={{ JSON.stringify({ users: $json.slackUserId }) }}",
+                    "options": {}
+                },
+                "id": "c8dddbb2-a3f0-4dad-ac65-0046a069ec30",
+                "name": "Open Bot DM",
+                "type": "n8n-nodes-base.httpRequest",
+                "typeVersion": 4.2,
+                "position": [
+                    3000,
+                    300
+                ],
+                "credentials": {
+                    "httpHeaderAuth": {
+                        "id": "LluVuiMJ8NUbAiG7",
+                        "name": "Slackbot Auth Token"
+                    }
+                }
+            },
+            {
+                "parameters": {
+                    "method": "POST",
+                    "url": "https://slack.com/api/chat.postMessage",
+                    "authentication": "genericCredentialType",
+                    "genericAuthType": "httpHeaderAuth",
+                    "sendHeaders": true,
+                    "headerParameters": {
+                        "parameters": [
+                            {
+                                "name": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ]
+                    },
+                    "sendBody": true,
+                    "specifyBody": "json",
+                    "jsonBody": "={{ JSON.stringify({ channel: $json.channel.id, text: $(\"Build Follow-up Prompt\").first().json.promptText, blocks: JSON.parse($(\"Build Follow-up Prompt\").first().json.blocks), username: $(\"Build Follow-up Prompt\").first().json.assistantName, icon_emoji: $(\"Build Follow-up Prompt\").first().json.assistantEmoji }) }}",
+                    "options": {}
+                },
+                "id": "695a141b-d877-4e65-8269-3e82ef946c5d",
+                "name": "Send Follow-up Prompt",
+                "type": "n8n-nodes-base.httpRequest",
+                "typeVersion": 4.2,
+                "position": [
+                    3250,
+                    300
+                ],
+                "credentials": {
+                    "httpHeaderAuth": {
+                        "id": "LluVuiMJ8NUbAiG7",
+                        "name": "Slackbot Auth Token"
+                    }
+                }
+            },
+            {
+                "parameters": {
+                    "jsCode": "const data = $('Build Follow-up Prompt').first().json;\nconst sendResult = $('Send Follow-up Prompt').first().json;\n\nreturn [{\n  json: {\n    user_id: data.userId,\n    message_type: 'followup_prompt',\n    channel: 'slack',\n    direction: 'outbound',\n    content: data.promptText,\n    metadata: JSON.stringify({\n      activity_uid: data.activityUid,\n      account_name: data.accountName,\n      meeting_subject: data.meetingSubject,\n      slack_ts: sendResult.ts || null,\n      slack_channel: sendResult.channel || null\n    }),\n  }\n}];\n"
+                },
+                "id": "4c870b97-d7fc-4311-bc2b-4b62a8aa7e28",
+                "name": "Prepare Log Data",
+                "type": "n8n-nodes-base.code",
+                "typeVersion": 2,
+                "position": [
+                    3500,
+                    300
+                ]
+            },
+            {
+                "parameters": {
+                    "method": "POST",
+                    "url": "https://rhrlnkbphxntxxxcrgvv.supabase.co/rest/v1/messages",
+                    "authentication": "predefinedCredentialType",
+                    "nodeCredentialType": "supabaseApi",
+                    "sendHeaders": true,
+                    "headerParameters": {
+                        "parameters": [
+                            {
+                                "name": "Prefer",
+                                "value": "return=representation"
+                            },
+                            {
+                                "name": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ]
+                    },
+                    "sendBody": true,
+                    "specifyBody": "json",
+                    "jsonBody": "={{ JSON.stringify($json) }}",
+                    "options": {}
+                },
+                "id": "7c247953-e79e-4848-8dd1-d53801a9290a",
+                "name": "Log Follow-up Prompt",
+                "type": "n8n-nodes-base.httpRequest",
+                "typeVersion": 4.2,
+                "position": [
+                    3750,
+                    300
+                ],
+                "credentials": {
+                    "supabaseApi": {
+                        "id": "ASRWWkQ0RSMOpNF1",
+                        "name": "Supabase account"
+                    }
+                }
+            }
+        ],
+        "connections": {
+            "Every 15 Minutes": {
+                "main": [
+                    [
+                        {
+                            "node": "Get Auth Token",
+                            "type": "main",
+                            "index": 0
+                        }
+                    ]
+                ]
+            },
+            "Get Auth Token": {
+                "main": [
+                    [
+                        {
+                            "node": "Build Query",
+                            "type": "main",
+                            "index": 0
+                        }
+                    ]
+                ]
+            },
+            "Build Query": {
+                "main": [
+                    [
+                        {
+                            "node": "Fetch Today Meetings",
+                            "type": "main",
+                            "index": 0
+                        }
+                    ]
+                ]
+            },
+            "Fetch Today Meetings": {
+                "main": [
+                    [
+                        {
+                            "node": "Parse Meetings",
+                            "type": "main",
+                            "index": 0
+                        }
+                    ]
+                ]
+            },
+            "Parse Meetings": {
+                "main": [
+                    [
+                        {
+                            "node": "Get Followup Users",
+                            "type": "main",
+                            "index": 0
+                        }
+                    ]
+                ]
+            },
+            "Get Followup Users": {
+                "main": [
+                    [
+                        {
+                            "node": "Check Sent Followups",
+                            "type": "main",
+                            "index": 0
+                        }
+                    ]
+                ]
+            },
+            "Check Sent Followups": {
+                "main": [
+                    [
+                        {
+                            "node": "Match Users to Ended Meetings",
+                            "type": "main",
+                            "index": 0
+                        }
+                    ]
+                ]
+            },
+            "Match Users to Ended Meetings": {
+                "main": [
+                    [
+                        {
+                            "node": "Has Matches?",
+                            "type": "main",
+                            "index": 0
+                        }
+                    ]
+                ]
+            },
+            "Has Matches?": {
+                "main": [
+                    [
+                        {
+                            "node": "Split In Batches",
+                            "type": "main",
+                            "index": 0
+                        }
+                    ],
+                    []
+                ]
+            },
+            "Split In Batches": {
+                "main": [
+                    [],
+                    [
+                        {
+                            "node": "Build Follow-up Prompt",
+                            "type": "main",
+                            "index": 0
+                        }
+                    ]
+                ]
+            },
+            "Build Follow-up Prompt": {
+                "main": [
+                    [
+                        {
+                            "node": "Open Bot DM",
+                            "type": "main",
+                            "index": 0
+                        }
+                    ]
+                ]
+            },
+            "Open Bot DM": {
+                "main": [
+                    [
+                        {
+                            "node": "Send Follow-up Prompt",
+                            "type": "main",
+                            "index": 0
+                        }
+                    ]
+                ]
+            },
+            "Send Follow-up Prompt": {
+                "main": [
+                    [
+                        {
+                            "node": "Prepare Log Data",
+                            "type": "main",
+                            "index": 0
+                        }
+                    ]
+                ]
+            },
+            "Prepare Log Data": {
+                "main": [
+                    [
+                        {
+                            "node": "Log Follow-up Prompt",
+                            "type": "main",
+                            "index": 0
+                        }
+                    ]
+                ]
+            },
+            "Log Follow-up Prompt": {
+                "main": [
+                    [
+                        {
+                            "node": "Split In Batches",
+                            "type": "main",
+                            "index": 0
+                        }
+                    ]
+                ]
+            }
+        },
+        "authors": "Scott Metcalf",
+        "name": null,
+        "description": null,
+        "autosaved": false,
+        "workflowPublishHistory": [
+            {
+                "createdAt": "2026-03-04T23:33:20.434Z",
+                "id": 682,
+                "workflowId": "JhDuCvZdFN4PFTOW",
+                "versionId": "0d3463ca-fc5b-4aec-af70-baf2e760d4b8",
+                "event": "activated",
+                "userId": "bfa163c1-bd53-4c0f-b0ba-8dc3626f7c79"
+            },
+            {
+                "createdAt": "2026-03-04T23:33:20.410Z",
+                "id": 681,
+                "workflowId": "JhDuCvZdFN4PFTOW",
+                "versionId": "0d3463ca-fc5b-4aec-af70-baf2e760d4b8",
+                "event": "deactivated",
+                "userId": "bfa163c1-bd53-4c0f-b0ba-8dc3626f7c79"
+            }
+        ]
+    }
+}
