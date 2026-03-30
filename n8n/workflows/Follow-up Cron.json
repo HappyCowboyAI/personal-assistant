@@ -1,5 +1,5 @@
 {
-    "updatedAt": "2026-03-04T23:33:20.354Z",
+    "updatedAt": "2026-03-25T17:30:57.087Z",
     "createdAt": "2026-03-04T00:59:29.239Z",
     "id": "JhDuCvZdFN4PFTOW",
     "name": "Follow-up Cron",
@@ -7,26 +7,6 @@
     "active": true,
     "isArchived": false,
     "nodes": [
-        {
-            "parameters": {
-                "rule": {
-                    "interval": [
-                        {
-                            "field": "minutes",
-                            "minutesInterval": 15
-                        }
-                    ]
-                }
-            },
-            "id": "cd18c603-7a37-47d3-a90c-8a5350db0dbd",
-            "name": "Every 15 Minutes",
-            "type": "n8n-nodes-base.scheduleTrigger",
-            "typeVersion": 1.2,
-            "position": [
-                250,
-                300
-            ]
-        },
         {
             "parameters": {
                 "method": "POST",
@@ -50,21 +30,21 @@
             "type": "n8n-nodes-base.httpRequest",
             "typeVersion": 4.2,
             "position": [
-                500,
-                300
+                480,
+                384
             ]
         },
         {
             "parameters": {
-                "jsCode": "// Build People.ai export query for today's external meetings\n// Same pattern as Meeting Prep Cron, but we look for meetings that already happened\nconst now = Date.now();\nconst startOfDay = new Date();\nstartOfDay.setHours(0, 0, 0, 0);\nconst endOfDay = new Date();\nendOfDay.setHours(23, 59, 59, 999);\n\nconst query = {\n  object: \"activity\",\n  filter: {\n    \"$and\": [\n      { attribute: { slug: \"ootb_activity_type\" }, clause: { \"$eq\": \"meeting\" } },\n      { attribute: { slug: \"ootb_activity_external\" }, clause: { \"$eq\": true } },\n      { attribute: { slug: \"ootb_activity_timestamp\" }, clause: { \"$gte\": startOfDay.getTime() } },\n      { attribute: { slug: \"ootb_activity_timestamp\" }, clause: { \"$lte\": now } }\n    ]\n  },\n  columns: [\n    { slug: \"ootb_activity_uid\" },\n    { slug: \"ootb_activity_timestamp\" },\n    { slug: \"ootb_activity_subject\" },\n    { slug: \"ootb_activity_originator\" },\n    { slug: \"ootb_activity_account_name\" },\n    { slug: \"ootb_activity_account_id\" },\n    { slug: \"ootb_activity_opportunity_name\" },\n    { slug: \"ootb_activity_participants\" }\n  ],\n  sort: [{ attribute: { slug: \"ootb_activity_timestamp\" }, direction: \"desc\" }]\n};\n\nreturn [{ json: { query: JSON.stringify(query) } }];\n"
+                "jsCode": "// Build People.ai export query for meetings in the last 24 hours\n// At 9am: catches yesterday afternoon meetings (4h+ delay means they're ready)\n// At 3pm: catches this morning's meetings (ended by 11am, 4h+ elapsed)\nconst now = Date.now();\nconst twentyFourHoursAgo = now - 24 * 60 * 60 * 1000;\n\nconst query = {\n  object: \"activity\",\n  filter: {\n    \"$and\": [\n      { attribute: { slug: \"ootb_activity_type\" }, clause: { \"$eq\": \"meeting\" } },\n      { attribute: { slug: \"ootb_activity_external\" }, clause: { \"$eq\": true } },\n      { attribute: { slug: \"ootb_activity_timestamp\" }, clause: { \"$gte\": twentyFourHoursAgo } },\n      { attribute: { slug: \"ootb_activity_timestamp\" }, clause: { \"$lte\": now } }\n    ]\n  },\n  columns: [\n    { slug: \"ootb_activity_uid\" },\n    { slug: \"ootb_activity_timestamp\" },\n    { slug: \"ootb_activity_subject\" },\n    { slug: \"ootb_activity_originator\" },\n    { slug: \"ootb_activity_account_name\" },\n    { slug: \"ootb_activity_opportunity_name\" },\n    { slug: \"ootb_activity_participants\", variation_id: \"ootb_activity_participants_email\" },\n    { slug: \"ootb_activity_participants\", variation_id: \"ootb_activity_participants_name\" }\n  ],\n  sort: [{ attribute: { slug: \"ootb_activity_timestamp\" }, direction: \"desc\" }]\n};\n\nreturn [{ json: { query: JSON.stringify(query) } }];\n"
             },
             "id": "762f5040-605f-4f29-a809-5b448945baff",
             "name": "Build Query",
             "type": "n8n-nodes-base.code",
             "typeVersion": 2,
             "position": [
-                750,
-                300
+                704,
+                384
             ]
         },
         {
@@ -94,27 +74,26 @@
             "type": "n8n-nodes-base.httpRequest",
             "typeVersion": 4.2,
             "position": [
-                1000,
-                300
+                928,
+                384
             ],
             "continueOnFail": true
         },
         {
             "parameters": {
-                "jsCode": "// Parse CSV response from People.ai meetings export\nconst raw = $('Fetch Today Meetings').first().json.data || '';\nif (!raw || raw.trim().length === 0) {\n  return [{ json: { meetings: [], meetingCount: 0 } }];\n}\n\nconst lines = raw.split('\\n');\nif (lines.length < 2) {\n  return [{ json: { meetings: [], meetingCount: 0 } }];\n}\n\n// Parse CSV header\nconst headerLine = lines[0];\nconst headers = [];\nlet field = '';\nlet inQuotes = false;\nfor (let i = 0; i < headerLine.length; i++) {\n  const c = headerLine[i];\n  if (c === '\"') { inQuotes = !inQuotes; }\n  else if (c === ',' && !inQuotes) { headers.push(field.trim()); field = ''; }\n  else { field += c; }\n}\nheaders.push(field.trim());\n\n// Parse CSV rows\nfunction parseCSVRow(line) {\n  const fields = [];\n  let f = '';\n  let q = false;\n  for (let i = 0; i < line.length; i++) {\n    const c = line[i];\n    if (c === '\"') {\n      if (q && i + 1 < line.length && line[i + 1] === '\"') { f += '\"'; i++; }\n      else { q = !q; }\n    } else if (c === ',' && !q) { fields.push(f.trim()); f = ''; }\n    else { f += c; }\n  }\n  fields.push(f.trim());\n  return fields;\n}\n\nfunction getVal(row, name) {\n  const idx = headers.findIndex(h => h.toLowerCase().includes(name.toLowerCase()));\n  return idx >= 0 ? (row[idx] || '') : '';\n}\n\nconst meetings = [];\nfor (let i = 1; i < lines.length; i++) {\n  if (!lines[i].trim()) continue;\n  const row = parseCSVRow(lines[i]);\n\n  const tsRaw = getVal(row, 'timestamp');\n  let tsMs = 0;\n  if (tsRaw) {\n    // Could be ISO string or epoch ms\n    const num = Number(tsRaw);\n    if (!isNaN(num) && num > 1e12) { tsMs = num; }\n    else { tsMs = new Date(tsRaw).getTime(); }\n  }\n  if (!tsMs || isNaN(tsMs)) continue;\n\n  meetings.push({\n    activityUid: getVal(row, 'uid') || getVal(row, 'activity_uid'),\n    timestamp: tsMs,\n    subject: getVal(row, 'subject'),\n    originator: getVal(row, 'originator'),\n    accountName: getVal(row, 'account_name') || getVal(row, 'account'),\n    accountId: getVal(row, 'account_id'),\n    opportunityName: getVal(row, 'opportunity_name') || getVal(row, 'opportunity'),\n    participants: getVal(row, 'participants'),\n  });\n}\n\nreturn [{ json: { meetings, meetingCount: meetings.length, headers } }];\n"
+                "jsCode": "// Parse CSV response from People.ai meetings export\n// API returns human-readable headers: \"Activity\", \"Activity date\", \"Subject\",\n// \"Account Name\", \"Opportunity Name\", \"Activity Participants (Email)\", etc.\nconst raw = $('Fetch Today Meetings').first().json.data || '';\nif (!raw || raw.trim().length === 0) {\n  return [{ json: { meetings: [], meetingCount: 0 } }];\n}\n\nconst lines = raw.split('\\n');\nif (lines.length < 2) {\n  return [{ json: { meetings: [], meetingCount: 0 } }];\n}\n\n// Parse CSV header\nconst headerLine = lines[0];\nconst headers = [];\nlet field = '';\nlet inQuotes = false;\nfor (let i = 0; i < headerLine.length; i++) {\n  const c = headerLine[i];\n  if (c === '\"') { inQuotes = !inQuotes; }\n  else if (c === ',' && !inQuotes) { headers.push(field.trim()); field = ''; }\n  else { field += c; }\n}\nheaders.push(field.trim());\n\n// Parse CSV rows\nfunction parseCSVRow(line) {\n  const fields = [];\n  let f = '';\n  let q = false;\n  for (let i = 0; i < line.length; i++) {\n    const c = line[i];\n    if (c === '\"') {\n      if (q && i + 1 < line.length && line[i + 1] === '\"') { f += '\"'; i++; }\n      else { q = !q; }\n    } else if (c === ',' && !q) { fields.push(f.trim()); f = ''; }\n    else { f += c; }\n  }\n  fields.push(f.trim());\n  return fields;\n}\n\n// Flexible header matching: check multiple possible names\nfunction getVal(row, ...names) {\n  for (const name of names) {\n    const idx = headers.findIndex(h => h.toLowerCase().includes(name.toLowerCase()));\n    if (idx >= 0 && row[idx]) return row[idx];\n  }\n  return '';\n}\n\n// Parse bracket-delimited list: \"[a;b;c]\" \u2192 [\"a\",\"b\",\"c\"]\nfunction parseList(val) {\n  if (!val) return [];\n  return val.replace(/^\\[/, '').replace(/\\]$/, '').trim()\n    .split(';').map(s => s.trim()).filter(Boolean);\n}\n\nconst meetings = [];\nfor (let i = 1; i < lines.length; i++) {\n  if (!lines[i].trim()) continue;\n  const row = parseCSVRow(lines[i]);\n\n  // Match actual API headers: \"Activity date\", \"Activity\", \"Subject\", etc.\n  const tsRaw = getVal(row, 'Activity date', 'date', 'timestamp');\n  let tsMs = 0;\n  if (tsRaw) {\n    const num = Number(tsRaw);\n    if (!isNaN(num) && num > 1e12) { tsMs = num; }\n    else {\n      const parsed = new Date(tsRaw);\n      if (!isNaN(parsed.getTime())) tsMs = parsed.getTime();\n    }\n  }\n  if (!tsMs || isNaN(tsMs)) continue;\n\n  const activityUid = getVal(row, 'Activity') || '';\n  // Skip if no UID (first column \"Activity\" contains the UID)\n  if (!activityUid) continue;\n\n  const participantEmails = parseList(getVal(row, 'Participants (Email)', 'Participants'));\n  const participantNames = parseList(getVal(row, 'Participants (Name)'));\n\n  meetings.push({\n    activityUid,\n    timestamp: tsMs,\n    subject: getVal(row, 'Subject'),\n    originator: getVal(row, 'Originator'),\n    accountName: getVal(row, 'Account Name', 'Account'),\n    accountId: '',\n    opportunityName: getVal(row, 'Opportunity Name', 'Opportunity'),\n    participants: participantEmails.join('; '),\n    participantEmails,\n    participantNames,\n  });\n}\n\nreturn [{ json: { meetings, meetingCount: meetings.length, headers } }];\n"
             },
             "id": "afb2c3a5-40f3-4abd-9e1f-bbcf3fc382e5",
             "name": "Parse Meetings",
             "type": "n8n-nodes-base.code",
             "typeVersion": 2,
             "position": [
-                1250,
-                300
+                1152,
+                384
             ]
         },
         {
             "parameters": {
-                "method": "GET",
                 "url": "https://rhrlnkbphxntxxxcrgvv.supabase.co/rest/v1/users?onboarding_state=eq.complete&select=id,slack_user_id,email,assistant_name,assistant_emoji,organization_id,onboarding_state,followup_delay_minutes,followup_enabled",
                 "authentication": "predefinedCredentialType",
                 "nodeCredentialType": "supabaseApi",
@@ -125,8 +104,8 @@
             "type": "n8n-nodes-base.httpRequest",
             "typeVersion": 4.2,
             "position": [
-                1500,
-                300
+                1376,
+                384
             ],
             "credentials": {
                 "supabaseApi": {
@@ -137,8 +116,7 @@
         },
         {
             "parameters": {
-                "method": "GET",
-                "url": "=https://rhrlnkbphxntxxxcrgvv.supabase.co/rest/v1/messages?message_type=eq.followup_prompt&sent_at=gte.{{ new Date(new Date().setHours(0,0,0,0)).toISOString() }}&select=user_id,metadata",
+                "url": "={{ $json.dedupUrl }}",
                 "authentication": "predefinedCredentialType",
                 "nodeCredentialType": "supabaseApi",
                 "options": {}
@@ -148,28 +126,28 @@
             "type": "n8n-nodes-base.httpRequest",
             "typeVersion": 4.2,
             "position": [
-                1750,
-                300
+                1824,
+                384
             ],
+            "alwaysOutputData": true,
             "credentials": {
                 "supabaseApi": {
                     "id": "ASRWWkQ0RSMOpNF1",
                     "name": "Supabase account"
                 }
-            },
-            "alwaysOutputData": true
+            }
         },
         {
             "parameters": {
-                "jsCode": "// Match users to meetings that ended within their follow-up window\nconst meetings = $('Parse Meetings').first().json.meetings || [];\nconst usersAll = $('Get Followup Users').all().map(i => i.json);\nconst sentAll = $('Check Sent Followups').all().map(i => i.json);\n\n// Filter valid users\nconst users = usersAll.filter(u => u && u.id && u.onboarding_state === 'complete');\n\n// Build dedup set: userId:activityUid\nconst sentSet = new Set();\nfor (const msg of sentAll) {\n  if (msg && msg.metadata) {\n    try {\n      const meta = typeof msg.metadata === 'string' ? JSON.parse(msg.metadata) : msg.metadata;\n      if (meta.activity_uid && msg.user_id) {\n        sentSet.add(msg.user_id + ':' + meta.activity_uid);\n      }\n    } catch(e) {}\n  }\n}\n\nconst now = Date.now();\nconst output = [];\n\n// Assume meetings last ~60 minutes\nconst MEETING_DURATION_MS = 60 * 60 * 1000;\n\nfor (const user of users) {\n  const delayMs = (user.followup_delay_minutes || 30) * 60 * 1000;\n  const followupEnabled = user.followup_enabled !== false;\n  if (!followupEnabled) continue;\n\n  // Derive rep name from email\n  const repName = user.email\n    ? user.email.split('@')[0].split('.').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')\n    : 'there';\n\n  for (const meeting of meetings) {\n    // Estimated end time = meeting start + 60 min\n    const estimatedEnd = meeting.timestamp + MEETING_DURATION_MS;\n    const timeSinceEnd = now - estimatedEnd;\n\n    // Follow-up window: delay \u00b1 15 min\n    // e.g., 30 min delay \u2192 send between 15 and 45 min after meeting ends\n    const windowStart = delayMs - 15 * 60 * 1000;\n    const windowEnd = delayMs + 15 * 60 * 1000;\n\n    if (timeSinceEnd < windowStart || timeSinceEnd > windowEnd) continue;\n\n    // Skip if already sent\n    const dedupKey = user.id + ':' + meeting.activityUid;\n    if (sentSet.has(dedupKey)) continue;\n\n    // Skip meetings without account context\n    if (!meeting.accountName) continue;\n\n    output.push({\n      json: {\n        userId: user.id,\n        slackUserId: user.slack_user_id,\n        email: user.email,\n        repName,\n        assistantName: user.assistant_name || 'Aria',\n        assistantEmoji: user.assistant_emoji || ':robot_face:',\n        organizationId: user.organization_id,\n        meetingSubject: meeting.subject,\n        accountName: meeting.accountName,\n        accountId: meeting.accountId,\n        opportunityName: meeting.opportunityName,\n        participants: meeting.participants,\n        activityUid: meeting.activityUid,\n        meetingTimestamp: meeting.timestamp,\n        minutesSinceEnd: Math.round(timeSinceEnd / 60000),\n      }\n    });\n  }\n}\n\nif (output.length === 0) {\n  return [{ json: { noMatches: true } }];\n}\n\nreturn output;\n"
+                "jsCode": "// Match users to meetings that ended 4+ hours ago (transcript available)\n// CRITICAL: Only include meetings where the user is a PARTICIPANT\n// Group by user: output ONE item per user with all their ready meetings\nconst meetings = $('Parse Meetings').first().json.meetings || [];\nconst usersAll = $('Get Followup Users').all().map(i => i.json);\nconst sentAll = $('Check Sent Followups').all().map(i => i.json);\n\n// Filter valid users\nconst users = usersAll.filter(u => u && u.id && u.onboarding_state === 'complete');\n\n// Build dedup set: userId:activityUid\nconst sentSet = new Set();\nfor (const msg of sentAll) {\n  if (msg && msg.metadata) {\n    try {\n      const meta = typeof msg.metadata === 'string' ? JSON.parse(msg.metadata) : msg.metadata;\n      if (meta.activity_uid && msg.user_id) {\n        sentSet.add(msg.user_id + ':' + meta.activity_uid);\n      }\n    } catch(e) {}\n  }\n}\n\nconst now = Date.now();\nconst MEETING_DURATION_MS = 60 * 60 * 1000; // assume 60 min meetings\nconst MIN_ELAPSED_MS = 4 * 60 * 60 * 1000;  // 4 hours after meeting end\n\nconst output = [];\n\nfor (const user of users) {\n  const followupEnabled = user.followup_enabled !== false;\n  if (!followupEnabled) continue;\n\n  const userEmail = (user.email || '').toLowerCase();\n  if (!userEmail) continue;\n\n  const repName = userEmail\n    .split('@')[0].split('.').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');\n\n  const readyMeetings = [];\n\n  for (const meeting of meetings) {\n    // Only include meetings this user attended\n    const participantEmails = (meeting.participantEmails || []).map(e => e.toLowerCase());\n    if (!participantEmails.includes(userEmail)) continue;\n\n    const estimatedEnd = meeting.timestamp + MEETING_DURATION_MS;\n    const timeSinceEnd = now - estimatedEnd;\n\n    if (timeSinceEnd < MIN_ELAPSED_MS) continue;\n\n    const dedupKey = user.id + ':' + meeting.activityUid;\n    if (sentSet.has(dedupKey)) continue;\n\n    if (!meeting.accountName) continue;\n\n    const tz = 'America/Los_Angeles';\n    const meetingDate = new Date(meeting.timestamp);\n    const timeStr = meetingDate.toLocaleTimeString('en-US', { timeZone: tz, hour: 'numeric', minute: '2-digit' });\n    const dayStr = meetingDate.toLocaleDateString('en-US', { timeZone: tz, weekday: 'short' });\n    const hoursAgo = Math.round(timeSinceEnd / 3600000);\n\n    readyMeetings.push({\n      activityUid: meeting.activityUid,\n      subject: meeting.subject || '[no subject]',\n      accountName: meeting.accountName,\n      accountId: meeting.accountId || '',\n      opportunityName: meeting.opportunityName || '',\n      participants: meeting.participants || '',\n      timestamp: meeting.timestamp,\n      timeStr,\n      dayStr,\n      hoursAgo,\n    });\n  }\n\n  if (readyMeetings.length === 0) continue;\n\n  readyMeetings.sort((a, b) => b.timestamp - a.timestamp);\n\n  output.push({\n    json: {\n      userId: user.id,\n      slackUserId: user.slack_user_id,\n      email: user.email,\n      repName,\n      assistantName: user.assistant_name || 'Aria',\n      assistantEmoji: user.assistant_emoji || ':robot_face:',\n      organizationId: user.organization_id,\n      meetings: readyMeetings,\n      meetingCount: readyMeetings.length,\n    }\n  });\n}\n\nif (output.length === 0) {\n  return [{ json: { noMatches: true } }];\n}\n\nreturn output;\n"
             },
             "id": "11d00dcc-9c5f-4296-9c5f-366a417cdb30",
             "name": "Match Users to Ended Meetings",
             "type": "n8n-nodes-base.code",
             "typeVersion": 2,
             "position": [
-                2000,
-                300
+                2048,
+                384
             ]
         },
         {
@@ -201,8 +179,8 @@
             "type": "n8n-nodes-base.if",
             "typeVersion": 2.2,
             "position": [
-                2250,
-                300
+                2272,
+                384
             ]
         },
         {
@@ -214,21 +192,21 @@
             "type": "n8n-nodes-base.splitInBatches",
             "typeVersion": 3,
             "position": [
-                2500,
-                300
+                2496,
+                384
             ]
         },
         {
             "parameters": {
-                "jsCode": "const data = $input.first().json;\n\nconst timeAgo = data.minutesSinceEnd < 60\n  ? `${data.minutesSinceEnd} minutes ago`\n  : `${Math.round(data.minutesSinceEnd / 60)} hours ago`;\n\nconst text = `You met with *${data.accountName}* ${timeAgo}` +\n  (data.meetingSubject ? ` \u2014 _${data.meetingSubject}_` : '') +\n  `\\n\\nWant me to draft a follow-up?`;\n\n// Interactive blocks with buttons\nconst blocks = [\n  {\n    type: \"section\",\n    text: { type: \"mrkdwn\", text: text }\n  },\n  {\n    type: \"actions\",\n    elements: [\n      {\n        type: \"button\",\n        text: { type: \"plain_text\", text: \":email:  Draft Follow-up\", emoji: true },\n        style: \"primary\",\n        action_id: \"followup_draft\",\n        value: JSON.stringify({\n          accountName: data.accountName,\n          accountId: data.accountId,\n          activityUid: data.activityUid,\n          meetingSubject: data.meetingSubject,\n          participants: data.participants,\n          userId: data.userId,\n          dbUserId: data.userId,\n          slackUserId: data.slackUserId,\n          organizationId: data.organizationId,\n          assistantName: data.assistantName,\n          assistantEmoji: data.assistantEmoji,\n          repName: data.repName,\n        })\n      },\n      {\n        type: \"button\",\n        text: { type: \"plain_text\", text: \"Skip\", emoji: true },\n        action_id: \"followup_skip\",\n        value: JSON.stringify({ activityUid: data.activityUid })\n      }\n    ]\n  }\n];\n\nreturn [{\n  json: {\n    ...data,\n    promptText: text,\n    blocks: JSON.stringify(blocks)\n  }\n}];\n"
+                "jsCode": "// Build per-meeting recap context for AI agent\n// Output ONE item per meeting (agent processes each individually)\nconst data = $input.first().json;\nconst meetings = data.meetings || [];\n\nif (meetings.length === 0) {\n  return [{ json: { ...data, skip: true } }];\n}\n\nconst todayStr = new Date().toLocaleDateString('en-US', {\n  weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'\n});\nconst tz = data.timezone || 'America/Los_Angeles';\nconst assistantName = data.assistantName || 'Aria';\nconst assistantEmoji = data.assistantEmoji || ':robot_face:';\nconst assistantPersona = data.assistantPersona || 'direct, action-oriented, and conversational';\nconst repName = data.repName || 'Rep';\n\nconst results = [];\n\nfor (const m of meetings) {\n  const systemPrompt = `You are ${assistantName}, a personal sales assistant for ${repName}.\nYour personality: ${assistantPersona}\n\nTODAY IS ${todayStr}. ${repName} is in ${tz}.\n\nMEETING CONTEXT:\n- Account: ${m.accountName}\n- Subject: ${m.subject}\n- Time: ${m.dayStr} ${m.timeStr}\n- Participants: ${m.participants || 'Unknown'}\n- Participant Emails: ${(m.participantEmails || []).join('; ') || 'Unknown'}\n\nUse People.ai MCP tools to research this meeting:\n1. Find the meeting transcript, notes, topics discussed, and action items\n2. Look up participant roles and recent engagement history\n3. Check the related opportunity status if one exists\n4. Get recent account activity for context\n\nGenerate a structured meeting recap as a JSON object with this exact shape:\n{\n  \"summary\": \"2-3 sentence recap of what was discussed and key outcomes\",\n  \"sentiment\": \"positive|neutral|negative|mixed\",\n  \"sentiment_signal\": \"one sentence explaining the sentiment\",\n  \"tasks\": [\n    {\n      \"description\": \"specific action item from the meeting\",\n      \"owner\": \"MUST be an internal People.ai employee \u2014 never assign to external/customer contacts\",\n      \"owner_email\": \"email address of the internal owner from the Participant Emails list \u2014 match the owner name to their email\",\n      \"assignee_role\": \"CSM, AE, SE, or AI \u2014 CSM for technical support, training, onboarding, implementation; AE for strategic, commercial, expansion, executive engagement; SE for sales engineering, technical scoping, demos; AI for AI innovation and executive initiatives\",\n      \"duration_minutes\": \"estimated minutes (15, 30, 45, 60, 90, 120)\",\n      \"due_hint\": \"timeframe suggestion\",\n      \"task_category\": \"best match from: Discovery Meeting, Demo Meeting, Prospecting & Qualification, Solution Presentation & Demo, Commercials & Negotiation, Technical Scoping & Solutioning, Onboarding & Implementation, Account & Renewal Management, Expansion & Upsell, Customer Training, Internal Deal Support (Legal/Fin/Sec), Product & Engineering Inquiry, Strategic Account & Territory Planning, Sales Operations & Coaching\"\n    }\n  ],\n  \"key_decisions\": [\"decision 1\", \"decision 2\"],\n  \"follow_up_context\": \"context to enrich a follow-up email\",\n  \"meeting_category\": \"best match from: Discovery Meeting, Demo Meeting, Proposal Meeting, Security Meeting, Procurement Meeting, Legal Meeting\",\n}\n\n\nFor each task, estimate the duration in minutes and assign the role (CSM or AE) based on the nature of the work.\n\nTOOL CALL BUDGET: You have limited tool calls. After ~8 calls, produce your output.\nIf a tool returns no data, move on. Do not retry.\n\nRULES:\n- Extract REAL tasks mentioned in the meeting \u2014 do NOT fabricate\n- If transcript data is limited, say so in the summary and provide what you can from account context\n- Tasks must be specific and actionable (\"Send pricing proposal to Mark by Friday\" not \"Follow up\")\n- Maximum 5 tasks\n- Keep summary under 100 words\n- Output ONLY the JSON object \u2014 no prose, no markdown fences\n\nBased on the meeting content, select the single best-matching value for each category field. Use the exact picklist value string. If none fit well, use null.`;\n\n  const agentPrompt = `Generate a meeting recap for my ${m.subject} meeting with ${m.accountName}.` +\n    (m.participants ? ` Participants: ${m.participants}.` : '') +\n    ` Use People.ai MCP tools to find transcript data, topics, and action items.` +\n    ` Output ONLY the JSON object.`;\n\n  results.push({\n    json: {\n      ...data,\n      meeting: m,\n      accountName: m.accountName,\n      meetingSubject: m.subject,\n      activityUid: m.activityUid,\n      systemPrompt,\n      agentPrompt,\n      assistantName,\n      assistantEmoji,\n      repName,\n    }\n  });\n}\n\nreturn results;"
             },
             "id": "3f4d7a49-445a-43dc-b1cc-b8c36462b0c4",
-            "name": "Build Follow-up Prompt",
+            "name": "Build Recap Context",
             "type": "n8n-nodes-base.code",
             "typeVersion": 2,
             "position": [
-                2750,
-                300
+                2720,
+                304
             ]
         },
         {
@@ -256,8 +234,8 @@
             "type": "n8n-nodes-base.httpRequest",
             "typeVersion": 4.2,
             "position": [
-                3000,
-                300
+                2944,
+                304
             ],
             "credentials": {
                 "httpHeaderAuth": {
@@ -283,16 +261,16 @@
                 },
                 "sendBody": true,
                 "specifyBody": "json",
-                "jsonBody": "={{ JSON.stringify({ channel: $json.channel.id, text: $(\"Build Follow-up Prompt\").first().json.promptText, blocks: JSON.parse($(\"Build Follow-up Prompt\").first().json.blocks), username: $(\"Build Follow-up Prompt\").first().json.assistantName, icon_emoji: $(\"Build Follow-up Prompt\").first().json.assistantEmoji }) }}",
+                "jsonBody": "={{ JSON.stringify({ channel: $json.channel.id, text: $(\"Build Recap Card\").first().json.promptText, blocks: JSON.parse($(\"Build Recap Card\").first().json.blocks), username: $(\"Build Recap Card\").first().json.assistantName, icon_emoji: $(\"Build Recap Card\").first().json.assistantEmoji }) }}",
                 "options": {}
             },
             "id": "695a141b-d877-4e65-8269-3e82ef946c5d",
-            "name": "Send Follow-up Prompt",
+            "name": "Send Recap",
             "type": "n8n-nodes-base.httpRequest",
             "typeVersion": 4.2,
             "position": [
-                3250,
-                300
+                3168,
+                304
             ],
             "credentials": {
                 "httpHeaderAuth": {
@@ -303,15 +281,15 @@
         },
         {
             "parameters": {
-                "jsCode": "const data = $('Build Follow-up Prompt').first().json;\nconst sendResult = $('Send Follow-up Prompt').first().json;\n\nreturn [{\n  json: {\n    user_id: data.userId,\n    message_type: 'followup_prompt',\n    channel: 'slack',\n    direction: 'outbound',\n    content: data.promptText,\n    metadata: JSON.stringify({\n      activity_uid: data.activityUid,\n      account_name: data.accountName,\n      meeting_subject: data.meetingSubject,\n      slack_ts: sendResult.ts || null,\n      slack_channel: sendResult.channel || null\n    }),\n  }\n}];\n"
+                "jsCode": "// Log recap delivery for dedup\nconst data = $('Build Recap Card').first().json;\nconst sendResult = $('Send Recap').first().json;\nconst m = data.meeting || {};\n\nreturn [{ json: {\n  user_id: data.userId,\n  message_type: 'meeting_recap',\n  channel: 'slack',\n  direction: 'outbound',\n  content: data.promptText || 'Meeting recap',\n  metadata: JSON.stringify({\n    activity_uid: m.activityUid || data.activityUid,\n    account_name: m.accountName || '',\n    meeting_subject: m.subject || '',\n    slack_ts: sendResult.ts || null,\n    slack_channel: sendResult.channel || null,\n    recap_sentiment: data.recap ? data.recap.sentiment : null,\n    recap_task_count: data.recap ? (data.recap.tasks || []).length : 0,\n  }),\n}}];"
             },
             "id": "4c870b97-d7fc-4311-bc2b-4b62a8aa7e28",
             "name": "Prepare Log Data",
             "type": "n8n-nodes-base.code",
             "typeVersion": 2,
             "position": [
-                3500,
-                300
+                3392,
+                304
             ]
         },
         {
@@ -343,8 +321,8 @@
             "type": "n8n-nodes-base.httpRequest",
             "typeVersion": 4.2,
             "position": [
-                3750,
-                300
+                3616,
+                384
             ],
             "credentials": {
                 "supabaseApi": {
@@ -352,20 +330,180 @@
                     "name": "Supabase account"
                 }
             }
+        },
+        {
+            "parameters": {
+                "rule": {
+                    "interval": [
+                        {
+                            "field": "cronExpression",
+                            "expression": "0 9,16 * * 1-5"
+                        }
+                    ]
+                }
+            },
+            "id": "cd18c603-7a37-47d3-a90c-8a5350db0dbd",
+            "name": "Followup Check (9am + 4pm PT)",
+            "type": "n8n-nodes-base.scheduleTrigger",
+            "typeVersion": 1.2,
+            "position": [
+                256,
+                384
+            ]
+        },
+        {
+            "parameters": {
+                "jsCode": "// Compute the 48h lookback window for dedup\nconst cutoff = new Date(Date.now() - 48 * 60 * 60 * 1000).toISOString();\nconst url = 'https://rhrlnkbphxntxxxcrgvv.supabase.co/rest/v1/messages'\n  + '?message_type=in.(followup_prompt,meeting_recap)'\n  + '&sent_at=gte.' + cutoff\n  + '&select=user_id,metadata'\n  + '&limit=500';\n\n// Pass through all upstream data plus the computed URL\nreturn $input.all().map(item => ({\n  json: { ...item.json, dedupUrl: url }\n}));\n"
+            },
+            "id": "f3b0e2cf-cf6a-438a-9ceb-4bb298488f91",
+            "name": "Compute Dedup Window",
+            "type": "n8n-nodes-base.code",
+            "typeVersion": 2,
+            "position": [
+                1600,
+                384
+            ]
+        },
+        {
+            "parameters": {
+                "model": {
+                    "__rl": true,
+                    "mode": "list",
+                    "value": "claude-sonnet-4-5-20250929",
+                    "cachedResultName": "Claude Sonnet 4.5"
+                },
+                "options": {}
+            },
+            "id": "fcace639-b15e-434f-8d32-4f4787e9e2f4",
+            "name": "Anthropic Chat Model (Recap)",
+            "type": "@n8n/n8n-nodes-langchain.lmChatAnthropic",
+            "typeVersion": 1.3,
+            "position": [
+                3120,
+                454
+            ],
+            "credentials": {
+                "anthropicApi": {
+                    "id": "rlAz7ZSl4y6AwRUq",
+                    "name": "Anthropic account 2"
+                }
+            }
+        },
+        {
+            "parameters": {
+                "endpointUrl": "https://mcp-canary.people.ai/mcp",
+                "authentication": "multipleHeadersAuth"
+            },
+            "id": "f588c3af-cae2-4c55-b7ec-dc85a14582cf",
+            "name": "People.ai MCP (Recap)",
+            "type": "@n8n/n8n-nodes-langchain.mcpClientTool",
+            "typeVersion": 1.2,
+            "position": [
+                3270,
+                454
+            ],
+            "credentials": {
+                "httpMultipleHeadersAuth": {
+                    "id": "wvV5pwBeIL7f2vLG",
+                    "name": "People.ai MCP Multi-Header"
+                }
+            }
+        },
+        {
+            "parameters": {
+                "options": {
+                    "systemMessage": "={{ $json.systemPrompt }}",
+                    "maxIterations": 15
+                },
+                "text": "={{ $json.agentPrompt }}",
+                "promptType": "define"
+            },
+            "id": "7e8f05ac-6105-44c7-899b-298e67e0c630",
+            "name": "Recap Agent",
+            "type": "@n8n/n8n-nodes-langchain.agent",
+            "typeVersion": 1.7,
+            "position": [
+                3120,
+                304
+            ],
+            "continueOnFail": true
+        },
+        {
+            "parameters": {
+                "jsCode": "// Parse recap agent output into structured data\nconst agentOutput = $('Recap Agent').first().json.output || '';\nconst context = $('Build Recap Context').first().json;\n\nlet recap = {};\ntry {\n  // Try to parse JSON from agent output (may be wrapped in code fences)\n  let jsonStr = agentOutput;\n  const fenceMatch = jsonStr.match(/```(?:json)?\\s*([\\s\\S]*?)```/);\n  if (fenceMatch) jsonStr = fenceMatch[1];\n  // Also try to find JSON object in the text\n  const objMatch = jsonStr.match(/\\{[\\s\\S]*\\}/);\n  if (objMatch) jsonStr = objMatch[0];\n  recap = JSON.parse(jsonStr);\n} catch(e) {\n  recap = {\n    summary: agentOutput.substring(0, 500) || 'Meeting recap could not be generated.',\n    sentiment: 'neutral',\n    sentiment_signal: '',\n    tasks: [],\n    key_decisions: [],\n    follow_up_context: ''\n  };\n}\n\nconst sentimentEmoji = {\n  'positive': ':white_check_mark:',\n  'neutral': ':large_blue_circle:',\n  'negative': ':red_circle:',\n  'mixed': ':warning:'\n}[recap.sentiment] || ':large_blue_circle:';\n\nreturn [{ json: {\n  ...context,\n  recap: {\n    summary: recap.summary || '',\n    sentiment: recap.sentiment || 'neutral',\n    sentimentEmoji,\n    sentimentSignal: recap.sentiment_signal || '',\n    tasks: (recap.tasks || []).slice(0, 5).map(t => ({\n      description: t.description || '',\n      owner: t.owner || '',\n      owner_email: t.owner_email || '',\n      assignee_role: t.assignee_role || '',\n      duration_minutes: t.duration_minutes || 30,\n      due_hint: t.due_hint || '',\n      task_category: t.task_category || '',\n    })),\n    keyDecisions: recap.key_decisions || [],\n    followUpContext: recap.follow_up_context || '',\n    csCategory: recap.cs_category || null,\n    salesCategory: recap.sales_category || null,\n    meetingCategory: recap.meeting_category || null,\n  }\n}}];"
+            },
+            "id": "e5f69f20-3ff9-478e-a651-324001f13f63",
+            "name": "Parse Recap Output",
+            "type": "n8n-nodes-base.code",
+            "typeVersion": 2,
+            "position": [
+                3370,
+                304
+            ]
+        },
+        {
+            "parameters": {
+                "jsCode": "// Compact top-level card \u2014 just meeting info + action buttons\n// Full recap details go in the thread\nconst data = $('Parse Recap Output').first().json;\nconst recap = data.recap;\nconst m = data.meeting;\nconst assistantName = data.assistantName || 'Aria';\nconst assistantEmoji = data.assistantEmoji || ':robot_face:';\n\nconst subjectLine = m.subject || 'Customer Meeting';\nconst hoursAgo = m.hoursAgo || '';\nconst timeInfo = hoursAgo ? ` | ${hoursAgo}h ago` : '';\n\nconst taskCount = (recap.tasks || []).length;\nconst blocks = [];\n\nblocks.push({\n  type: \"section\",\n  text: { type: \"mrkdwn\", text: `:clipboard: *${m.accountName}* \u00b7 ${m.dayStr} ${m.timeStr} \u2014 ${subjectLine}` }\n});\n\n// Action buttons\nconst truncContext = (recap.followUpContext || '').substring(0, 500);\nconst draftPayload = JSON.stringify({\n  action: 'draft_followup',\n  account_name: m.accountName,\n  account_id: m.accountId || '',\n  activity_uid: m.activityUid,\n  meeting_subject: m.subject,\n  participants: m.participants || '',\n  follow_up_context: truncContext,\n  user_id: data.userId,\n  db_user_id: data.userId,\n  slack_user_id: data.slackUserId,\n  organization_id: data.organizationId || '',\n  assistant_name: data.assistantName,\n  assistant_emoji: data.assistantEmoji,\n  rep_name: data.repName,\n});\n\nconst savePayload = JSON.stringify({\n  action: 'save_activity',\n  account_name: m.accountName,\n  account_id: m.accountId || '',\n  activity_uid: m.activityUid,\n  meeting_subject: m.subject,\n  meeting_date: m.dayStr || '',\n  meeting_time: m.timeStr || '',\n  summary: (recap.summary || '').substring(0, 300),\n  key_decisions: (recap.keyDecisions || []).map(d => d.substring(0, 80)),\n  tasks: (recap.tasks || []).map(t => ({ description: (t.description || '').substring(0, 80), owner: t.owner || '' })),\n  sentiment: recap.sentiment,\n  cs_category: recap.csCategory || '',\n  sales_category: recap.salesCategory || '',\n  meeting_category: recap.meetingCategory || '',\n  user_id: data.userId,\n  slack_user_id: data.slackUserId,\n  rep_name: data.repName,\n  rep_email: data.email || '',\n  assistant_name: data.assistantName,\n  assistant_emoji: data.assistantEmoji,\n});\n\nblocks.push({\n  type: \"actions\",\n  elements: [\n    {\n      type: \"button\",\n      text: { type: \"plain_text\", text: \":salesforce: Review & Log\", emoji: true },\n      style: \"primary\",\n      action_id: \"recap_save_activity\",\n      value: savePayload\n    },\n    {\n      type: \"button\",\n      text: { type: \"plain_text\", text: \":email: Draft Follow-up\", emoji: true },\n      action_id: \"recap_draft_followup\",\n      value: draftPayload\n    },\n    ...(taskCount > 0 ? [{\n      type: \"button\",\n      text: { type: \"plain_text\", text: `:memo: Tasks (${taskCount})`, emoji: true },\n      action_id: \"recap_view_tasks\",\n      value: JSON.stringify({\n        account_name: m.accountName,\n        meeting_subject: m.subject,\n        tasks: (recap.tasks || []).slice(0, 5).map(t => ({\n          d: (t.description || '').substring(0, 100),\n          o: (t.owner || '').substring(0, 30),\n          e: (t.owner_email || '').substring(0, 40),\n          r: t.assignee_role || '',\n          m: t.duration_minutes || 30,\n          h: (t.due_hint || '').substring(0, 20),\n          c: (t.task_category || '').substring(0, 40),\n        })),\n        assistant_name: assistantName,\n        assistant_emoji: assistantEmoji,\n      }).substring(0, 1999)\n    }] : [])\n  ]\n});\n\nconst promptText = `Meeting Recap \u2014 ${m.accountName}: ${subjectLine}`;\n\nreturn [{ json: {\n  ...data,\n  blocks: JSON.stringify(blocks),\n  promptText,\n  assistantName,\n  assistantEmoji,\n  activityUids: [m.activityUid],\n}}];"
+            },
+            "id": "76a795c3-3a26-429d-92af-918bc388d620",
+            "name": "Build Recap Card",
+            "type": "n8n-nodes-base.code",
+            "typeVersion": 2,
+            "position": [
+                3620,
+                304
+            ]
+        },
+        {
+            "parameters": {
+                "jsCode": "// Build detailed thread reply with decisions + tasks + Create in SF buttons\nconst data = $('Parse Recap Output').first().json;\nconst recap = data.recap;\nconst m = data.meeting;\nconst sendResult = $('Send Recap').first().json;\nconst assistantName = data.assistantName || 'Aria';\nconst assistantEmoji = data.assistantEmoji || ':robot_face:';\n\nconst blocks = [];\n\n// Summary + sentiment\nconst sentLine = `${recap.sentimentEmoji} ${recap.sentimentSignal || recap.sentiment}`;\nblocks.push({\n  type: \"section\",\n  text: { type: \"mrkdwn\", text: `${sentLine}\\n\\n${recap.summary}` }\n});\n\nblocks.push({ type: \"divider\" });\n\n// Key Decisions\nif (recap.keyDecisions && recap.keyDecisions.length > 0) {\n  const decisionText = recap.keyDecisions.map(d => `\u2022 ${d}`).join('\\n');\n  blocks.push({\n    type: \"section\",\n    text: { type: \"mrkdwn\", text: `*Key Decisions*\\n${decisionText}` }\n  });\n  blocks.push({ type: \"divider\" });\n}\n\n// Action Items with individual \"Create in SF\" buttons\nif (recap.tasks && recap.tasks.length > 0) {\n  blocks.push({\n    type: \"section\",\n    text: { type: \"mrkdwn\", text: \"*Action Items*\" }\n  });\n\n  for (let i = 0; i < recap.tasks.length; i++) {\n    const task = recap.tasks[i];\n    const roleBadge = task.assignee_role ? ` (${task.assignee_role})` : '';\n    const durationBadge = task.duration_minutes ? ` \u00b7 ${task.duration_minutes} min` : '';\n    const taskText = `\u2022 ${task.description}` +\n      (task.owner ? ` \u2014 _${task.owner}_` + roleBadge : '') +\n      durationBadge +\n      (task.due_hint ? ` \u00b7 ${task.due_hint}` : '');\n\n    const taskPayload = JSON.stringify({\n      action: 'create_task',\n      task_index: i,\n      task_description: task.description,\n      task_owner: task.owner || '',\n      task_owner_email: task.owner_email || '',\n      task_due_hint: task.due_hint || '',\n      account_name: m.accountName,\n      account_id: m.accountId || '',\n      activity_uid: m.activityUid,\n      meeting_subject: m.subject,\n      user_id: data.userId,\n      slack_user_id: data.slackUserId,\n      rep_name: data.repName,\n      rep_email: data.email || '',\n      assignee_role: task.assignee_role || '',\n      duration_minutes: task.duration_minutes || 30,\n      task_category: task.task_category || '',\n      assistant_name: data.assistantName || 'Aria',\n      assistant_emoji: data.assistantEmoji || ':robot_face:',\n    });\n\n    blocks.push({\n      type: \"section\",\n      text: { type: \"mrkdwn\", text: taskText },\n      accessory: {\n        type: \"button\",\n        text: { type: \"plain_text\", text: \":salesforce: Create Task\", emoji: true },\n        action_id: `recap_create_task_${i}`,\n        value: taskPayload\n      }\n    });\n  }\n}\n\n// If no decisions and no tasks, still post something useful\nif ((!recap.keyDecisions || recap.keyDecisions.length === 0) &&\n    (!recap.tasks || recap.tasks.length === 0)) {\n  blocks.push({\n    type: \"section\",\n    text: { type: \"mrkdwn\", text: \"_No key decisions or action items were captured for this meeting._\" }\n  });\n}\n\n// Thread footer\nblocks.push({\n  type: \"context\",\n  elements: [\n    { type: \"mrkdwn\", text: \"Reply in this thread to discuss this meeting\" }\n  ]\n});\n\nreturn [{ json: {\n  threadBlocks: JSON.stringify(blocks),\n  threadTs: sendResult.ts,\n  channelId: sendResult.channel,\n  assistantName,\n  assistantEmoji,\n}}];"
+            },
+            "id": "436bb9f2-c5c1-4a4c-8e83-0da99975244f",
+            "name": "Build Recap Thread",
+            "type": "n8n-nodes-base.code",
+            "typeVersion": 2,
+            "position": [
+                3418,
+                304
+            ]
+        },
+        {
+            "parameters": {
+                "method": "POST",
+                "url": "https://slack.com/api/chat.postMessage",
+                "authentication": "genericCredentialType",
+                "genericAuthType": "httpHeaderAuth",
+                "sendHeaders": true,
+                "headerParameters": {
+                    "parameters": [
+                        {
+                            "name": "Content-Type",
+                            "value": "application/json"
+                        }
+                    ]
+                },
+                "sendBody": true,
+                "specifyBody": "json",
+                "jsonBody": "={{ JSON.stringify({ channel: $json.channelId, thread_ts: $json.threadTs, blocks: JSON.parse($json.threadBlocks), text: \"Meeting details\", username: $json.assistantName, icon_emoji: $json.assistantEmoji }) }}",
+                "options": {}
+            },
+            "id": "20d6accc-e904-44d1-aaf5-156ac1e205bc",
+            "name": "Send Recap Thread",
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4.2,
+            "position": [
+                3668,
+                304
+            ],
+            "credentials": {
+                "httpHeaderAuth": {
+                    "id": "LluVuiMJ8NUbAiG7",
+                    "name": "Slackbot Auth Token"
+                }
+            }
         }
     ],
     "connections": {
-        "Every 15 Minutes": {
-            "main": [
-                [
-                    {
-                        "node": "Get Auth Token",
-                        "type": "main",
-                        "index": 0
-                    }
-                ]
-            ]
-        },
         "Get Auth Token": {
             "main": [
                 [
@@ -414,7 +552,7 @@
             "main": [
                 [
                     {
-                        "node": "Check Sent Followups",
+                        "node": "Compute Dedup Window",
                         "type": "main",
                         "index": 0
                     }
@@ -460,18 +598,7 @@
                 [],
                 [
                     {
-                        "node": "Build Follow-up Prompt",
-                        "type": "main",
-                        "index": 0
-                    }
-                ]
-            ]
-        },
-        "Build Follow-up Prompt": {
-            "main": [
-                [
-                    {
-                        "node": "Open Bot DM",
+                        "node": "Build Recap Context",
                         "type": "main",
                         "index": 0
                     }
@@ -482,18 +609,7 @@
             "main": [
                 [
                     {
-                        "node": "Send Follow-up Prompt",
-                        "type": "main",
-                        "index": 0
-                    }
-                ]
-            ]
-        },
-        "Send Follow-up Prompt": {
-            "main": [
-                [
-                    {
-                        "node": "Prepare Log Data",
+                        "node": "Send Recap",
                         "type": "main",
                         "index": 0
                     }
@@ -521,6 +637,127 @@
                     }
                 ]
             ]
+        },
+        "Compute Dedup Window": {
+            "main": [
+                [
+                    {
+                        "node": "Check Sent Followups",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Followup Check (9am + 4pm PT)": {
+            "main": [
+                [
+                    {
+                        "node": "Get Auth Token",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Anthropic Chat Model (Recap)": {
+            "ai_languageModel": [
+                [
+                    {
+                        "node": "Recap Agent",
+                        "type": "ai_languageModel",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "People.ai MCP (Recap)": {
+            "ai_tool": [
+                [
+                    {
+                        "node": "Recap Agent",
+                        "type": "ai_tool",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Build Recap Context": {
+            "main": [
+                [
+                    {
+                        "node": "Recap Agent",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Recap Agent": {
+            "main": [
+                [
+                    {
+                        "node": "Parse Recap Output",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Parse Recap Output": {
+            "main": [
+                [
+                    {
+                        "node": "Build Recap Card",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Send Recap": {
+            "main": [
+                [
+                    {
+                        "node": "Build Recap Thread",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Build Recap Card": {
+            "main": [
+                [
+                    {
+                        "node": "Open Bot DM",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Build Recap Thread": {
+            "main": [
+                [
+                    {
+                        "node": "Send Recap Thread",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Send Recap Thread": {
+            "main": [
+                [
+                    {
+                        "node": "Prepare Log Data",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
         }
     },
     "settings": {
@@ -531,60 +768,30 @@
     "staticData": {
         "node:Every 15 Minutes": {
             "recurrenceRules": []
+        },
+        "node:Every 60 Minutes": {
+            "recurrenceRules": []
+        },
+        "node:Followup Check (9am + 3pm PT)": {
+            "recurrenceRules": []
+        },
+        "node:Followup Check (9am + 4pm PT)": {
+            "recurrenceRules": []
         }
     },
     "meta": null,
-    "pinData": null,
-    "versionId": "0d3463ca-fc5b-4aec-af70-baf2e760d4b8",
-    "activeVersionId": "0d3463ca-fc5b-4aec-af70-baf2e760d4b8",
-    "versionCounter": 13,
+    "pinData": {},
+    "versionId": "f4e8ddee-765a-423a-8227-0c46f5c73474",
+    "activeVersionId": "f4e8ddee-765a-423a-8227-0c46f5c73474",
+    "versionCounter": 140,
     "triggerCount": 1,
-    "shared": [
-        {
-            "updatedAt": "2026-03-04T00:59:29.241Z",
-            "createdAt": "2026-03-04T00:59:29.241Z",
-            "role": "workflow:owner",
-            "workflowId": "JhDuCvZdFN4PFTOW",
-            "projectId": "85jtzrEPriGDXgHV",
-            "project": {
-                "updatedAt": "2025-11-24T07:01:19.205Z",
-                "createdAt": "2025-11-24T06:56:53.862Z",
-                "id": "85jtzrEPriGDXgHV",
-                "name": "Scott Metcalf <metcalf.scott@gmail.com>",
-                "type": "personal",
-                "icon": null,
-                "description": null,
-                "creatorId": "bfa163c1-bd53-4c0f-b0ba-8dc3626f7c79"
-            }
-        }
-    ],
     "tags": [],
     "activeVersion": {
-        "updatedAt": "2026-03-04T23:33:20.355Z",
-        "createdAt": "2026-03-04T23:33:20.355Z",
-        "versionId": "0d3463ca-fc5b-4aec-af70-baf2e760d4b8",
+        "updatedAt": "2026-03-25T17:30:57.088Z",
+        "createdAt": "2026-03-25T17:30:57.088Z",
+        "versionId": "f4e8ddee-765a-423a-8227-0c46f5c73474",
         "workflowId": "JhDuCvZdFN4PFTOW",
         "nodes": [
-            {
-                "parameters": {
-                    "rule": {
-                        "interval": [
-                            {
-                                "field": "minutes",
-                                "minutesInterval": 15
-                            }
-                        ]
-                    }
-                },
-                "id": "cd18c603-7a37-47d3-a90c-8a5350db0dbd",
-                "name": "Every 15 Minutes",
-                "type": "n8n-nodes-base.scheduleTrigger",
-                "typeVersion": 1.2,
-                "position": [
-                    250,
-                    300
-                ]
-            },
             {
                 "parameters": {
                     "method": "POST",
@@ -608,21 +815,21 @@
                 "type": "n8n-nodes-base.httpRequest",
                 "typeVersion": 4.2,
                 "position": [
-                    500,
-                    300
+                    480,
+                    384
                 ]
             },
             {
                 "parameters": {
-                    "jsCode": "// Build People.ai export query for today's external meetings\n// Same pattern as Meeting Prep Cron, but we look for meetings that already happened\nconst now = Date.now();\nconst startOfDay = new Date();\nstartOfDay.setHours(0, 0, 0, 0);\nconst endOfDay = new Date();\nendOfDay.setHours(23, 59, 59, 999);\n\nconst query = {\n  object: \"activity\",\n  filter: {\n    \"$and\": [\n      { attribute: { slug: \"ootb_activity_type\" }, clause: { \"$eq\": \"meeting\" } },\n      { attribute: { slug: \"ootb_activity_external\" }, clause: { \"$eq\": true } },\n      { attribute: { slug: \"ootb_activity_timestamp\" }, clause: { \"$gte\": startOfDay.getTime() } },\n      { attribute: { slug: \"ootb_activity_timestamp\" }, clause: { \"$lte\": now } }\n    ]\n  },\n  columns: [\n    { slug: \"ootb_activity_uid\" },\n    { slug: \"ootb_activity_timestamp\" },\n    { slug: \"ootb_activity_subject\" },\n    { slug: \"ootb_activity_originator\" },\n    { slug: \"ootb_activity_account_name\" },\n    { slug: \"ootb_activity_account_id\" },\n    { slug: \"ootb_activity_opportunity_name\" },\n    { slug: \"ootb_activity_participants\" }\n  ],\n  sort: [{ attribute: { slug: \"ootb_activity_timestamp\" }, direction: \"desc\" }]\n};\n\nreturn [{ json: { query: JSON.stringify(query) } }];\n"
+                    "jsCode": "// Build People.ai export query for meetings in the last 24 hours\n// At 9am: catches yesterday afternoon meetings (4h+ delay means they're ready)\n// At 3pm: catches this morning's meetings (ended by 11am, 4h+ elapsed)\nconst now = Date.now();\nconst twentyFourHoursAgo = now - 24 * 60 * 60 * 1000;\n\nconst query = {\n  object: \"activity\",\n  filter: {\n    \"$and\": [\n      { attribute: { slug: \"ootb_activity_type\" }, clause: { \"$eq\": \"meeting\" } },\n      { attribute: { slug: \"ootb_activity_external\" }, clause: { \"$eq\": true } },\n      { attribute: { slug: \"ootb_activity_timestamp\" }, clause: { \"$gte\": twentyFourHoursAgo } },\n      { attribute: { slug: \"ootb_activity_timestamp\" }, clause: { \"$lte\": now } }\n    ]\n  },\n  columns: [\n    { slug: \"ootb_activity_uid\" },\n    { slug: \"ootb_activity_timestamp\" },\n    { slug: \"ootb_activity_subject\" },\n    { slug: \"ootb_activity_originator\" },\n    { slug: \"ootb_activity_account_name\" },\n    { slug: \"ootb_activity_opportunity_name\" },\n    { slug: \"ootb_activity_participants\", variation_id: \"ootb_activity_participants_email\" },\n    { slug: \"ootb_activity_participants\", variation_id: \"ootb_activity_participants_name\" }\n  ],\n  sort: [{ attribute: { slug: \"ootb_activity_timestamp\" }, direction: \"desc\" }]\n};\n\nreturn [{ json: { query: JSON.stringify(query) } }];\n"
                 },
                 "id": "762f5040-605f-4f29-a809-5b448945baff",
                 "name": "Build Query",
                 "type": "n8n-nodes-base.code",
                 "typeVersion": 2,
                 "position": [
-                    750,
-                    300
+                    704,
+                    384
                 ]
             },
             {
@@ -652,27 +859,26 @@
                 "type": "n8n-nodes-base.httpRequest",
                 "typeVersion": 4.2,
                 "position": [
-                    1000,
-                    300
+                    928,
+                    384
                 ],
                 "continueOnFail": true
             },
             {
                 "parameters": {
-                    "jsCode": "// Parse CSV response from People.ai meetings export\nconst raw = $('Fetch Today Meetings').first().json.data || '';\nif (!raw || raw.trim().length === 0) {\n  return [{ json: { meetings: [], meetingCount: 0 } }];\n}\n\nconst lines = raw.split('\\n');\nif (lines.length < 2) {\n  return [{ json: { meetings: [], meetingCount: 0 } }];\n}\n\n// Parse CSV header\nconst headerLine = lines[0];\nconst headers = [];\nlet field = '';\nlet inQuotes = false;\nfor (let i = 0; i < headerLine.length; i++) {\n  const c = headerLine[i];\n  if (c === '\"') { inQuotes = !inQuotes; }\n  else if (c === ',' && !inQuotes) { headers.push(field.trim()); field = ''; }\n  else { field += c; }\n}\nheaders.push(field.trim());\n\n// Parse CSV rows\nfunction parseCSVRow(line) {\n  const fields = [];\n  let f = '';\n  let q = false;\n  for (let i = 0; i < line.length; i++) {\n    const c = line[i];\n    if (c === '\"') {\n      if (q && i + 1 < line.length && line[i + 1] === '\"') { f += '\"'; i++; }\n      else { q = !q; }\n    } else if (c === ',' && !q) { fields.push(f.trim()); f = ''; }\n    else { f += c; }\n  }\n  fields.push(f.trim());\n  return fields;\n}\n\nfunction getVal(row, name) {\n  const idx = headers.findIndex(h => h.toLowerCase().includes(name.toLowerCase()));\n  return idx >= 0 ? (row[idx] || '') : '';\n}\n\nconst meetings = [];\nfor (let i = 1; i < lines.length; i++) {\n  if (!lines[i].trim()) continue;\n  const row = parseCSVRow(lines[i]);\n\n  const tsRaw = getVal(row, 'timestamp');\n  let tsMs = 0;\n  if (tsRaw) {\n    // Could be ISO string or epoch ms\n    const num = Number(tsRaw);\n    if (!isNaN(num) && num > 1e12) { tsMs = num; }\n    else { tsMs = new Date(tsRaw).getTime(); }\n  }\n  if (!tsMs || isNaN(tsMs)) continue;\n\n  meetings.push({\n    activityUid: getVal(row, 'uid') || getVal(row, 'activity_uid'),\n    timestamp: tsMs,\n    subject: getVal(row, 'subject'),\n    originator: getVal(row, 'originator'),\n    accountName: getVal(row, 'account_name') || getVal(row, 'account'),\n    accountId: getVal(row, 'account_id'),\n    opportunityName: getVal(row, 'opportunity_name') || getVal(row, 'opportunity'),\n    participants: getVal(row, 'participants'),\n  });\n}\n\nreturn [{ json: { meetings, meetingCount: meetings.length, headers } }];\n"
+                    "jsCode": "// Parse CSV response from People.ai meetings export\n// API returns human-readable headers: \"Activity\", \"Activity date\", \"Subject\",\n// \"Account Name\", \"Opportunity Name\", \"Activity Participants (Email)\", etc.\nconst raw = $('Fetch Today Meetings').first().json.data || '';\nif (!raw || raw.trim().length === 0) {\n  return [{ json: { meetings: [], meetingCount: 0 } }];\n}\n\nconst lines = raw.split('\\n');\nif (lines.length < 2) {\n  return [{ json: { meetings: [], meetingCount: 0 } }];\n}\n\n// Parse CSV header\nconst headerLine = lines[0];\nconst headers = [];\nlet field = '';\nlet inQuotes = false;\nfor (let i = 0; i < headerLine.length; i++) {\n  const c = headerLine[i];\n  if (c === '\"') { inQuotes = !inQuotes; }\n  else if (c === ',' && !inQuotes) { headers.push(field.trim()); field = ''; }\n  else { field += c; }\n}\nheaders.push(field.trim());\n\n// Parse CSV rows\nfunction parseCSVRow(line) {\n  const fields = [];\n  let f = '';\n  let q = false;\n  for (let i = 0; i < line.length; i++) {\n    const c = line[i];\n    if (c === '\"') {\n      if (q && i + 1 < line.length && line[i + 1] === '\"') { f += '\"'; i++; }\n      else { q = !q; }\n    } else if (c === ',' && !q) { fields.push(f.trim()); f = ''; }\n    else { f += c; }\n  }\n  fields.push(f.trim());\n  return fields;\n}\n\n// Flexible header matching: check multiple possible names\nfunction getVal(row, ...names) {\n  for (const name of names) {\n    const idx = headers.findIndex(h => h.toLowerCase().includes(name.toLowerCase()));\n    if (idx >= 0 && row[idx]) return row[idx];\n  }\n  return '';\n}\n\n// Parse bracket-delimited list: \"[a;b;c]\" \u2192 [\"a\",\"b\",\"c\"]\nfunction parseList(val) {\n  if (!val) return [];\n  return val.replace(/^\\[/, '').replace(/\\]$/, '').trim()\n    .split(';').map(s => s.trim()).filter(Boolean);\n}\n\nconst meetings = [];\nfor (let i = 1; i < lines.length; i++) {\n  if (!lines[i].trim()) continue;\n  const row = parseCSVRow(lines[i]);\n\n  // Match actual API headers: \"Activity date\", \"Activity\", \"Subject\", etc.\n  const tsRaw = getVal(row, 'Activity date', 'date', 'timestamp');\n  let tsMs = 0;\n  if (tsRaw) {\n    const num = Number(tsRaw);\n    if (!isNaN(num) && num > 1e12) { tsMs = num; }\n    else {\n      const parsed = new Date(tsRaw);\n      if (!isNaN(parsed.getTime())) tsMs = parsed.getTime();\n    }\n  }\n  if (!tsMs || isNaN(tsMs)) continue;\n\n  const activityUid = getVal(row, 'Activity') || '';\n  // Skip if no UID (first column \"Activity\" contains the UID)\n  if (!activityUid) continue;\n\n  const participantEmails = parseList(getVal(row, 'Participants (Email)', 'Participants'));\n  const participantNames = parseList(getVal(row, 'Participants (Name)'));\n\n  meetings.push({\n    activityUid,\n    timestamp: tsMs,\n    subject: getVal(row, 'Subject'),\n    originator: getVal(row, 'Originator'),\n    accountName: getVal(row, 'Account Name', 'Account'),\n    accountId: '',\n    opportunityName: getVal(row, 'Opportunity Name', 'Opportunity'),\n    participants: participantEmails.join('; '),\n    participantEmails,\n    participantNames,\n  });\n}\n\nreturn [{ json: { meetings, meetingCount: meetings.length, headers } }];\n"
                 },
                 "id": "afb2c3a5-40f3-4abd-9e1f-bbcf3fc382e5",
                 "name": "Parse Meetings",
                 "type": "n8n-nodes-base.code",
                 "typeVersion": 2,
                 "position": [
-                    1250,
-                    300
+                    1152,
+                    384
                 ]
             },
             {
                 "parameters": {
-                    "method": "GET",
                     "url": "https://rhrlnkbphxntxxxcrgvv.supabase.co/rest/v1/users?onboarding_state=eq.complete&select=id,slack_user_id,email,assistant_name,assistant_emoji,organization_id,onboarding_state,followup_delay_minutes,followup_enabled",
                     "authentication": "predefinedCredentialType",
                     "nodeCredentialType": "supabaseApi",
@@ -683,8 +889,8 @@
                 "type": "n8n-nodes-base.httpRequest",
                 "typeVersion": 4.2,
                 "position": [
-                    1500,
-                    300
+                    1376,
+                    384
                 ],
                 "credentials": {
                     "supabaseApi": {
@@ -695,8 +901,7 @@
             },
             {
                 "parameters": {
-                    "method": "GET",
-                    "url": "=https://rhrlnkbphxntxxxcrgvv.supabase.co/rest/v1/messages?message_type=eq.followup_prompt&sent_at=gte.{{ new Date(new Date().setHours(0,0,0,0)).toISOString() }}&select=user_id,metadata",
+                    "url": "={{ $json.dedupUrl }}",
                     "authentication": "predefinedCredentialType",
                     "nodeCredentialType": "supabaseApi",
                     "options": {}
@@ -706,28 +911,28 @@
                 "type": "n8n-nodes-base.httpRequest",
                 "typeVersion": 4.2,
                 "position": [
-                    1750,
-                    300
+                    1824,
+                    384
                 ],
+                "alwaysOutputData": true,
                 "credentials": {
                     "supabaseApi": {
                         "id": "ASRWWkQ0RSMOpNF1",
                         "name": "Supabase account"
                     }
-                },
-                "alwaysOutputData": true
+                }
             },
             {
                 "parameters": {
-                    "jsCode": "// Match users to meetings that ended within their follow-up window\nconst meetings = $('Parse Meetings').first().json.meetings || [];\nconst usersAll = $('Get Followup Users').all().map(i => i.json);\nconst sentAll = $('Check Sent Followups').all().map(i => i.json);\n\n// Filter valid users\nconst users = usersAll.filter(u => u && u.id && u.onboarding_state === 'complete');\n\n// Build dedup set: userId:activityUid\nconst sentSet = new Set();\nfor (const msg of sentAll) {\n  if (msg && msg.metadata) {\n    try {\n      const meta = typeof msg.metadata === 'string' ? JSON.parse(msg.metadata) : msg.metadata;\n      if (meta.activity_uid && msg.user_id) {\n        sentSet.add(msg.user_id + ':' + meta.activity_uid);\n      }\n    } catch(e) {}\n  }\n}\n\nconst now = Date.now();\nconst output = [];\n\n// Assume meetings last ~60 minutes\nconst MEETING_DURATION_MS = 60 * 60 * 1000;\n\nfor (const user of users) {\n  const delayMs = (user.followup_delay_minutes || 30) * 60 * 1000;\n  const followupEnabled = user.followup_enabled !== false;\n  if (!followupEnabled) continue;\n\n  // Derive rep name from email\n  const repName = user.email\n    ? user.email.split('@')[0].split('.').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')\n    : 'there';\n\n  for (const meeting of meetings) {\n    // Estimated end time = meeting start + 60 min\n    const estimatedEnd = meeting.timestamp + MEETING_DURATION_MS;\n    const timeSinceEnd = now - estimatedEnd;\n\n    // Follow-up window: delay \u00b1 15 min\n    // e.g., 30 min delay \u2192 send between 15 and 45 min after meeting ends\n    const windowStart = delayMs - 15 * 60 * 1000;\n    const windowEnd = delayMs + 15 * 60 * 1000;\n\n    if (timeSinceEnd < windowStart || timeSinceEnd > windowEnd) continue;\n\n    // Skip if already sent\n    const dedupKey = user.id + ':' + meeting.activityUid;\n    if (sentSet.has(dedupKey)) continue;\n\n    // Skip meetings without account context\n    if (!meeting.accountName) continue;\n\n    output.push({\n      json: {\n        userId: user.id,\n        slackUserId: user.slack_user_id,\n        email: user.email,\n        repName,\n        assistantName: user.assistant_name || 'Aria',\n        assistantEmoji: user.assistant_emoji || ':robot_face:',\n        organizationId: user.organization_id,\n        meetingSubject: meeting.subject,\n        accountName: meeting.accountName,\n        accountId: meeting.accountId,\n        opportunityName: meeting.opportunityName,\n        participants: meeting.participants,\n        activityUid: meeting.activityUid,\n        meetingTimestamp: meeting.timestamp,\n        minutesSinceEnd: Math.round(timeSinceEnd / 60000),\n      }\n    });\n  }\n}\n\nif (output.length === 0) {\n  return [{ json: { noMatches: true } }];\n}\n\nreturn output;\n"
+                    "jsCode": "// Match users to meetings that ended 4+ hours ago (transcript available)\n// CRITICAL: Only include meetings where the user is a PARTICIPANT\n// Group by user: output ONE item per user with all their ready meetings\nconst meetings = $('Parse Meetings').first().json.meetings || [];\nconst usersAll = $('Get Followup Users').all().map(i => i.json);\nconst sentAll = $('Check Sent Followups').all().map(i => i.json);\n\n// Filter valid users\nconst users = usersAll.filter(u => u && u.id && u.onboarding_state === 'complete');\n\n// Build dedup set: userId:activityUid\nconst sentSet = new Set();\nfor (const msg of sentAll) {\n  if (msg && msg.metadata) {\n    try {\n      const meta = typeof msg.metadata === 'string' ? JSON.parse(msg.metadata) : msg.metadata;\n      if (meta.activity_uid && msg.user_id) {\n        sentSet.add(msg.user_id + ':' + meta.activity_uid);\n      }\n    } catch(e) {}\n  }\n}\n\nconst now = Date.now();\nconst MEETING_DURATION_MS = 60 * 60 * 1000; // assume 60 min meetings\nconst MIN_ELAPSED_MS = 4 * 60 * 60 * 1000;  // 4 hours after meeting end\n\nconst output = [];\n\nfor (const user of users) {\n  const followupEnabled = user.followup_enabled !== false;\n  if (!followupEnabled) continue;\n\n  const userEmail = (user.email || '').toLowerCase();\n  if (!userEmail) continue;\n\n  const repName = userEmail\n    .split('@')[0].split('.').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');\n\n  const readyMeetings = [];\n\n  for (const meeting of meetings) {\n    // Only include meetings this user attended\n    const participantEmails = (meeting.participantEmails || []).map(e => e.toLowerCase());\n    if (!participantEmails.includes(userEmail)) continue;\n\n    const estimatedEnd = meeting.timestamp + MEETING_DURATION_MS;\n    const timeSinceEnd = now - estimatedEnd;\n\n    if (timeSinceEnd < MIN_ELAPSED_MS) continue;\n\n    const dedupKey = user.id + ':' + meeting.activityUid;\n    if (sentSet.has(dedupKey)) continue;\n\n    if (!meeting.accountName) continue;\n\n    const tz = 'America/Los_Angeles';\n    const meetingDate = new Date(meeting.timestamp);\n    const timeStr = meetingDate.toLocaleTimeString('en-US', { timeZone: tz, hour: 'numeric', minute: '2-digit' });\n    const dayStr = meetingDate.toLocaleDateString('en-US', { timeZone: tz, weekday: 'short' });\n    const hoursAgo = Math.round(timeSinceEnd / 3600000);\n\n    readyMeetings.push({\n      activityUid: meeting.activityUid,\n      subject: meeting.subject || '[no subject]',\n      accountName: meeting.accountName,\n      accountId: meeting.accountId || '',\n      opportunityName: meeting.opportunityName || '',\n      participants: meeting.participants || '',\n      timestamp: meeting.timestamp,\n      timeStr,\n      dayStr,\n      hoursAgo,\n    });\n  }\n\n  if (readyMeetings.length === 0) continue;\n\n  readyMeetings.sort((a, b) => b.timestamp - a.timestamp);\n\n  output.push({\n    json: {\n      userId: user.id,\n      slackUserId: user.slack_user_id,\n      email: user.email,\n      repName,\n      assistantName: user.assistant_name || 'Aria',\n      assistantEmoji: user.assistant_emoji || ':robot_face:',\n      organizationId: user.organization_id,\n      meetings: readyMeetings,\n      meetingCount: readyMeetings.length,\n    }\n  });\n}\n\nif (output.length === 0) {\n  return [{ json: { noMatches: true } }];\n}\n\nreturn output;\n"
                 },
                 "id": "11d00dcc-9c5f-4296-9c5f-366a417cdb30",
                 "name": "Match Users to Ended Meetings",
                 "type": "n8n-nodes-base.code",
                 "typeVersion": 2,
                 "position": [
-                    2000,
-                    300
+                    2048,
+                    384
                 ]
             },
             {
@@ -759,8 +964,8 @@
                 "type": "n8n-nodes-base.if",
                 "typeVersion": 2.2,
                 "position": [
-                    2250,
-                    300
+                    2272,
+                    384
                 ]
             },
             {
@@ -772,21 +977,21 @@
                 "type": "n8n-nodes-base.splitInBatches",
                 "typeVersion": 3,
                 "position": [
-                    2500,
-                    300
+                    2496,
+                    384
                 ]
             },
             {
                 "parameters": {
-                    "jsCode": "const data = $input.first().json;\n\nconst timeAgo = data.minutesSinceEnd < 60\n  ? `${data.minutesSinceEnd} minutes ago`\n  : `${Math.round(data.minutesSinceEnd / 60)} hours ago`;\n\nconst text = `You met with *${data.accountName}* ${timeAgo}` +\n  (data.meetingSubject ? ` \u2014 _${data.meetingSubject}_` : '') +\n  `\\n\\nWant me to draft a follow-up?`;\n\n// Interactive blocks with buttons\nconst blocks = [\n  {\n    type: \"section\",\n    text: { type: \"mrkdwn\", text: text }\n  },\n  {\n    type: \"actions\",\n    elements: [\n      {\n        type: \"button\",\n        text: { type: \"plain_text\", text: \":email:  Draft Follow-up\", emoji: true },\n        style: \"primary\",\n        action_id: \"followup_draft\",\n        value: JSON.stringify({\n          accountName: data.accountName,\n          accountId: data.accountId,\n          activityUid: data.activityUid,\n          meetingSubject: data.meetingSubject,\n          participants: data.participants,\n          userId: data.userId,\n          dbUserId: data.userId,\n          slackUserId: data.slackUserId,\n          organizationId: data.organizationId,\n          assistantName: data.assistantName,\n          assistantEmoji: data.assistantEmoji,\n          repName: data.repName,\n        })\n      },\n      {\n        type: \"button\",\n        text: { type: \"plain_text\", text: \"Skip\", emoji: true },\n        action_id: \"followup_skip\",\n        value: JSON.stringify({ activityUid: data.activityUid })\n      }\n    ]\n  }\n];\n\nreturn [{\n  json: {\n    ...data,\n    promptText: text,\n    blocks: JSON.stringify(blocks)\n  }\n}];\n"
+                    "jsCode": "// Build per-meeting recap context for AI agent\n// Output ONE item per meeting (agent processes each individually)\nconst data = $input.first().json;\nconst meetings = data.meetings || [];\n\nif (meetings.length === 0) {\n  return [{ json: { ...data, skip: true } }];\n}\n\nconst todayStr = new Date().toLocaleDateString('en-US', {\n  weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'\n});\nconst tz = data.timezone || 'America/Los_Angeles';\nconst assistantName = data.assistantName || 'Aria';\nconst assistantEmoji = data.assistantEmoji || ':robot_face:';\nconst assistantPersona = data.assistantPersona || 'direct, action-oriented, and conversational';\nconst repName = data.repName || 'Rep';\n\nconst results = [];\n\nfor (const m of meetings) {\n  const systemPrompt = `You are ${assistantName}, a personal sales assistant for ${repName}.\nYour personality: ${assistantPersona}\n\nTODAY IS ${todayStr}. ${repName} is in ${tz}.\n\nMEETING CONTEXT:\n- Account: ${m.accountName}\n- Subject: ${m.subject}\n- Time: ${m.dayStr} ${m.timeStr}\n- Participants: ${m.participants || 'Unknown'}\n- Participant Emails: ${(m.participantEmails || []).join('; ') || 'Unknown'}\n\nUse People.ai MCP tools to research this meeting:\n1. Find the meeting transcript, notes, topics discussed, and action items\n2. Look up participant roles and recent engagement history\n3. Check the related opportunity status if one exists\n4. Get recent account activity for context\n\nGenerate a structured meeting recap as a JSON object with this exact shape:\n{\n  \"summary\": \"2-3 sentence recap of what was discussed and key outcomes\",\n  \"sentiment\": \"positive|neutral|negative|mixed\",\n  \"sentiment_signal\": \"one sentence explaining the sentiment\",\n  \"tasks\": [\n    {\n      \"description\": \"specific action item from the meeting\",\n      \"owner\": \"MUST be an internal People.ai employee \u2014 never assign to external/customer contacts\",\n      \"owner_email\": \"email address of the internal owner from the Participant Emails list \u2014 match the owner name to their email\",\n      \"assignee_role\": \"CSM, AE, SE, or AI \u2014 CSM for technical support, training, onboarding, implementation; AE for strategic, commercial, expansion, executive engagement; SE for sales engineering, technical scoping, demos; AI for AI innovation and executive initiatives\",\n      \"duration_minutes\": \"estimated minutes (15, 30, 45, 60, 90, 120)\",\n      \"due_hint\": \"timeframe suggestion\",\n      \"task_category\": \"best match from: Discovery Meeting, Demo Meeting, Prospecting & Qualification, Solution Presentation & Demo, Commercials & Negotiation, Technical Scoping & Solutioning, Onboarding & Implementation, Account & Renewal Management, Expansion & Upsell, Customer Training, Internal Deal Support (Legal/Fin/Sec), Product & Engineering Inquiry, Strategic Account & Territory Planning, Sales Operations & Coaching\"\n    }\n  ],\n  \"key_decisions\": [\"decision 1\", \"decision 2\"],\n  \"follow_up_context\": \"context to enrich a follow-up email\",\n  \"meeting_category\": \"best match from: Discovery Meeting, Demo Meeting, Proposal Meeting, Security Meeting, Procurement Meeting, Legal Meeting\",\n}\n\n\nFor each task, estimate the duration in minutes and assign the role (CSM or AE) based on the nature of the work.\n\nTOOL CALL BUDGET: You have limited tool calls. After ~8 calls, produce your output.\nIf a tool returns no data, move on. Do not retry.\n\nRULES:\n- Extract REAL tasks mentioned in the meeting \u2014 do NOT fabricate\n- If transcript data is limited, say so in the summary and provide what you can from account context\n- Tasks must be specific and actionable (\"Send pricing proposal to Mark by Friday\" not \"Follow up\")\n- Maximum 5 tasks\n- Keep summary under 100 words\n- Output ONLY the JSON object \u2014 no prose, no markdown fences\n\nBased on the meeting content, select the single best-matching value for each category field. Use the exact picklist value string. If none fit well, use null.`;\n\n  const agentPrompt = `Generate a meeting recap for my ${m.subject} meeting with ${m.accountName}.` +\n    (m.participants ? ` Participants: ${m.participants}.` : '') +\n    ` Use People.ai MCP tools to find transcript data, topics, and action items.` +\n    ` Output ONLY the JSON object.`;\n\n  results.push({\n    json: {\n      ...data,\n      meeting: m,\n      accountName: m.accountName,\n      meetingSubject: m.subject,\n      activityUid: m.activityUid,\n      systemPrompt,\n      agentPrompt,\n      assistantName,\n      assistantEmoji,\n      repName,\n    }\n  });\n}\n\nreturn results;"
                 },
                 "id": "3f4d7a49-445a-43dc-b1cc-b8c36462b0c4",
-                "name": "Build Follow-up Prompt",
+                "name": "Build Recap Context",
                 "type": "n8n-nodes-base.code",
                 "typeVersion": 2,
                 "position": [
-                    2750,
-                    300
+                    2720,
+                    304
                 ]
             },
             {
@@ -814,8 +1019,8 @@
                 "type": "n8n-nodes-base.httpRequest",
                 "typeVersion": 4.2,
                 "position": [
-                    3000,
-                    300
+                    2944,
+                    304
                 ],
                 "credentials": {
                     "httpHeaderAuth": {
@@ -841,16 +1046,16 @@
                     },
                     "sendBody": true,
                     "specifyBody": "json",
-                    "jsonBody": "={{ JSON.stringify({ channel: $json.channel.id, text: $(\"Build Follow-up Prompt\").first().json.promptText, blocks: JSON.parse($(\"Build Follow-up Prompt\").first().json.blocks), username: $(\"Build Follow-up Prompt\").first().json.assistantName, icon_emoji: $(\"Build Follow-up Prompt\").first().json.assistantEmoji }) }}",
+                    "jsonBody": "={{ JSON.stringify({ channel: $json.channel.id, text: $(\"Build Recap Card\").first().json.promptText, blocks: JSON.parse($(\"Build Recap Card\").first().json.blocks), username: $(\"Build Recap Card\").first().json.assistantName, icon_emoji: $(\"Build Recap Card\").first().json.assistantEmoji }) }}",
                     "options": {}
                 },
                 "id": "695a141b-d877-4e65-8269-3e82ef946c5d",
-                "name": "Send Follow-up Prompt",
+                "name": "Send Recap",
                 "type": "n8n-nodes-base.httpRequest",
                 "typeVersion": 4.2,
                 "position": [
-                    3250,
-                    300
+                    3168,
+                    304
                 ],
                 "credentials": {
                     "httpHeaderAuth": {
@@ -861,15 +1066,15 @@
             },
             {
                 "parameters": {
-                    "jsCode": "const data = $('Build Follow-up Prompt').first().json;\nconst sendResult = $('Send Follow-up Prompt').first().json;\n\nreturn [{\n  json: {\n    user_id: data.userId,\n    message_type: 'followup_prompt',\n    channel: 'slack',\n    direction: 'outbound',\n    content: data.promptText,\n    metadata: JSON.stringify({\n      activity_uid: data.activityUid,\n      account_name: data.accountName,\n      meeting_subject: data.meetingSubject,\n      slack_ts: sendResult.ts || null,\n      slack_channel: sendResult.channel || null\n    }),\n  }\n}];\n"
+                    "jsCode": "// Log recap delivery for dedup\nconst data = $('Build Recap Card').first().json;\nconst sendResult = $('Send Recap').first().json;\nconst m = data.meeting || {};\n\nreturn [{ json: {\n  user_id: data.userId,\n  message_type: 'meeting_recap',\n  channel: 'slack',\n  direction: 'outbound',\n  content: data.promptText || 'Meeting recap',\n  metadata: JSON.stringify({\n    activity_uid: m.activityUid || data.activityUid,\n    account_name: m.accountName || '',\n    meeting_subject: m.subject || '',\n    slack_ts: sendResult.ts || null,\n    slack_channel: sendResult.channel || null,\n    recap_sentiment: data.recap ? data.recap.sentiment : null,\n    recap_task_count: data.recap ? (data.recap.tasks || []).length : 0,\n  }),\n}}];"
                 },
                 "id": "4c870b97-d7fc-4311-bc2b-4b62a8aa7e28",
                 "name": "Prepare Log Data",
                 "type": "n8n-nodes-base.code",
                 "typeVersion": 2,
                 "position": [
-                    3500,
-                    300
+                    3392,
+                    304
                 ]
             },
             {
@@ -901,8 +1106,8 @@
                 "type": "n8n-nodes-base.httpRequest",
                 "typeVersion": 4.2,
                 "position": [
-                    3750,
-                    300
+                    3616,
+                    384
                 ],
                 "credentials": {
                     "supabaseApi": {
@@ -910,20 +1115,180 @@
                         "name": "Supabase account"
                     }
                 }
+            },
+            {
+                "parameters": {
+                    "rule": {
+                        "interval": [
+                            {
+                                "field": "cronExpression",
+                                "expression": "0 9,16 * * 1-5"
+                            }
+                        ]
+                    }
+                },
+                "id": "cd18c603-7a37-47d3-a90c-8a5350db0dbd",
+                "name": "Followup Check (9am + 4pm PT)",
+                "type": "n8n-nodes-base.scheduleTrigger",
+                "typeVersion": 1.2,
+                "position": [
+                    256,
+                    384
+                ]
+            },
+            {
+                "parameters": {
+                    "jsCode": "// Compute the 48h lookback window for dedup\nconst cutoff = new Date(Date.now() - 48 * 60 * 60 * 1000).toISOString();\nconst url = 'https://rhrlnkbphxntxxxcrgvv.supabase.co/rest/v1/messages'\n  + '?message_type=in.(followup_prompt,meeting_recap)'\n  + '&sent_at=gte.' + cutoff\n  + '&select=user_id,metadata'\n  + '&limit=500';\n\n// Pass through all upstream data plus the computed URL\nreturn $input.all().map(item => ({\n  json: { ...item.json, dedupUrl: url }\n}));\n"
+                },
+                "id": "f3b0e2cf-cf6a-438a-9ceb-4bb298488f91",
+                "name": "Compute Dedup Window",
+                "type": "n8n-nodes-base.code",
+                "typeVersion": 2,
+                "position": [
+                    1600,
+                    384
+                ]
+            },
+            {
+                "parameters": {
+                    "model": {
+                        "__rl": true,
+                        "mode": "list",
+                        "value": "claude-sonnet-4-5-20250929",
+                        "cachedResultName": "Claude Sonnet 4.5"
+                    },
+                    "options": {}
+                },
+                "id": "fcace639-b15e-434f-8d32-4f4787e9e2f4",
+                "name": "Anthropic Chat Model (Recap)",
+                "type": "@n8n/n8n-nodes-langchain.lmChatAnthropic",
+                "typeVersion": 1.3,
+                "position": [
+                    3120,
+                    454
+                ],
+                "credentials": {
+                    "anthropicApi": {
+                        "id": "rlAz7ZSl4y6AwRUq",
+                        "name": "Anthropic account 2"
+                    }
+                }
+            },
+            {
+                "parameters": {
+                    "endpointUrl": "https://mcp-canary.people.ai/mcp",
+                    "authentication": "multipleHeadersAuth"
+                },
+                "id": "f588c3af-cae2-4c55-b7ec-dc85a14582cf",
+                "name": "People.ai MCP (Recap)",
+                "type": "@n8n/n8n-nodes-langchain.mcpClientTool",
+                "typeVersion": 1.2,
+                "position": [
+                    3270,
+                    454
+                ],
+                "credentials": {
+                    "httpMultipleHeadersAuth": {
+                        "id": "wvV5pwBeIL7f2vLG",
+                        "name": "People.ai MCP Multi-Header"
+                    }
+                }
+            },
+            {
+                "parameters": {
+                    "options": {
+                        "systemMessage": "={{ $json.systemPrompt }}",
+                        "maxIterations": 15
+                    },
+                    "text": "={{ $json.agentPrompt }}",
+                    "promptType": "define"
+                },
+                "id": "7e8f05ac-6105-44c7-899b-298e67e0c630",
+                "name": "Recap Agent",
+                "type": "@n8n/n8n-nodes-langchain.agent",
+                "typeVersion": 1.7,
+                "position": [
+                    3120,
+                    304
+                ],
+                "continueOnFail": true
+            },
+            {
+                "parameters": {
+                    "jsCode": "// Parse recap agent output into structured data\nconst agentOutput = $('Recap Agent').first().json.output || '';\nconst context = $('Build Recap Context').first().json;\n\nlet recap = {};\ntry {\n  // Try to parse JSON from agent output (may be wrapped in code fences)\n  let jsonStr = agentOutput;\n  const fenceMatch = jsonStr.match(/```(?:json)?\\s*([\\s\\S]*?)```/);\n  if (fenceMatch) jsonStr = fenceMatch[1];\n  // Also try to find JSON object in the text\n  const objMatch = jsonStr.match(/\\{[\\s\\S]*\\}/);\n  if (objMatch) jsonStr = objMatch[0];\n  recap = JSON.parse(jsonStr);\n} catch(e) {\n  recap = {\n    summary: agentOutput.substring(0, 500) || 'Meeting recap could not be generated.',\n    sentiment: 'neutral',\n    sentiment_signal: '',\n    tasks: [],\n    key_decisions: [],\n    follow_up_context: ''\n  };\n}\n\nconst sentimentEmoji = {\n  'positive': ':white_check_mark:',\n  'neutral': ':large_blue_circle:',\n  'negative': ':red_circle:',\n  'mixed': ':warning:'\n}[recap.sentiment] || ':large_blue_circle:';\n\nreturn [{ json: {\n  ...context,\n  recap: {\n    summary: recap.summary || '',\n    sentiment: recap.sentiment || 'neutral',\n    sentimentEmoji,\n    sentimentSignal: recap.sentiment_signal || '',\n    tasks: (recap.tasks || []).slice(0, 5).map(t => ({\n      description: t.description || '',\n      owner: t.owner || '',\n      owner_email: t.owner_email || '',\n      assignee_role: t.assignee_role || '',\n      duration_minutes: t.duration_minutes || 30,\n      due_hint: t.due_hint || '',\n      task_category: t.task_category || '',\n    })),\n    keyDecisions: recap.key_decisions || [],\n    followUpContext: recap.follow_up_context || '',\n    csCategory: recap.cs_category || null,\n    salesCategory: recap.sales_category || null,\n    meetingCategory: recap.meeting_category || null,\n  }\n}}];"
+                },
+                "id": "e5f69f20-3ff9-478e-a651-324001f13f63",
+                "name": "Parse Recap Output",
+                "type": "n8n-nodes-base.code",
+                "typeVersion": 2,
+                "position": [
+                    3370,
+                    304
+                ]
+            },
+            {
+                "parameters": {
+                    "jsCode": "// Compact top-level card \u2014 just meeting info + action buttons\n// Full recap details go in the thread\nconst data = $('Parse Recap Output').first().json;\nconst recap = data.recap;\nconst m = data.meeting;\nconst assistantName = data.assistantName || 'Aria';\nconst assistantEmoji = data.assistantEmoji || ':robot_face:';\n\nconst subjectLine = m.subject || 'Customer Meeting';\nconst hoursAgo = m.hoursAgo || '';\nconst timeInfo = hoursAgo ? ` | ${hoursAgo}h ago` : '';\n\nconst taskCount = (recap.tasks || []).length;\nconst blocks = [];\n\nblocks.push({\n  type: \"section\",\n  text: { type: \"mrkdwn\", text: `:clipboard: *${m.accountName}* \u00b7 ${m.dayStr} ${m.timeStr} \u2014 ${subjectLine}` }\n});\n\n// Action buttons\nconst truncContext = (recap.followUpContext || '').substring(0, 500);\nconst draftPayload = JSON.stringify({\n  action: 'draft_followup',\n  account_name: m.accountName,\n  account_id: m.accountId || '',\n  activity_uid: m.activityUid,\n  meeting_subject: m.subject,\n  participants: m.participants || '',\n  follow_up_context: truncContext,\n  user_id: data.userId,\n  db_user_id: data.userId,\n  slack_user_id: data.slackUserId,\n  organization_id: data.organizationId || '',\n  assistant_name: data.assistantName,\n  assistant_emoji: data.assistantEmoji,\n  rep_name: data.repName,\n});\n\nconst savePayload = JSON.stringify({\n  action: 'save_activity',\n  account_name: m.accountName,\n  account_id: m.accountId || '',\n  activity_uid: m.activityUid,\n  meeting_subject: m.subject,\n  meeting_date: m.dayStr || '',\n  meeting_time: m.timeStr || '',\n  summary: (recap.summary || '').substring(0, 300),\n  key_decisions: (recap.keyDecisions || []).map(d => d.substring(0, 80)),\n  tasks: (recap.tasks || []).map(t => ({ description: (t.description || '').substring(0, 80), owner: t.owner || '' })),\n  sentiment: recap.sentiment,\n  cs_category: recap.csCategory || '',\n  sales_category: recap.salesCategory || '',\n  meeting_category: recap.meetingCategory || '',\n  user_id: data.userId,\n  slack_user_id: data.slackUserId,\n  rep_name: data.repName,\n  rep_email: data.email || '',\n  assistant_name: data.assistantName,\n  assistant_emoji: data.assistantEmoji,\n});\n\nblocks.push({\n  type: \"actions\",\n  elements: [\n    {\n      type: \"button\",\n      text: { type: \"plain_text\", text: \":salesforce: Review & Log\", emoji: true },\n      style: \"primary\",\n      action_id: \"recap_save_activity\",\n      value: savePayload\n    },\n    {\n      type: \"button\",\n      text: { type: \"plain_text\", text: \":email: Draft Follow-up\", emoji: true },\n      action_id: \"recap_draft_followup\",\n      value: draftPayload\n    },\n    ...(taskCount > 0 ? [{\n      type: \"button\",\n      text: { type: \"plain_text\", text: `:memo: Tasks (${taskCount})`, emoji: true },\n      action_id: \"recap_view_tasks\",\n      value: JSON.stringify({\n        account_name: m.accountName,\n        meeting_subject: m.subject,\n        tasks: (recap.tasks || []).slice(0, 5).map(t => ({\n          d: (t.description || '').substring(0, 100),\n          o: (t.owner || '').substring(0, 30),\n          e: (t.owner_email || '').substring(0, 40),\n          r: t.assignee_role || '',\n          m: t.duration_minutes || 30,\n          h: (t.due_hint || '').substring(0, 20),\n          c: (t.task_category || '').substring(0, 40),\n        })),\n        assistant_name: assistantName,\n        assistant_emoji: assistantEmoji,\n      }).substring(0, 1999)\n    }] : [])\n  ]\n});\n\nconst promptText = `Meeting Recap \u2014 ${m.accountName}: ${subjectLine}`;\n\nreturn [{ json: {\n  ...data,\n  blocks: JSON.stringify(blocks),\n  promptText,\n  assistantName,\n  assistantEmoji,\n  activityUids: [m.activityUid],\n}}];"
+                },
+                "id": "76a795c3-3a26-429d-92af-918bc388d620",
+                "name": "Build Recap Card",
+                "type": "n8n-nodes-base.code",
+                "typeVersion": 2,
+                "position": [
+                    3620,
+                    304
+                ]
+            },
+            {
+                "parameters": {
+                    "jsCode": "// Build detailed thread reply with decisions + tasks + Create in SF buttons\nconst data = $('Parse Recap Output').first().json;\nconst recap = data.recap;\nconst m = data.meeting;\nconst sendResult = $('Send Recap').first().json;\nconst assistantName = data.assistantName || 'Aria';\nconst assistantEmoji = data.assistantEmoji || ':robot_face:';\n\nconst blocks = [];\n\n// Summary + sentiment\nconst sentLine = `${recap.sentimentEmoji} ${recap.sentimentSignal || recap.sentiment}`;\nblocks.push({\n  type: \"section\",\n  text: { type: \"mrkdwn\", text: `${sentLine}\\n\\n${recap.summary}` }\n});\n\nblocks.push({ type: \"divider\" });\n\n// Key Decisions\nif (recap.keyDecisions && recap.keyDecisions.length > 0) {\n  const decisionText = recap.keyDecisions.map(d => `\u2022 ${d}`).join('\\n');\n  blocks.push({\n    type: \"section\",\n    text: { type: \"mrkdwn\", text: `*Key Decisions*\\n${decisionText}` }\n  });\n  blocks.push({ type: \"divider\" });\n}\n\n// Action Items with individual \"Create in SF\" buttons\nif (recap.tasks && recap.tasks.length > 0) {\n  blocks.push({\n    type: \"section\",\n    text: { type: \"mrkdwn\", text: \"*Action Items*\" }\n  });\n\n  for (let i = 0; i < recap.tasks.length; i++) {\n    const task = recap.tasks[i];\n    const roleBadge = task.assignee_role ? ` (${task.assignee_role})` : '';\n    const durationBadge = task.duration_minutes ? ` \u00b7 ${task.duration_minutes} min` : '';\n    const taskText = `\u2022 ${task.description}` +\n      (task.owner ? ` \u2014 _${task.owner}_` + roleBadge : '') +\n      durationBadge +\n      (task.due_hint ? ` \u00b7 ${task.due_hint}` : '');\n\n    const taskPayload = JSON.stringify({\n      action: 'create_task',\n      task_index: i,\n      task_description: task.description,\n      task_owner: task.owner || '',\n      task_owner_email: task.owner_email || '',\n      task_due_hint: task.due_hint || '',\n      account_name: m.accountName,\n      account_id: m.accountId || '',\n      activity_uid: m.activityUid,\n      meeting_subject: m.subject,\n      user_id: data.userId,\n      slack_user_id: data.slackUserId,\n      rep_name: data.repName,\n      rep_email: data.email || '',\n      assignee_role: task.assignee_role || '',\n      duration_minutes: task.duration_minutes || 30,\n      task_category: task.task_category || '',\n      assistant_name: data.assistantName || 'Aria',\n      assistant_emoji: data.assistantEmoji || ':robot_face:',\n    });\n\n    blocks.push({\n      type: \"section\",\n      text: { type: \"mrkdwn\", text: taskText },\n      accessory: {\n        type: \"button\",\n        text: { type: \"plain_text\", text: \":salesforce: Create Task\", emoji: true },\n        action_id: `recap_create_task_${i}`,\n        value: taskPayload\n      }\n    });\n  }\n}\n\n// If no decisions and no tasks, still post something useful\nif ((!recap.keyDecisions || recap.keyDecisions.length === 0) &&\n    (!recap.tasks || recap.tasks.length === 0)) {\n  blocks.push({\n    type: \"section\",\n    text: { type: \"mrkdwn\", text: \"_No key decisions or action items were captured for this meeting._\" }\n  });\n}\n\n// Thread footer\nblocks.push({\n  type: \"context\",\n  elements: [\n    { type: \"mrkdwn\", text: \"Reply in this thread to discuss this meeting\" }\n  ]\n});\n\nreturn [{ json: {\n  threadBlocks: JSON.stringify(blocks),\n  threadTs: sendResult.ts,\n  channelId: sendResult.channel,\n  assistantName,\n  assistantEmoji,\n}}];"
+                },
+                "id": "436bb9f2-c5c1-4a4c-8e83-0da99975244f",
+                "name": "Build Recap Thread",
+                "type": "n8n-nodes-base.code",
+                "typeVersion": 2,
+                "position": [
+                    3418,
+                    304
+                ]
+            },
+            {
+                "parameters": {
+                    "method": "POST",
+                    "url": "https://slack.com/api/chat.postMessage",
+                    "authentication": "genericCredentialType",
+                    "genericAuthType": "httpHeaderAuth",
+                    "sendHeaders": true,
+                    "headerParameters": {
+                        "parameters": [
+                            {
+                                "name": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ]
+                    },
+                    "sendBody": true,
+                    "specifyBody": "json",
+                    "jsonBody": "={{ JSON.stringify({ channel: $json.channelId, thread_ts: $json.threadTs, blocks: JSON.parse($json.threadBlocks), text: \"Meeting details\", username: $json.assistantName, icon_emoji: $json.assistantEmoji }) }}",
+                    "options": {}
+                },
+                "id": "20d6accc-e904-44d1-aaf5-156ac1e205bc",
+                "name": "Send Recap Thread",
+                "type": "n8n-nodes-base.httpRequest",
+                "typeVersion": 4.2,
+                "position": [
+                    3668,
+                    304
+                ],
+                "credentials": {
+                    "httpHeaderAuth": {
+                        "id": "LluVuiMJ8NUbAiG7",
+                        "name": "Slackbot Auth Token"
+                    }
+                }
             }
         ],
         "connections": {
-            "Every 15 Minutes": {
-                "main": [
-                    [
-                        {
-                            "node": "Get Auth Token",
-                            "type": "main",
-                            "index": 0
-                        }
-                    ]
-                ]
-            },
             "Get Auth Token": {
                 "main": [
                     [
@@ -972,7 +1337,7 @@
                 "main": [
                     [
                         {
-                            "node": "Check Sent Followups",
+                            "node": "Compute Dedup Window",
                             "type": "main",
                             "index": 0
                         }
@@ -1018,18 +1383,7 @@
                     [],
                     [
                         {
-                            "node": "Build Follow-up Prompt",
-                            "type": "main",
-                            "index": 0
-                        }
-                    ]
-                ]
-            },
-            "Build Follow-up Prompt": {
-                "main": [
-                    [
-                        {
-                            "node": "Open Bot DM",
+                            "node": "Build Recap Context",
                             "type": "main",
                             "index": 0
                         }
@@ -1040,18 +1394,7 @@
                 "main": [
                     [
                         {
-                            "node": "Send Follow-up Prompt",
-                            "type": "main",
-                            "index": 0
-                        }
-                    ]
-                ]
-            },
-            "Send Follow-up Prompt": {
-                "main": [
-                    [
-                        {
-                            "node": "Prepare Log Data",
+                            "node": "Send Recap",
                             "type": "main",
                             "index": 0
                         }
@@ -1079,29 +1422,132 @@
                         }
                     ]
                 ]
+            },
+            "Compute Dedup Window": {
+                "main": [
+                    [
+                        {
+                            "node": "Check Sent Followups",
+                            "type": "main",
+                            "index": 0
+                        }
+                    ]
+                ]
+            },
+            "Followup Check (9am + 4pm PT)": {
+                "main": [
+                    [
+                        {
+                            "node": "Get Auth Token",
+                            "type": "main",
+                            "index": 0
+                        }
+                    ]
+                ]
+            },
+            "Anthropic Chat Model (Recap)": {
+                "ai_languageModel": [
+                    [
+                        {
+                            "node": "Recap Agent",
+                            "type": "ai_languageModel",
+                            "index": 0
+                        }
+                    ]
+                ]
+            },
+            "People.ai MCP (Recap)": {
+                "ai_tool": [
+                    [
+                        {
+                            "node": "Recap Agent",
+                            "type": "ai_tool",
+                            "index": 0
+                        }
+                    ]
+                ]
+            },
+            "Build Recap Context": {
+                "main": [
+                    [
+                        {
+                            "node": "Recap Agent",
+                            "type": "main",
+                            "index": 0
+                        }
+                    ]
+                ]
+            },
+            "Recap Agent": {
+                "main": [
+                    [
+                        {
+                            "node": "Parse Recap Output",
+                            "type": "main",
+                            "index": 0
+                        }
+                    ]
+                ]
+            },
+            "Parse Recap Output": {
+                "main": [
+                    [
+                        {
+                            "node": "Build Recap Card",
+                            "type": "main",
+                            "index": 0
+                        }
+                    ]
+                ]
+            },
+            "Send Recap": {
+                "main": [
+                    [
+                        {
+                            "node": "Build Recap Thread",
+                            "type": "main",
+                            "index": 0
+                        }
+                    ]
+                ]
+            },
+            "Build Recap Card": {
+                "main": [
+                    [
+                        {
+                            "node": "Open Bot DM",
+                            "type": "main",
+                            "index": 0
+                        }
+                    ]
+                ]
+            },
+            "Build Recap Thread": {
+                "main": [
+                    [
+                        {
+                            "node": "Send Recap Thread",
+                            "type": "main",
+                            "index": 0
+                        }
+                    ]
+                ]
+            },
+            "Send Recap Thread": {
+                "main": [
+                    [
+                        {
+                            "node": "Prepare Log Data",
+                            "type": "main",
+                            "index": 0
+                        }
+                    ]
+                ]
             }
         },
         "authors": "Scott Metcalf",
         "name": null,
         "description": null,
-        "autosaved": false,
-        "workflowPublishHistory": [
-            {
-                "createdAt": "2026-03-04T23:33:20.434Z",
-                "id": 682,
-                "workflowId": "JhDuCvZdFN4PFTOW",
-                "versionId": "0d3463ca-fc5b-4aec-af70-baf2e760d4b8",
-                "event": "activated",
-                "userId": "bfa163c1-bd53-4c0f-b0ba-8dc3626f7c79"
-            },
-            {
-                "createdAt": "2026-03-04T23:33:20.410Z",
-                "id": 681,
-                "workflowId": "JhDuCvZdFN4PFTOW",
-                "versionId": "0d3463ca-fc5b-4aec-af70-baf2e760d4b8",
-                "event": "deactivated",
-                "userId": "bfa163c1-bd53-4c0f-b0ba-8dc3626f7c79"
-            }
-        ]
+        "autosaved": false
     }
 }

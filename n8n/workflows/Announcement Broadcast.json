@@ -1,0 +1,921 @@
+{
+    "updatedAt": "2026-03-12T22:37:03.042Z",
+    "createdAt": "2026-03-12T22:37:03.042Z",
+    "id": "9k73LOlmvSgYhmaL",
+    "name": "Announcement Broadcast",
+    "description": null,
+    "active": true,
+    "isArchived": false,
+    "nodes": [
+        {
+            "parameters": {
+                "inputSource": "passthrough"
+            },
+            "id": "1b0a9c70-e077-4676-b525-c9f55fc00f6e",
+            "name": "Execute Workflow Trigger",
+            "type": "n8n-nodes-base.executeWorkflowTrigger",
+            "typeVersion": 1.1,
+            "position": [
+                0,
+                0
+            ]
+        },
+        {
+            "parameters": {
+                "operation": "getAll",
+                "tableId": "users",
+                "returnAll": true,
+                "options": {}
+            },
+            "id": "1a1e08cf-d3bf-429b-90af-0f8517f8f36d",
+            "name": "Fetch Users",
+            "type": "n8n-nodes-base.supabase",
+            "typeVersion": 1,
+            "position": [
+                220,
+                0
+            ],
+            "credentials": {
+                "supabaseApi": {
+                    "id": "ASRWWkQ0RSMOpNF1",
+                    "name": "Supabase account"
+                }
+            }
+        },
+        {
+            "parameters": {
+                "jsCode": "\nconst users = $input.all();\nconst message = $('Execute Workflow Trigger').first().json.message;\nconst adminChannelId = $('Execute Workflow Trigger').first().json.admin_channel_id;\n\nconst active = users.filter(u =>\n  u.json.onboarding_state === 'complete' &&\n  u.json.announcements_enabled !== false\n);\n\nreturn active.map(u => ({\n  json: {\n    ...u.json,\n    announcementMessage: message,\n    adminChannelId: adminChannelId,\n    totalUsers: active.length,\n  }\n}));\n"
+            },
+            "id": "ed72a4f0-700b-4458-aad5-cb5c7b772a07",
+            "name": "Filter Active Users",
+            "type": "n8n-nodes-base.code",
+            "typeVersion": 2,
+            "position": [
+                440,
+                0
+            ]
+        },
+        {
+            "parameters": {
+                "batchSize": 1,
+                "options": {}
+            },
+            "id": "7e056bbf-64cf-44dd-a663-c6d667c61c00",
+            "name": "SplitInBatches",
+            "type": "n8n-nodes-base.splitInBatches",
+            "typeVersion": 3,
+            "position": [
+                660,
+                0
+            ]
+        },
+        {
+            "parameters": {
+                "jsCode": "\nconst user = $json;\n\nconst assistantName = user.assistant_name || 'Aria';\nconst assistantEmoji = user.assistant_emoji || ':robot_face:';\nconst persona = user.assistant_persona || 'friendly and helpful';\n\nconst prompt = `You are ${assistantName}. Rephrase this announcement in your voice (personality: ${persona}). Keep it concise \u2014 2-3 sentences max. Don't change the core information, just wrap it in your style. Use Slack formatting (*bold*, _italic_, bullet points). Do NOT use markdown headers.\n\nAnnouncement: ${user.announcementMessage}`;\n\nreturn [{\n  json: {\n    ...user,\n    assistantName,\n    assistantEmoji,\n    persona,\n    personalizePrompt: prompt,\n  }\n}];\n"
+            },
+            "id": "e0759eaf-5613-41b1-8d2d-639fcc7d9a95",
+            "name": "Resolve Identity",
+            "type": "n8n-nodes-base.code",
+            "typeVersion": 2,
+            "position": [
+                880,
+                100
+            ]
+        },
+        {
+            "parameters": {
+                "promptType": "define",
+                "text": "={{ $json.personalizePrompt }}",
+                "options": {
+                    "maxIterations": 1
+                }
+            },
+            "id": "7fdae3fa-995a-4a9a-995d-dbd4068de3bc",
+            "name": "Personalize Message",
+            "type": "@n8n/n8n-nodes-langchain.agent",
+            "typeVersion": 1.7,
+            "position": [
+                1100,
+                100
+            ],
+            "continueOnFail": true
+        },
+        {
+            "parameters": {
+                "model": {
+                    "__rl": true,
+                    "mode": "list",
+                    "value": "claude-sonnet-4-5-20250929",
+                    "cachedResultName": "Claude Sonnet 4.5"
+                },
+                "options": {}
+            },
+            "id": "c239e0d2-a5da-4906-8eb2-6f69899f25ce",
+            "name": "Anthropic Chat Model (Announce)",
+            "type": "@n8n/n8n-nodes-langchain.lmChatAnthropic",
+            "typeVersion": 1.3,
+            "position": [
+                1050,
+                300
+            ],
+            "credentials": {
+                "anthropicApi": {
+                    "id": "rlAz7ZSl4y6AwRUq",
+                    "name": "Anthropic account 2"
+                }
+            }
+        },
+        {
+            "parameters": {
+                "method": "POST",
+                "url": "https://slack.com/api/conversations.open",
+                "authentication": "genericCredentialType",
+                "genericAuthType": "httpHeaderAuth",
+                "sendHeaders": true,
+                "headerParameters": {
+                    "parameters": [
+                        {
+                            "name": "Content-Type",
+                            "value": "application/json"
+                        }
+                    ]
+                },
+                "sendBody": true,
+                "specifyBody": "json",
+                "jsonBody": "={{ JSON.stringify({ users: $json.slack_user_id }) }}",
+                "options": {}
+            },
+            "id": "f529ef18-7d6e-4ad9-a838-5034f50313f8",
+            "name": "Open Bot DM",
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4.2,
+            "position": [
+                1320,
+                100
+            ],
+            "credentials": {
+                "httpHeaderAuth": {
+                    "id": "LluVuiMJ8NUbAiG7",
+                    "name": "Slackbot Auth Token"
+                }
+            },
+            "continueOnFail": true
+        },
+        {
+            "parameters": {
+                "method": "POST",
+                "url": "https://slack.com/api/chat.postMessage",
+                "authentication": "genericCredentialType",
+                "genericAuthType": "httpHeaderAuth",
+                "sendHeaders": true,
+                "headerParameters": {
+                    "parameters": [
+                        {
+                            "name": "Content-Type",
+                            "value": "application/json"
+                        }
+                    ]
+                },
+                "sendBody": true,
+                "specifyBody": "json",
+                "jsonBody": "={{\nJSON.stringify({\n  channel: $json.channel.id,\n  text: $('Personalize Message').first().json.output || $('Resolve Identity').first().json.announcementMessage,\n  username: $('Resolve Identity').first().json.assistantName,\n  icon_emoji: $('Resolve Identity').first().json.assistantEmoji,\n})\n}}",
+                "options": {}
+            },
+            "id": "b1a60bc4-3a23-44d3-923b-47379ffe5c62",
+            "name": "Send Announcement",
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4.2,
+            "position": [
+                1540,
+                100
+            ],
+            "credentials": {
+                "httpHeaderAuth": {
+                    "id": "LluVuiMJ8NUbAiG7",
+                    "name": "Slackbot Auth Token"
+                }
+            },
+            "continueOnFail": true
+        },
+        {
+            "parameters": {
+                "jsCode": "\nconst user = $('Resolve Identity').first().json;\nconst personalizedText = $('Personalize Message').first().json.output || '';\nconst sendResult = $json;\n\nreturn [{\n  json: {\n    user_id: user.id,\n    feature_id: 'announcement',\n    trigger_type: 'announcement',\n    message_text: personalizedText,\n    slack_message_ts: sendResult.ts || null,\n    slack_channel_id: sendResult.channel || null,\n  }\n}];\n"
+            },
+            "id": "4c6922d3-1cb3-4236-8caa-d0c6c84a0f5f",
+            "name": "Prepare Log Entry",
+            "type": "n8n-nodes-base.code",
+            "typeVersion": 2,
+            "position": [
+                1760,
+                100
+            ]
+        },
+        {
+            "parameters": {
+                "method": "POST",
+                "url": "https://rhrlnkbphxntxxxcrgvv.supabase.co/rest/v1/education_log",
+                "authentication": "predefinedCredentialType",
+                "nodeCredentialType": "supabaseApi",
+                "sendHeaders": true,
+                "headerParameters": {
+                    "parameters": [
+                        {
+                            "name": "Prefer",
+                            "value": "return=representation"
+                        }
+                    ]
+                },
+                "options": {},
+                "sendBody": true,
+                "specifyBody": "json",
+                "jsonBody": "={{ JSON.stringify($json) }}"
+            },
+            "id": "9c5df767-747f-42b0-8bdd-ad8b3ac3d4a5",
+            "name": "Log to education_log",
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4.2,
+            "position": [
+                1980,
+                100
+            ],
+            "credentials": {
+                "supabaseApi": {
+                    "id": "ASRWWkQ0RSMOpNF1",
+                    "name": "Supabase account"
+                }
+            },
+            "continueOnFail": true
+        },
+        {
+            "parameters": {
+                "jsCode": "\nconst trigger = $('Execute Workflow Trigger').first().json;\nconst adminChannelId = trigger.admin_channel_id;\n// Count is from the first item that went through the filter\nconst totalUsers = $('Filter Active Users').first().json.totalUsers || 0;\n\nreturn [{\n  json: {\n    channel: adminChannelId,\n    text: `Announcement delivered to *${totalUsers}* users.`,\n  }\n}];\n"
+            },
+            "id": "f846fda7-b1f8-4bdd-ac44-9bdae8b39520",
+            "name": "Prepare Admin Notification",
+            "type": "n8n-nodes-base.code",
+            "typeVersion": 2,
+            "position": [
+                880,
+                -200
+            ]
+        },
+        {
+            "parameters": {
+                "method": "POST",
+                "url": "https://slack.com/api/chat.postMessage",
+                "authentication": "genericCredentialType",
+                "genericAuthType": "httpHeaderAuth",
+                "sendHeaders": true,
+                "headerParameters": {
+                    "parameters": [
+                        {
+                            "name": "Content-Type",
+                            "value": "application/json"
+                        }
+                    ]
+                },
+                "sendBody": true,
+                "specifyBody": "json",
+                "jsonBody": "={{ JSON.stringify({ channel: $json.channel, text: $json.text }) }}",
+                "options": {}
+            },
+            "id": "55eeb104-02fb-46a8-9d18-9019af3ed197",
+            "name": "Notify Admin",
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4.2,
+            "position": [
+                1100,
+                -200
+            ],
+            "credentials": {
+                "httpHeaderAuth": {
+                    "id": "LluVuiMJ8NUbAiG7",
+                    "name": "Slackbot Auth Token"
+                }
+            }
+        }
+    ],
+    "connections": {
+        "Anthropic Chat Model (Announce)": {
+            "ai_languageModel": [
+                [
+                    {
+                        "node": "Personalize Message",
+                        "type": "ai_languageModel",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Execute Workflow Trigger": {
+            "main": [
+                [
+                    {
+                        "node": "Fetch Users",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Fetch Users": {
+            "main": [
+                [
+                    {
+                        "node": "Filter Active Users",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Filter Active Users": {
+            "main": [
+                [
+                    {
+                        "node": "SplitInBatches",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "SplitInBatches": {
+            "main": [
+                [
+                    {
+                        "node": "Prepare Admin Notification",
+                        "type": "main",
+                        "index": 0
+                    }
+                ],
+                [
+                    {
+                        "node": "Resolve Identity",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Resolve Identity": {
+            "main": [
+                [
+                    {
+                        "node": "Personalize Message",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Personalize Message": {
+            "main": [
+                [
+                    {
+                        "node": "Open Bot DM",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Open Bot DM": {
+            "main": [
+                [
+                    {
+                        "node": "Send Announcement",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Send Announcement": {
+            "main": [
+                [
+                    {
+                        "node": "Prepare Log Entry",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Prepare Log Entry": {
+            "main": [
+                [
+                    {
+                        "node": "Log to education_log",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Log to education_log": {
+            "main": [
+                [
+                    {
+                        "node": "SplitInBatches",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Prepare Admin Notification": {
+            "main": [
+                [
+                    {
+                        "node": "Notify Admin",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        }
+    },
+    "settings": {
+        "executionOrder": "v1",
+        "callerPolicy": "workflowsFromSameOwner",
+        "availableInMCP": false
+    },
+    "staticData": null,
+    "meta": null,
+    "pinData": null,
+    "versionId": "b28e6016-03ed-4429-855f-ea0e84f25300",
+    "activeVersionId": "b28e6016-03ed-4429-855f-ea0e84f25300",
+    "versionCounter": 3,
+    "triggerCount": 0,
+    "shared": [
+        {
+            "updatedAt": "2026-03-12T22:37:03.050Z",
+            "createdAt": "2026-03-12T22:37:03.050Z",
+            "role": "workflow:owner",
+            "workflowId": "9k73LOlmvSgYhmaL",
+            "projectId": "85jtzrEPriGDXgHV",
+            "project": {
+                "updatedAt": "2025-11-24T07:01:19.205Z",
+                "createdAt": "2025-11-24T06:56:53.862Z",
+                "id": "85jtzrEPriGDXgHV",
+                "name": "Scott Metcalf <metcalf.scott@gmail.com>",
+                "type": "personal",
+                "icon": null,
+                "description": null,
+                "creatorId": "bfa163c1-bd53-4c0f-b0ba-8dc3626f7c79"
+            }
+        }
+    ],
+    "tags": [],
+    "activeVersion": {
+        "updatedAt": "2026-03-12T22:37:03.064Z",
+        "createdAt": "2026-03-12T22:37:03.064Z",
+        "versionId": "b28e6016-03ed-4429-855f-ea0e84f25300",
+        "workflowId": "9k73LOlmvSgYhmaL",
+        "nodes": [
+            {
+                "parameters": {
+                    "inputSource": "passthrough"
+                },
+                "id": "1b0a9c70-e077-4676-b525-c9f55fc00f6e",
+                "name": "Execute Workflow Trigger",
+                "type": "n8n-nodes-base.executeWorkflowTrigger",
+                "typeVersion": 1.1,
+                "position": [
+                    0,
+                    0
+                ]
+            },
+            {
+                "parameters": {
+                    "operation": "getAll",
+                    "tableId": "users",
+                    "returnAll": true,
+                    "options": {}
+                },
+                "id": "1a1e08cf-d3bf-429b-90af-0f8517f8f36d",
+                "name": "Fetch Users",
+                "type": "n8n-nodes-base.supabase",
+                "typeVersion": 1,
+                "position": [
+                    220,
+                    0
+                ],
+                "credentials": {
+                    "supabaseApi": {
+                        "id": "ASRWWkQ0RSMOpNF1",
+                        "name": "Supabase account"
+                    }
+                }
+            },
+            {
+                "parameters": {
+                    "jsCode": "\nconst users = $input.all();\nconst message = $('Execute Workflow Trigger').first().json.message;\nconst adminChannelId = $('Execute Workflow Trigger').first().json.admin_channel_id;\n\nconst active = users.filter(u =>\n  u.json.onboarding_state === 'complete' &&\n  u.json.announcements_enabled !== false\n);\n\nreturn active.map(u => ({\n  json: {\n    ...u.json,\n    announcementMessage: message,\n    adminChannelId: adminChannelId,\n    totalUsers: active.length,\n  }\n}));\n"
+                },
+                "id": "ed72a4f0-700b-4458-aad5-cb5c7b772a07",
+                "name": "Filter Active Users",
+                "type": "n8n-nodes-base.code",
+                "typeVersion": 2,
+                "position": [
+                    440,
+                    0
+                ]
+            },
+            {
+                "parameters": {
+                    "batchSize": 1,
+                    "options": {}
+                },
+                "id": "7e056bbf-64cf-44dd-a663-c6d667c61c00",
+                "name": "SplitInBatches",
+                "type": "n8n-nodes-base.splitInBatches",
+                "typeVersion": 3,
+                "position": [
+                    660,
+                    0
+                ]
+            },
+            {
+                "parameters": {
+                    "jsCode": "\nconst user = $json;\n\nconst assistantName = user.assistant_name || 'Aria';\nconst assistantEmoji = user.assistant_emoji || ':robot_face:';\nconst persona = user.assistant_persona || 'friendly and helpful';\n\nconst prompt = `You are ${assistantName}. Rephrase this announcement in your voice (personality: ${persona}). Keep it concise \u2014 2-3 sentences max. Don't change the core information, just wrap it in your style. Use Slack formatting (*bold*, _italic_, bullet points). Do NOT use markdown headers.\n\nAnnouncement: ${user.announcementMessage}`;\n\nreturn [{\n  json: {\n    ...user,\n    assistantName,\n    assistantEmoji,\n    persona,\n    personalizePrompt: prompt,\n  }\n}];\n"
+                },
+                "id": "e0759eaf-5613-41b1-8d2d-639fcc7d9a95",
+                "name": "Resolve Identity",
+                "type": "n8n-nodes-base.code",
+                "typeVersion": 2,
+                "position": [
+                    880,
+                    100
+                ]
+            },
+            {
+                "parameters": {
+                    "promptType": "define",
+                    "text": "={{ $json.personalizePrompt }}",
+                    "options": {
+                        "maxIterations": 1
+                    }
+                },
+                "id": "7fdae3fa-995a-4a9a-995d-dbd4068de3bc",
+                "name": "Personalize Message",
+                "type": "@n8n/n8n-nodes-langchain.agent",
+                "typeVersion": 1.7,
+                "position": [
+                    1100,
+                    100
+                ],
+                "continueOnFail": true
+            },
+            {
+                "parameters": {
+                    "model": {
+                        "__rl": true,
+                        "mode": "list",
+                        "value": "claude-sonnet-4-5-20250929",
+                        "cachedResultName": "Claude Sonnet 4.5"
+                    },
+                    "options": {}
+                },
+                "id": "c239e0d2-a5da-4906-8eb2-6f69899f25ce",
+                "name": "Anthropic Chat Model (Announce)",
+                "type": "@n8n/n8n-nodes-langchain.lmChatAnthropic",
+                "typeVersion": 1.3,
+                "position": [
+                    1050,
+                    300
+                ],
+                "credentials": {
+                    "anthropicApi": {
+                        "id": "rlAz7ZSl4y6AwRUq",
+                        "name": "Anthropic account 2"
+                    }
+                }
+            },
+            {
+                "parameters": {
+                    "method": "POST",
+                    "url": "https://slack.com/api/conversations.open",
+                    "authentication": "genericCredentialType",
+                    "genericAuthType": "httpHeaderAuth",
+                    "sendHeaders": true,
+                    "headerParameters": {
+                        "parameters": [
+                            {
+                                "name": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ]
+                    },
+                    "sendBody": true,
+                    "specifyBody": "json",
+                    "jsonBody": "={{ JSON.stringify({ users: $json.slack_user_id }) }}",
+                    "options": {}
+                },
+                "id": "f529ef18-7d6e-4ad9-a838-5034f50313f8",
+                "name": "Open Bot DM",
+                "type": "n8n-nodes-base.httpRequest",
+                "typeVersion": 4.2,
+                "position": [
+                    1320,
+                    100
+                ],
+                "credentials": {
+                    "httpHeaderAuth": {
+                        "id": "LluVuiMJ8NUbAiG7",
+                        "name": "Slackbot Auth Token"
+                    }
+                },
+                "continueOnFail": true
+            },
+            {
+                "parameters": {
+                    "method": "POST",
+                    "url": "https://slack.com/api/chat.postMessage",
+                    "authentication": "genericCredentialType",
+                    "genericAuthType": "httpHeaderAuth",
+                    "sendHeaders": true,
+                    "headerParameters": {
+                        "parameters": [
+                            {
+                                "name": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ]
+                    },
+                    "sendBody": true,
+                    "specifyBody": "json",
+                    "jsonBody": "={{\nJSON.stringify({\n  channel: $json.channel.id,\n  text: $('Personalize Message').first().json.output || $('Resolve Identity').first().json.announcementMessage,\n  username: $('Resolve Identity').first().json.assistantName,\n  icon_emoji: $('Resolve Identity').first().json.assistantEmoji,\n})\n}}",
+                    "options": {}
+                },
+                "id": "b1a60bc4-3a23-44d3-923b-47379ffe5c62",
+                "name": "Send Announcement",
+                "type": "n8n-nodes-base.httpRequest",
+                "typeVersion": 4.2,
+                "position": [
+                    1540,
+                    100
+                ],
+                "credentials": {
+                    "httpHeaderAuth": {
+                        "id": "LluVuiMJ8NUbAiG7",
+                        "name": "Slackbot Auth Token"
+                    }
+                },
+                "continueOnFail": true
+            },
+            {
+                "parameters": {
+                    "jsCode": "\nconst user = $('Resolve Identity').first().json;\nconst personalizedText = $('Personalize Message').first().json.output || '';\nconst sendResult = $json;\n\nreturn [{\n  json: {\n    user_id: user.id,\n    feature_id: 'announcement',\n    trigger_type: 'announcement',\n    message_text: personalizedText,\n    slack_message_ts: sendResult.ts || null,\n    slack_channel_id: sendResult.channel || null,\n  }\n}];\n"
+                },
+                "id": "4c6922d3-1cb3-4236-8caa-d0c6c84a0f5f",
+                "name": "Prepare Log Entry",
+                "type": "n8n-nodes-base.code",
+                "typeVersion": 2,
+                "position": [
+                    1760,
+                    100
+                ]
+            },
+            {
+                "parameters": {
+                    "method": "POST",
+                    "url": "https://rhrlnkbphxntxxxcrgvv.supabase.co/rest/v1/education_log",
+                    "authentication": "predefinedCredentialType",
+                    "nodeCredentialType": "supabaseApi",
+                    "sendHeaders": true,
+                    "headerParameters": {
+                        "parameters": [
+                            {
+                                "name": "Prefer",
+                                "value": "return=representation"
+                            }
+                        ]
+                    },
+                    "options": {},
+                    "sendBody": true,
+                    "specifyBody": "json",
+                    "jsonBody": "={{ JSON.stringify($json) }}"
+                },
+                "id": "9c5df767-747f-42b0-8bdd-ad8b3ac3d4a5",
+                "name": "Log to education_log",
+                "type": "n8n-nodes-base.httpRequest",
+                "typeVersion": 4.2,
+                "position": [
+                    1980,
+                    100
+                ],
+                "credentials": {
+                    "supabaseApi": {
+                        "id": "ASRWWkQ0RSMOpNF1",
+                        "name": "Supabase account"
+                    }
+                },
+                "continueOnFail": true
+            },
+            {
+                "parameters": {
+                    "jsCode": "\nconst trigger = $('Execute Workflow Trigger').first().json;\nconst adminChannelId = trigger.admin_channel_id;\n// Count is from the first item that went through the filter\nconst totalUsers = $('Filter Active Users').first().json.totalUsers || 0;\n\nreturn [{\n  json: {\n    channel: adminChannelId,\n    text: `Announcement delivered to *${totalUsers}* users.`,\n  }\n}];\n"
+                },
+                "id": "f846fda7-b1f8-4bdd-ac44-9bdae8b39520",
+                "name": "Prepare Admin Notification",
+                "type": "n8n-nodes-base.code",
+                "typeVersion": 2,
+                "position": [
+                    880,
+                    -200
+                ]
+            },
+            {
+                "parameters": {
+                    "method": "POST",
+                    "url": "https://slack.com/api/chat.postMessage",
+                    "authentication": "genericCredentialType",
+                    "genericAuthType": "httpHeaderAuth",
+                    "sendHeaders": true,
+                    "headerParameters": {
+                        "parameters": [
+                            {
+                                "name": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ]
+                    },
+                    "sendBody": true,
+                    "specifyBody": "json",
+                    "jsonBody": "={{ JSON.stringify({ channel: $json.channel, text: $json.text }) }}",
+                    "options": {}
+                },
+                "id": "55eeb104-02fb-46a8-9d18-9019af3ed197",
+                "name": "Notify Admin",
+                "type": "n8n-nodes-base.httpRequest",
+                "typeVersion": 4.2,
+                "position": [
+                    1100,
+                    -200
+                ],
+                "credentials": {
+                    "httpHeaderAuth": {
+                        "id": "LluVuiMJ8NUbAiG7",
+                        "name": "Slackbot Auth Token"
+                    }
+                }
+            }
+        ],
+        "connections": {
+            "Anthropic Chat Model (Announce)": {
+                "ai_languageModel": [
+                    [
+                        {
+                            "node": "Personalize Message",
+                            "type": "ai_languageModel",
+                            "index": 0
+                        }
+                    ]
+                ]
+            },
+            "Execute Workflow Trigger": {
+                "main": [
+                    [
+                        {
+                            "node": "Fetch Users",
+                            "type": "main",
+                            "index": 0
+                        }
+                    ]
+                ]
+            },
+            "Fetch Users": {
+                "main": [
+                    [
+                        {
+                            "node": "Filter Active Users",
+                            "type": "main",
+                            "index": 0
+                        }
+                    ]
+                ]
+            },
+            "Filter Active Users": {
+                "main": [
+                    [
+                        {
+                            "node": "SplitInBatches",
+                            "type": "main",
+                            "index": 0
+                        }
+                    ]
+                ]
+            },
+            "SplitInBatches": {
+                "main": [
+                    [
+                        {
+                            "node": "Prepare Admin Notification",
+                            "type": "main",
+                            "index": 0
+                        }
+                    ],
+                    [
+                        {
+                            "node": "Resolve Identity",
+                            "type": "main",
+                            "index": 0
+                        }
+                    ]
+                ]
+            },
+            "Resolve Identity": {
+                "main": [
+                    [
+                        {
+                            "node": "Personalize Message",
+                            "type": "main",
+                            "index": 0
+                        }
+                    ]
+                ]
+            },
+            "Personalize Message": {
+                "main": [
+                    [
+                        {
+                            "node": "Open Bot DM",
+                            "type": "main",
+                            "index": 0
+                        }
+                    ]
+                ]
+            },
+            "Open Bot DM": {
+                "main": [
+                    [
+                        {
+                            "node": "Send Announcement",
+                            "type": "main",
+                            "index": 0
+                        }
+                    ]
+                ]
+            },
+            "Send Announcement": {
+                "main": [
+                    [
+                        {
+                            "node": "Prepare Log Entry",
+                            "type": "main",
+                            "index": 0
+                        }
+                    ]
+                ]
+            },
+            "Prepare Log Entry": {
+                "main": [
+                    [
+                        {
+                            "node": "Log to education_log",
+                            "type": "main",
+                            "index": 0
+                        }
+                    ]
+                ]
+            },
+            "Log to education_log": {
+                "main": [
+                    [
+                        {
+                            "node": "SplitInBatches",
+                            "type": "main",
+                            "index": 0
+                        }
+                    ]
+                ]
+            },
+            "Prepare Admin Notification": {
+                "main": [
+                    [
+                        {
+                            "node": "Notify Admin",
+                            "type": "main",
+                            "index": 0
+                        }
+                    ]
+                ]
+            }
+        },
+        "authors": "Scott Metcalf",
+        "name": null,
+        "description": null,
+        "autosaved": false,
+        "workflowPublishHistory": [
+            {
+                "createdAt": "2026-03-12T22:37:03.275Z",
+                "id": 1029,
+                "workflowId": "9k73LOlmvSgYhmaL",
+                "versionId": "b28e6016-03ed-4429-855f-ea0e84f25300",
+                "event": "activated",
+                "userId": "bfa163c1-bd53-4c0f-b0ba-8dc3626f7c79"
+            }
+        ]
+    }
+}

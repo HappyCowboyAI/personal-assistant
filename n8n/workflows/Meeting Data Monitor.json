@@ -1,0 +1,1185 @@
+{
+    "updatedAt": "2026-03-16T19:37:53.322Z",
+    "createdAt": "2026-03-15T17:29:25.342Z",
+    "id": "qydIaf2GFaxJjHcI",
+    "name": "Meeting Data Monitor",
+    "description": null,
+    "active": true,
+    "isArchived": false,
+    "nodes": [
+        {
+            "parameters": {
+                "rule": {
+                    "interval": [
+                        {
+                            "field": "cronExpression",
+                            "expression": "*/30 5-20 * * 1-5"
+                        }
+                    ]
+                }
+            },
+            "id": "262bfd1a-a5b8-46e3-b586-6b89e12d7736",
+            "name": "Every 30 Min (Weekdays 5am-8pm)",
+            "type": "n8n-nodes-base.scheduleTrigger",
+            "typeVersion": 1.2,
+            "position": [
+                0,
+                480
+            ]
+        },
+        {
+            "parameters": {
+                "method": "POST",
+                "url": "https://api.people.ai/v3/auth/tokens",
+                "sendHeaders": true,
+                "headerParameters": {
+                    "parameters": [
+                        {
+                            "name": "Content-Type",
+                            "value": "application/x-www-form-urlencoded"
+                        }
+                    ]
+                },
+                "sendBody": true,
+                "contentType": "raw",
+                "rawContentType": "application/x-www-form-urlencoded",
+                "body": "client_id=YOUR_CLIENT_ID&client_secret=YOUR_CLIENT_SECRET&grant_type=client_credentials",
+                "options": {}
+            },
+            "id": "04ad0c8a-356a-4494-8665-bb5fd8698416",
+            "name": "Get Auth Token",
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4.2,
+            "position": [
+                224,
+                480
+            ]
+        },
+        {
+            "parameters": {
+                "jsCode": "// Build People.ai activity export query for today's meetings\nconst tz = 'America/Los_Angeles';\nconst now = new Date();\n\n// Start of today in PT\nconst todayStr = now.toLocaleDateString('en-US', { timeZone: tz });\nconst parts = todayStr.split('/');\nconst todayMidnight = new Date(parts[2] + '-' + parts[0].padStart(2, '0') + '-' + parts[1].padStart(2, '0') + 'T00:00:00-08:00');\nconst tomorrowMidnight = new Date(todayMidnight.getTime() + 24 * 3600000);\n\nconst query = {\n  object: \"activity\",\n  filter: {\n    \"$and\": [\n      { attribute: { slug: \"ootb_activity_type\" }, clause: { \"$eq\": \"meeting\" } },\n      { attribute: { slug: \"ootb_activity_external\" }, clause: { \"$eq\": true } },\n      { attribute: { slug: \"ootb_activity_timestamp\" }, clause: { \"$gte\": todayMidnight.getTime() } },\n      { attribute: { slug: \"ootb_activity_timestamp\" }, clause: { \"$lte\": tomorrowMidnight.getTime() } }\n    ]\n  },\n  columns: [\n    { slug: \"ootb_activity_uid\" },\n    { slug: \"ootb_activity_timestamp\" },\n    { slug: \"ootb_activity_created_at\" },\n    { slug: \"ootb_activity_subject\" },\n    { slug: \"ootb_activity_account\" },\n    { slug: \"ootb_activity_opportunity\" },\n    { slug: \"ootb_activity_participants\", variation_id: \"ootb_activity_participants_email\" },\n    { slug: \"ootb_activity_participants\", variation_id: \"ootb_activity_participants_name\" },\n    { slug: \"ootb_activity_participants\", variation_id: \"ootb_activity_participants_external\" },\n    { slug: \"ootb_activity_duration\" },\n    { slug: \"ootb_activity_sentiment\" },\n    { slug: \"ootb_activity_action_items\" },\n    { slug: \"ootb_activity_key_topics\" },\n    { slug: \"ootb_activity_summary\" },\n    { slug: \"ootb_activity_transcript_status\" },\n  ],\n  sort: [\n    { attribute: { slug: \"ootb_activity_timestamp\" }, direction: \"asc\" }\n  ]\n};\n\nreturn [{ json: { query: JSON.stringify(query) } }];\n"
+            },
+            "id": "5cd68751-f509-412c-85ac-e6f17ae9c723",
+            "name": "Build Query",
+            "type": "n8n-nodes-base.code",
+            "typeVersion": 2,
+            "position": [
+                448,
+                480
+            ]
+        },
+        {
+            "parameters": {
+                "method": "POST",
+                "url": "https://api.people.ai/v3/beta/insights/export",
+                "sendHeaders": true,
+                "headerParameters": {
+                    "parameters": [
+                        {
+                            "name": "Authorization",
+                            "value": "=Bearer {{ $('Get Auth Token').first().json.access_token }}"
+                        },
+                        {
+                            "name": "Content-Type",
+                            "value": "application/json"
+                        }
+                    ]
+                },
+                "sendBody": true,
+                "specifyBody": "json",
+                "jsonBody": "={{ $('Build Query').first().json.query }}",
+                "options": {
+                    "response": {
+                        "response": {
+                            "responseFormat": "text"
+                        }
+                    }
+                }
+            },
+            "id": "41ec8acd-c0f0-47b8-a4fa-1737888f38dc",
+            "name": "Fetch Today Meetings",
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4.2,
+            "position": [
+                672,
+                480
+            ]
+        },
+        {
+            "parameters": {
+                "jsCode": "// Parse CSV and filter for Scott + Shreyas + Frank meetings\nconst raw = $input.first().json;\nconst csvText = typeof raw === 'string' ? raw : (raw.data || raw.body || raw.text || '');\nconst WATCH_EMAILS = ['scott.metcalf@people.ai', 'shreyas.gore@people.ai', 'frank.shawn@people.ai'];\n\nconst lines = csvText.trim().split(/\\r?\\n/).filter(l => l.trim());\nif (lines.length < 2) {\n  return [{ json: { noMeetings: true } }];\n}\n\n// CSV parser that handles both \"quoted\" and [bracketed] fields\nfunction parseCsvLine(line) {\n  const vals = [];\n  let i = 0;\n  while (i < line.length) {\n    if (line[i] === '\"') {\n      // Quoted field\n      i++;\n      let val = '';\n      while (i < line.length && line[i] !== '\"') { val += line[i]; i++; }\n      i++; // skip closing quote\n      if (i < line.length && line[i] === ',') i++; // skip comma\n      vals.push(val);\n    } else if (line[i] === '[') {\n      // Bracket-enclosed field\n      let val = '';\n      i++; // skip [\n      while (i < line.length && line[i] !== ']') { val += line[i]; i++; }\n      i++; // skip ]\n      if (i < line.length && line[i] === ',') i++; // skip comma\n      vals.push(val);\n    } else {\n      // Plain field\n      let val = '';\n      while (i < line.length && line[i] !== ',') { val += line[i]; i++; }\n      i++; // skip comma\n      vals.push(val.trim());\n    }\n  }\n  return vals;\n}\n\nconst headers = parseCsvLine(lines[0]);\n\nconst now = new Date();\nconst tz = 'America/Los_Angeles';\nconst results = [];\n\nfor (let i = 1; i < lines.length; i++) {\n  const vals = parseCsvLine(lines[i]);\n  const row = {};\n  headers.forEach((h, idx) => row[h] = vals[idx] || '');\n\n  // Check if any watched email is a participant\n  const emails = (row['Activity Participants (Email)'] || '').toLowerCase();\n  const isOurs = WATCH_EMAILS.some(e => emails.includes(e));\n  if (!isOurs) continue;\n\n  const meetingTime = new Date(row['Activity date'] || '');\n  const elapsed = (now - meetingTime) / 3600000;\n  const hasEnded = elapsed > 0.25;\n\n  const subject = row['Subject'] || '[no subject]';\n  const account = row['Account (name)'] || '';\n  const meetingPT = meetingTime.toLocaleTimeString('en-US', { timeZone: tz, hour: 'numeric', minute: '2-digit' });\n\n  // Who from our team\n  const nameList = (row['Activity Participants (Name)'] || '').split(';').map(n => n.trim());\n  const emailList = (row['Activity Participants (Email)'] || '').split(';').map(e => e.trim());\n  const ourPeople = [];\n  emailList.forEach((e, idx) => {\n    if (WATCH_EMAILS.includes(e.toLowerCase())) {\n      ourPeople.push(nameList[idx] || e);\n    }\n  });\n\n  results.push({\n    meetingId: row['Activity'] || '',\n    time: meetingPT,\n    elapsed: hasEnded ? elapsed.toFixed(1) + 'h ago' : 'upcoming',\n    elapsedHours: elapsed,\n    hasEnded,\n    subject: subject.length > 60 ? subject.substring(0, 57) + '...' : subject,\n    account: account || '[unmatched]',\n    rep: ourPeople.join(', '),\n    needsProbe: hasEnded && !!account,\n  });\n}\n\nresults.sort((a, b) => a.elapsedHours - b.elapsedHours);\nresults.reverse();\n\nreturn results.map(m => ({ json: m }));\n"
+            },
+            "id": "3102dcdb-9627-4ec0-9b80-b12c36b672c1",
+            "name": "Parse & Filter Meetings",
+            "type": "n8n-nodes-base.code",
+            "typeVersion": 2,
+            "position": [
+                896,
+                480
+            ]
+        },
+        {
+            "parameters": {
+                "method": "POST",
+                "url": "https://slack.com/api/conversations.open",
+                "authentication": "genericCredentialType",
+                "genericAuthType": "httpHeaderAuth",
+                "sendHeaders": true,
+                "headerParameters": {
+                    "parameters": [
+                        {
+                            "name": "Content-Type",
+                            "value": "application/json"
+                        }
+                    ]
+                },
+                "sendBody": true,
+                "specifyBody": "json",
+                "jsonBody": "={\"users\": \"U061WJ6RMJS\"}",
+                "options": {}
+            },
+            "id": "05b23c25-c7a4-4206-a01a-1798deb26c4b",
+            "name": "Open DM",
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4.2,
+            "position": [
+                1584,
+                528
+            ],
+            "credentials": {
+                "httpHeaderAuth": {
+                    "id": "LluVuiMJ8NUbAiG7",
+                    "name": "Slackbot Auth Token"
+                }
+            }
+        },
+        {
+            "parameters": {
+                "method": "POST",
+                "url": "https://slack.com/api/chat.postMessage",
+                "authentication": "genericCredentialType",
+                "genericAuthType": "httpHeaderAuth",
+                "sendHeaders": true,
+                "headerParameters": {
+                    "parameters": [
+                        {
+                            "name": "Content-Type",
+                            "value": "application/json"
+                        }
+                    ]
+                },
+                "sendBody": true,
+                "specifyBody": "json",
+                "jsonBody": "={{ JSON.stringify({ channel: $(\"Open DM\").first().json.channel.id, text: $(\"Build Report\").first().json.summary, username: \"Meeting Monitor\", icon_emoji: \":mag:\"}) }}",
+                "options": {}
+            },
+            "id": "e8d880f6-ba13-4154-a215-82053c307ada",
+            "name": "Post Report",
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4.2,
+            "position": [
+                1872,
+                528
+            ],
+            "credentials": {
+                "httpHeaderAuth": {
+                    "id": "LluVuiMJ8NUbAiG7",
+                    "name": "Slackbot Auth Token"
+                }
+            }
+        },
+        {
+            "parameters": {
+                "options": {}
+            },
+            "id": "16843ecf-7e4c-4c8d-a4e6-2bd840389599",
+            "name": "Split Meetings",
+            "type": "n8n-nodes-base.splitInBatches",
+            "typeVersion": 3,
+            "position": [
+                1120,
+                480
+            ]
+        },
+        {
+            "parameters": {
+                "conditions": {
+                    "options": {
+                        "version": 2,
+                        "caseSensitive": true,
+                        "typeValidation": "strict"
+                    },
+                    "combinator": "and",
+                    "conditions": [
+                        {
+                            "id": "fa3a4a2c-1fbb-4510-839b-48d783d036ed",
+                            "operator": {
+                                "name": "filter.operator.equals",
+                                "type": "boolean",
+                                "operation": "equals"
+                            },
+                            "leftValue": "={{ $json.needsProbe }}",
+                            "rightValue": true
+                        }
+                    ]
+                },
+                "options": {}
+            },
+            "id": "5929136a-2de5-401c-a13e-b94053638436",
+            "name": "Needs Probe?",
+            "type": "n8n-nodes-base.if",
+            "typeVersion": 2.2,
+            "position": [
+                1344,
+                128
+            ]
+        },
+        {
+            "parameters": {
+                "jsCode": "// Build a targeted probe question for SalesAI\nconst meeting = $input.first().json;\nconst account = meeting.account;\nconst subject = meeting.subject;\nconst time = meeting.time;\n\nconst prompt = `Check the most recent activity for the account \"${account}\". ` +\n  `I had a meeting today at ${time} titled \"${subject}\". ` +\n  `Tell me: does your data include specific discussion topics, action items, or meeting notes from this meeting? ` +\n  `Reply with EXACTLY one of these formats:\\n` +\n  `- ENRICHED: [brief summary of what discussion data you found]\\n` +\n  `- NOT_ENRICHED: [what data you do have, e.g. \"only calendar metadata\"]\\n` +\n  `Be concise. One line only.`;\n\nconst systemPrompt = 'You are a data availability checker. Use People.ai MCP tools to look up recent activity for the specified account. ' +\n  'Check if the specific meeting has discussion content (topics, action items, notes) or just calendar metadata. ' +\n  'Reply in the exact format requested. Be brief and factual.';\n\nreturn [{ json: { ...meeting, probePrompt: prompt, probeSystem: systemPrompt } }];\n"
+            },
+            "id": "0e9bd76c-b73c-45b2-b9ae-f2456cf46ffe",
+            "name": "Build Probe Prompt",
+            "type": "n8n-nodes-base.code",
+            "typeVersion": 2,
+            "position": [
+                1568,
+                32
+            ]
+        },
+        {
+            "parameters": {
+                "promptType": "define",
+                "text": "={{ $json.probePrompt }}",
+                "options": {
+                    "systemMessage": "={{ $json.probeSystem }}",
+                    "maxIterations": 5
+                }
+            },
+            "id": "52666c2b-08c6-4e66-a8d4-3fba999a3de1",
+            "name": "Probe Agent",
+            "type": "@n8n/n8n-nodes-langchain.agent",
+            "typeVersion": 1.7,
+            "position": [
+                1792,
+                -80
+            ]
+        },
+        {
+            "parameters": {
+                "model": {
+                    "__rl": true,
+                    "value": "claude-haiku-4-5-20251001",
+                    "mode": "list",
+                    "cachedResultName": "Claude Haiku 4.5"
+                },
+                "options": {}
+            },
+            "id": "9de75357-35f3-4c74-86e5-ffb6a82ba8b9",
+            "name": "Probe LLM",
+            "type": "@n8n/n8n-nodes-langchain.lmChatAnthropic",
+            "typeVersion": 1.3,
+            "position": [
+                1808,
+                144
+            ],
+            "credentials": {
+                "anthropicApi": {
+                    "id": "rlAz7ZSl4y6AwRUq",
+                    "name": "Anthropic account 2"
+                }
+            }
+        },
+        {
+            "parameters": {
+                "endpointUrl": "https://mcp.people.ai/mcp",
+                "authentication": "multipleHeadersAuth",
+                "options": {}
+            },
+            "id": "2fa80b8e-9cde-4d00-9a56-72dd791a1a83",
+            "name": "Probe MCP",
+            "type": "@n8n/n8n-nodes-langchain.mcpClientTool",
+            "typeVersion": 1.2,
+            "position": [
+                1936,
+                144
+            ],
+            "credentials": {
+                "httpMultipleHeadersAuth": {
+                    "id": "wvV5pwBeIL7f2vLG",
+                    "name": "People.ai MCP Multi-Header"
+                }
+            }
+        },
+        {
+            "parameters": {
+                "jsCode": "// Extract probe result and merge back with meeting data\nconst input = $input.first().json;\nconst agentOutput = input.output || input.text || '';\n\nlet probeStatus = 'UNKNOWN';\nlet probeDetail = '';\n\nif (agentOutput.includes('ENRICHED:') && !agentOutput.includes('NOT_ENRICHED')) {\n  probeStatus = 'ENRICHED';\n  probeDetail = agentOutput.split('ENRICHED:')[1]?.trim() || '';\n} else if (agentOutput.includes('NOT_ENRICHED')) {\n  probeStatus = 'NOT_ENRICHED';\n  probeDetail = agentOutput.split('NOT_ENRICHED:')[1]?.trim() || '';\n} else {\n  probeDetail = agentOutput.substring(0, 200);\n}\n\n// Get meeting data from upstream\nconst meeting = $('Build Probe Prompt').first().json;\n\nreturn [{ json: {\n  ...meeting,\n  probeStatus,\n  probeDetail: probeDetail.substring(0, 150),\n} }];\n"
+            },
+            "id": "ecadb705-1fa6-4075-9d4b-cfada136b125",
+            "name": "Parse Probe",
+            "type": "n8n-nodes-base.code",
+            "typeVersion": 2,
+            "position": [
+                2144,
+                288
+            ]
+        },
+        {
+            "parameters": {
+                "jsCode": "// Meeting doesn't need probing (upcoming or no account)\nconst meeting = $input.first().json;\nreturn [{ json: {\n  ...meeting,\n  probeStatus: meeting.hasEnded ? 'NO_ACCOUNT' : 'UPCOMING',\n  probeDetail: '',\n} }];\n"
+            },
+            "id": "7c6d0af1-e21f-48dc-83aa-263410fc88b9",
+            "name": "Skip Probe",
+            "type": "n8n-nodes-base.code",
+            "typeVersion": 2,
+            "position": [
+                1568,
+                224
+            ]
+        },
+        {
+            "parameters": {
+                "jsCode": "// Aggregate all meeting probe results into a Slack report\n// Collect from both probe paths\n// Read accumulated results from static data\nconst staticData = $getWorkflowStaticData('global');\nconst allMeetings = staticData.probeResults || [];\n\n// Sort by elapsed (most recent first would be highest elapsed)\nallMeetings.sort((a, b) => (b.elapsedHours || 0) - (a.elapsedHours || 0));\nallMeetings.reverse(); // earliest first\n\nconst now = new Date();\nconst tz = 'America/Los_Angeles';\nconst nowPT = now.toLocaleTimeString('en-US', { timeZone: tz, hour: 'numeric', minute: '2-digit' });\nconst datePT = now.toLocaleDateString('en-US', { timeZone: tz, weekday: 'long', month: 'short', day: 'numeric' });\n\nif (!allMeetings.length) {\n  return [{ json: { summary: `:mag: *Meeting Data Monitor* \u2014 ${datePT} at ${nowPT} PT\\n_No meetings found today._` } }];\n}\n\nlet summary = `:mag: *Meeting Data Monitor* \u2014 ${datePT} at ${nowPT} PT\\n`;\nsummary += `_Tracking: Scott Metcalf, Shreyas Gore, Frank Shawn | ${allMeetings.length} meetings_\\n\\n`;\n\nsummary += ':large_green_circle: transcript data  :large_yellow_circle: no transcript yet  :date: upcoming\\n\\n';\n\nconst statusIcon = {\n  'ENRICHED': ':large_green_circle:',\n  'NOT_ENRICHED': ':large_yellow_circle:',\n  'NO_ACCOUNT': ':large_yellow_circle:',\n  'UPCOMING': ':date:',\n  'UNKNOWN': ':question:',\n};\n\nlet enriched = 0, notEnriched = 0, upcoming = 0;\n\nfor (const m of allMeetings) {\n  const icon = statusIcon[m.probeStatus] || ':question:';\n\n  summary += `${icon} *${m.time}* \u2014 ${m.subject} (${m.elapsed})\\n`;\n  summary += `    _${m.account}_ | ${m.rep || ''}\\n`;\n\n  if (m.probeStatus === 'ENRICHED') {\n    summary += `    :memo: ${m.probeDetail}\\n`;\n    enriched++;\n  } else if (m.probeStatus === 'NOT_ENRICHED') {\n    summary += `    :hourglass: ${m.probeDetail || 'No transcript yet'}\\n`;\n    notEnriched++;\n  } else if (m.probeStatus === 'UPCOMING') {\n    upcoming++;\n  }\n  summary += '\\n';\n}\n\nsummary += `---\\n_:large_green_circle: ${enriched} enriched | :large_yellow_circle: ${notEnriched} waiting | :date: ${upcoming} upcoming_`;\n\nreturn [{ json: { summary } }];\n"
+            },
+            "id": "c08d021b-0f46-4b1e-a8c3-ad296e60fead",
+            "name": "Build Report",
+            "type": "n8n-nodes-base.code",
+            "typeVersion": 2,
+            "position": [
+                1344,
+                416
+            ]
+        },
+        {
+            "parameters": {
+                "jsCode": "// Reset the results collector for this run\nconst staticData = $getWorkflowStaticData('global');\nstaticData.probeResults = [];\nreturn $input.all();\n"
+            },
+            "id": "b066282a-bb19-474e-a133-a0d23a4c6db0",
+            "name": "Init Collector",
+            "type": "n8n-nodes-base.code",
+            "typeVersion": 2,
+            "position": [
+                1006,
+                360
+            ]
+        },
+        {
+            "parameters": {
+                "jsCode": "// Append this meeting's probe result to the collector\nconst staticData = $getWorkflowStaticData('global');\nif (!staticData.probeResults) staticData.probeResults = [];\nconst item = $input.first().json;\nstaticData.probeResults.push(item);\nreturn [{ json: item }];\n"
+            },
+            "id": "6d79e059-f125-43b0-acf0-398cea3ffa8c",
+            "name": "Collect Result",
+            "type": "n8n-nodes-base.code",
+            "typeVersion": 2,
+            "position": [
+                2364,
+                388
+            ]
+        }
+    ],
+    "connections": {
+        "Every 30 Min (Weekdays 5am-8pm)": {
+            "main": [
+                [
+                    {
+                        "node": "Get Auth Token",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Get Auth Token": {
+            "main": [
+                [
+                    {
+                        "node": "Build Query",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Build Query": {
+            "main": [
+                [
+                    {
+                        "node": "Fetch Today Meetings",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Fetch Today Meetings": {
+            "main": [
+                [
+                    {
+                        "node": "Parse & Filter Meetings",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Parse & Filter Meetings": {
+            "main": [
+                [
+                    {
+                        "node": "Init Collector",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Split Meetings": {
+            "main": [
+                [
+                    {
+                        "node": "Build Report",
+                        "type": "main",
+                        "index": 0
+                    }
+                ],
+                [
+                    {
+                        "node": "Needs Probe?",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Needs Probe?": {
+            "main": [
+                [
+                    {
+                        "node": "Build Probe Prompt",
+                        "type": "main",
+                        "index": 0
+                    }
+                ],
+                [
+                    {
+                        "node": "Skip Probe",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Build Probe Prompt": {
+            "main": [
+                [
+                    {
+                        "node": "Probe Agent",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Probe Agent": {
+            "main": [
+                [
+                    {
+                        "node": "Parse Probe",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Parse Probe": {
+            "main": [
+                [
+                    {
+                        "node": "Collect Result",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Skip Probe": {
+            "main": [
+                [
+                    {
+                        "node": "Collect Result",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Build Report": {
+            "main": [
+                [
+                    {
+                        "node": "Open DM",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Open DM": {
+            "main": [
+                [
+                    {
+                        "node": "Post Report",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Probe LLM": {
+            "ai_languageModel": [
+                [
+                    {
+                        "node": "Probe Agent",
+                        "type": "ai_languageModel",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Probe MCP": {
+            "ai_tool": [
+                [
+                    {
+                        "node": "Probe Agent",
+                        "type": "ai_tool",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Init Collector": {
+            "main": [
+                [
+                    {
+                        "node": "Split Meetings",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Collect Result": {
+            "main": [
+                [
+                    {
+                        "node": "Split Meetings",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        }
+    },
+    "settings": {
+        "executionOrder": "v1",
+        "timezone": "America/Los_Angeles",
+        "callerPolicy": "workflowsFromSameOwner",
+        "availableInMCP": false
+    },
+    "staticData": {
+        "node:Every 30 Min (Weekdays 5am-8pm)": {
+            "recurrenceRules": []
+        }
+    },
+    "meta": null,
+    "pinData": {},
+    "versionId": "ef828849-215c-489c-ae8b-1eab145ea525",
+    "activeVersionId": "ef828849-215c-489c-ae8b-1eab145ea525",
+    "versionCounter": 41,
+    "triggerCount": 1,
+    "tags": [],
+    "activeVersion": {
+        "updatedAt": "2026-03-16T19:37:53.323Z",
+        "createdAt": "2026-03-16T19:37:53.323Z",
+        "versionId": "ef828849-215c-489c-ae8b-1eab145ea525",
+        "workflowId": "qydIaf2GFaxJjHcI",
+        "nodes": [
+            {
+                "parameters": {
+                    "rule": {
+                        "interval": [
+                            {
+                                "field": "cronExpression",
+                                "expression": "*/30 5-20 * * 1-5"
+                            }
+                        ]
+                    }
+                },
+                "id": "262bfd1a-a5b8-46e3-b586-6b89e12d7736",
+                "name": "Every 30 Min (Weekdays 5am-8pm)",
+                "type": "n8n-nodes-base.scheduleTrigger",
+                "typeVersion": 1.2,
+                "position": [
+                    0,
+                    480
+                ]
+            },
+            {
+                "parameters": {
+                    "method": "POST",
+                    "url": "https://api.people.ai/v3/auth/tokens",
+                    "sendHeaders": true,
+                    "headerParameters": {
+                        "parameters": [
+                            {
+                                "name": "Content-Type",
+                                "value": "application/x-www-form-urlencoded"
+                            }
+                        ]
+                    },
+                    "sendBody": true,
+                    "contentType": "raw",
+                    "rawContentType": "application/x-www-form-urlencoded",
+                    "body": "client_id=YOUR_CLIENT_ID&client_secret=YOUR_CLIENT_SECRET&grant_type=client_credentials",
+                    "options": {}
+                },
+                "id": "04ad0c8a-356a-4494-8665-bb5fd8698416",
+                "name": "Get Auth Token",
+                "type": "n8n-nodes-base.httpRequest",
+                "typeVersion": 4.2,
+                "position": [
+                    224,
+                    480
+                ]
+            },
+            {
+                "parameters": {
+                    "jsCode": "// Build People.ai activity export query for today's meetings\nconst tz = 'America/Los_Angeles';\nconst now = new Date();\n\n// Start of today in PT\nconst todayStr = now.toLocaleDateString('en-US', { timeZone: tz });\nconst parts = todayStr.split('/');\nconst todayMidnight = new Date(parts[2] + '-' + parts[0].padStart(2, '0') + '-' + parts[1].padStart(2, '0') + 'T00:00:00-08:00');\nconst tomorrowMidnight = new Date(todayMidnight.getTime() + 24 * 3600000);\n\nconst query = {\n  object: \"activity\",\n  filter: {\n    \"$and\": [\n      { attribute: { slug: \"ootb_activity_type\" }, clause: { \"$eq\": \"meeting\" } },\n      { attribute: { slug: \"ootb_activity_external\" }, clause: { \"$eq\": true } },\n      { attribute: { slug: \"ootb_activity_timestamp\" }, clause: { \"$gte\": todayMidnight.getTime() } },\n      { attribute: { slug: \"ootb_activity_timestamp\" }, clause: { \"$lte\": tomorrowMidnight.getTime() } }\n    ]\n  },\n  columns: [\n    { slug: \"ootb_activity_uid\" },\n    { slug: \"ootb_activity_timestamp\" },\n    { slug: \"ootb_activity_created_at\" },\n    { slug: \"ootb_activity_subject\" },\n    { slug: \"ootb_activity_account\" },\n    { slug: \"ootb_activity_opportunity\" },\n    { slug: \"ootb_activity_participants\", variation_id: \"ootb_activity_participants_email\" },\n    { slug: \"ootb_activity_participants\", variation_id: \"ootb_activity_participants_name\" },\n    { slug: \"ootb_activity_participants\", variation_id: \"ootb_activity_participants_external\" },\n    { slug: \"ootb_activity_duration\" },\n    { slug: \"ootb_activity_sentiment\" },\n    { slug: \"ootb_activity_action_items\" },\n    { slug: \"ootb_activity_key_topics\" },\n    { slug: \"ootb_activity_summary\" },\n    { slug: \"ootb_activity_transcript_status\" },\n  ],\n  sort: [\n    { attribute: { slug: \"ootb_activity_timestamp\" }, direction: \"asc\" }\n  ]\n};\n\nreturn [{ json: { query: JSON.stringify(query) } }];\n"
+                },
+                "id": "5cd68751-f509-412c-85ac-e6f17ae9c723",
+                "name": "Build Query",
+                "type": "n8n-nodes-base.code",
+                "typeVersion": 2,
+                "position": [
+                    448,
+                    480
+                ]
+            },
+            {
+                "parameters": {
+                    "method": "POST",
+                    "url": "https://api.people.ai/v3/beta/insights/export",
+                    "sendHeaders": true,
+                    "headerParameters": {
+                        "parameters": [
+                            {
+                                "name": "Authorization",
+                                "value": "=Bearer {{ $('Get Auth Token').first().json.access_token }}"
+                            },
+                            {
+                                "name": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ]
+                    },
+                    "sendBody": true,
+                    "specifyBody": "json",
+                    "jsonBody": "={{ $('Build Query').first().json.query }}",
+                    "options": {
+                        "response": {
+                            "response": {
+                                "responseFormat": "text"
+                            }
+                        }
+                    }
+                },
+                "id": "41ec8acd-c0f0-47b8-a4fa-1737888f38dc",
+                "name": "Fetch Today Meetings",
+                "type": "n8n-nodes-base.httpRequest",
+                "typeVersion": 4.2,
+                "position": [
+                    672,
+                    480
+                ]
+            },
+            {
+                "parameters": {
+                    "jsCode": "// Parse CSV and filter for Scott + Shreyas + Frank meetings\nconst raw = $input.first().json;\nconst csvText = typeof raw === 'string' ? raw : (raw.data || raw.body || raw.text || '');\nconst WATCH_EMAILS = ['scott.metcalf@people.ai', 'shreyas.gore@people.ai', 'frank.shawn@people.ai'];\n\nconst lines = csvText.trim().split(/\\r?\\n/).filter(l => l.trim());\nif (lines.length < 2) {\n  return [{ json: { noMeetings: true } }];\n}\n\n// CSV parser that handles both \"quoted\" and [bracketed] fields\nfunction parseCsvLine(line) {\n  const vals = [];\n  let i = 0;\n  while (i < line.length) {\n    if (line[i] === '\"') {\n      // Quoted field\n      i++;\n      let val = '';\n      while (i < line.length && line[i] !== '\"') { val += line[i]; i++; }\n      i++; // skip closing quote\n      if (i < line.length && line[i] === ',') i++; // skip comma\n      vals.push(val);\n    } else if (line[i] === '[') {\n      // Bracket-enclosed field\n      let val = '';\n      i++; // skip [\n      while (i < line.length && line[i] !== ']') { val += line[i]; i++; }\n      i++; // skip ]\n      if (i < line.length && line[i] === ',') i++; // skip comma\n      vals.push(val);\n    } else {\n      // Plain field\n      let val = '';\n      while (i < line.length && line[i] !== ',') { val += line[i]; i++; }\n      i++; // skip comma\n      vals.push(val.trim());\n    }\n  }\n  return vals;\n}\n\nconst headers = parseCsvLine(lines[0]);\n\nconst now = new Date();\nconst tz = 'America/Los_Angeles';\nconst results = [];\n\nfor (let i = 1; i < lines.length; i++) {\n  const vals = parseCsvLine(lines[i]);\n  const row = {};\n  headers.forEach((h, idx) => row[h] = vals[idx] || '');\n\n  // Check if any watched email is a participant\n  const emails = (row['Activity Participants (Email)'] || '').toLowerCase();\n  const isOurs = WATCH_EMAILS.some(e => emails.includes(e));\n  if (!isOurs) continue;\n\n  const meetingTime = new Date(row['Activity date'] || '');\n  const elapsed = (now - meetingTime) / 3600000;\n  const hasEnded = elapsed > 0.25;\n\n  const subject = row['Subject'] || '[no subject]';\n  const account = row['Account (name)'] || '';\n  const meetingPT = meetingTime.toLocaleTimeString('en-US', { timeZone: tz, hour: 'numeric', minute: '2-digit' });\n\n  // Who from our team\n  const nameList = (row['Activity Participants (Name)'] || '').split(';').map(n => n.trim());\n  const emailList = (row['Activity Participants (Email)'] || '').split(';').map(e => e.trim());\n  const ourPeople = [];\n  emailList.forEach((e, idx) => {\n    if (WATCH_EMAILS.includes(e.toLowerCase())) {\n      ourPeople.push(nameList[idx] || e);\n    }\n  });\n\n  results.push({\n    meetingId: row['Activity'] || '',\n    time: meetingPT,\n    elapsed: hasEnded ? elapsed.toFixed(1) + 'h ago' : 'upcoming',\n    elapsedHours: elapsed,\n    hasEnded,\n    subject: subject.length > 60 ? subject.substring(0, 57) + '...' : subject,\n    account: account || '[unmatched]',\n    rep: ourPeople.join(', '),\n    needsProbe: hasEnded && !!account,\n  });\n}\n\nresults.sort((a, b) => a.elapsedHours - b.elapsedHours);\nresults.reverse();\n\nreturn results.map(m => ({ json: m }));\n"
+                },
+                "id": "3102dcdb-9627-4ec0-9b80-b12c36b672c1",
+                "name": "Parse & Filter Meetings",
+                "type": "n8n-nodes-base.code",
+                "typeVersion": 2,
+                "position": [
+                    896,
+                    480
+                ]
+            },
+            {
+                "parameters": {
+                    "method": "POST",
+                    "url": "https://slack.com/api/conversations.open",
+                    "authentication": "genericCredentialType",
+                    "genericAuthType": "httpHeaderAuth",
+                    "sendHeaders": true,
+                    "headerParameters": {
+                        "parameters": [
+                            {
+                                "name": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ]
+                    },
+                    "sendBody": true,
+                    "specifyBody": "json",
+                    "jsonBody": "={\"users\": \"U061WJ6RMJS\"}",
+                    "options": {}
+                },
+                "id": "05b23c25-c7a4-4206-a01a-1798deb26c4b",
+                "name": "Open DM",
+                "type": "n8n-nodes-base.httpRequest",
+                "typeVersion": 4.2,
+                "position": [
+                    1584,
+                    528
+                ],
+                "credentials": {
+                    "httpHeaderAuth": {
+                        "id": "LluVuiMJ8NUbAiG7",
+                        "name": "Slackbot Auth Token"
+                    }
+                }
+            },
+            {
+                "parameters": {
+                    "method": "POST",
+                    "url": "https://slack.com/api/chat.postMessage",
+                    "authentication": "genericCredentialType",
+                    "genericAuthType": "httpHeaderAuth",
+                    "sendHeaders": true,
+                    "headerParameters": {
+                        "parameters": [
+                            {
+                                "name": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ]
+                    },
+                    "sendBody": true,
+                    "specifyBody": "json",
+                    "jsonBody": "={{ JSON.stringify({ channel: $(\"Open DM\").first().json.channel.id, text: $(\"Build Report\").first().json.summary, username: \"Meeting Monitor\", icon_emoji: \":mag:\"}) }}",
+                    "options": {}
+                },
+                "id": "e8d880f6-ba13-4154-a215-82053c307ada",
+                "name": "Post Report",
+                "type": "n8n-nodes-base.httpRequest",
+                "typeVersion": 4.2,
+                "position": [
+                    1872,
+                    528
+                ],
+                "credentials": {
+                    "httpHeaderAuth": {
+                        "id": "LluVuiMJ8NUbAiG7",
+                        "name": "Slackbot Auth Token"
+                    }
+                }
+            },
+            {
+                "parameters": {
+                    "options": {}
+                },
+                "id": "16843ecf-7e4c-4c8d-a4e6-2bd840389599",
+                "name": "Split Meetings",
+                "type": "n8n-nodes-base.splitInBatches",
+                "typeVersion": 3,
+                "position": [
+                    1120,
+                    480
+                ]
+            },
+            {
+                "parameters": {
+                    "conditions": {
+                        "options": {
+                            "version": 2,
+                            "caseSensitive": true,
+                            "typeValidation": "strict"
+                        },
+                        "combinator": "and",
+                        "conditions": [
+                            {
+                                "id": "fa3a4a2c-1fbb-4510-839b-48d783d036ed",
+                                "operator": {
+                                    "name": "filter.operator.equals",
+                                    "type": "boolean",
+                                    "operation": "equals"
+                                },
+                                "leftValue": "={{ $json.needsProbe }}",
+                                "rightValue": true
+                            }
+                        ]
+                    },
+                    "options": {}
+                },
+                "id": "5929136a-2de5-401c-a13e-b94053638436",
+                "name": "Needs Probe?",
+                "type": "n8n-nodes-base.if",
+                "typeVersion": 2.2,
+                "position": [
+                    1344,
+                    128
+                ]
+            },
+            {
+                "parameters": {
+                    "jsCode": "// Build a targeted probe question for SalesAI\nconst meeting = $input.first().json;\nconst account = meeting.account;\nconst subject = meeting.subject;\nconst time = meeting.time;\n\nconst prompt = `Check the most recent activity for the account \"${account}\". ` +\n  `I had a meeting today at ${time} titled \"${subject}\". ` +\n  `Tell me: does your data include specific discussion topics, action items, or meeting notes from this meeting? ` +\n  `Reply with EXACTLY one of these formats:\\n` +\n  `- ENRICHED: [brief summary of what discussion data you found]\\n` +\n  `- NOT_ENRICHED: [what data you do have, e.g. \"only calendar metadata\"]\\n` +\n  `Be concise. One line only.`;\n\nconst systemPrompt = 'You are a data availability checker. Use People.ai MCP tools to look up recent activity for the specified account. ' +\n  'Check if the specific meeting has discussion content (topics, action items, notes) or just calendar metadata. ' +\n  'Reply in the exact format requested. Be brief and factual.';\n\nreturn [{ json: { ...meeting, probePrompt: prompt, probeSystem: systemPrompt } }];\n"
+                },
+                "id": "0e9bd76c-b73c-45b2-b9ae-f2456cf46ffe",
+                "name": "Build Probe Prompt",
+                "type": "n8n-nodes-base.code",
+                "typeVersion": 2,
+                "position": [
+                    1568,
+                    32
+                ]
+            },
+            {
+                "parameters": {
+                    "promptType": "define",
+                    "text": "={{ $json.probePrompt }}",
+                    "options": {
+                        "systemMessage": "={{ $json.probeSystem }}",
+                        "maxIterations": 5
+                    }
+                },
+                "id": "52666c2b-08c6-4e66-a8d4-3fba999a3de1",
+                "name": "Probe Agent",
+                "type": "@n8n/n8n-nodes-langchain.agent",
+                "typeVersion": 1.7,
+                "position": [
+                    1792,
+                    -80
+                ]
+            },
+            {
+                "parameters": {
+                    "model": {
+                        "__rl": true,
+                        "value": "claude-haiku-4-5-20251001",
+                        "mode": "list",
+                        "cachedResultName": "Claude Haiku 4.5"
+                    },
+                    "options": {}
+                },
+                "id": "9de75357-35f3-4c74-86e5-ffb6a82ba8b9",
+                "name": "Probe LLM",
+                "type": "@n8n/n8n-nodes-langchain.lmChatAnthropic",
+                "typeVersion": 1.3,
+                "position": [
+                    1808,
+                    144
+                ],
+                "credentials": {
+                    "anthropicApi": {
+                        "id": "rlAz7ZSl4y6AwRUq",
+                        "name": "Anthropic account 2"
+                    }
+                }
+            },
+            {
+                "parameters": {
+                    "endpointUrl": "https://mcp.people.ai/mcp",
+                    "authentication": "multipleHeadersAuth",
+                    "options": {}
+                },
+                "id": "2fa80b8e-9cde-4d00-9a56-72dd791a1a83",
+                "name": "Probe MCP",
+                "type": "@n8n/n8n-nodes-langchain.mcpClientTool",
+                "typeVersion": 1.2,
+                "position": [
+                    1936,
+                    144
+                ],
+                "credentials": {
+                    "httpMultipleHeadersAuth": {
+                        "id": "wvV5pwBeIL7f2vLG",
+                        "name": "People.ai MCP Multi-Header"
+                    }
+                }
+            },
+            {
+                "parameters": {
+                    "jsCode": "// Extract probe result and merge back with meeting data\nconst input = $input.first().json;\nconst agentOutput = input.output || input.text || '';\n\nlet probeStatus = 'UNKNOWN';\nlet probeDetail = '';\n\nif (agentOutput.includes('ENRICHED:') && !agentOutput.includes('NOT_ENRICHED')) {\n  probeStatus = 'ENRICHED';\n  probeDetail = agentOutput.split('ENRICHED:')[1]?.trim() || '';\n} else if (agentOutput.includes('NOT_ENRICHED')) {\n  probeStatus = 'NOT_ENRICHED';\n  probeDetail = agentOutput.split('NOT_ENRICHED:')[1]?.trim() || '';\n} else {\n  probeDetail = agentOutput.substring(0, 200);\n}\n\n// Get meeting data from upstream\nconst meeting = $('Build Probe Prompt').first().json;\n\nreturn [{ json: {\n  ...meeting,\n  probeStatus,\n  probeDetail: probeDetail.substring(0, 150),\n} }];\n"
+                },
+                "id": "ecadb705-1fa6-4075-9d4b-cfada136b125",
+                "name": "Parse Probe",
+                "type": "n8n-nodes-base.code",
+                "typeVersion": 2,
+                "position": [
+                    2144,
+                    288
+                ]
+            },
+            {
+                "parameters": {
+                    "jsCode": "// Meeting doesn't need probing (upcoming or no account)\nconst meeting = $input.first().json;\nreturn [{ json: {\n  ...meeting,\n  probeStatus: meeting.hasEnded ? 'NO_ACCOUNT' : 'UPCOMING',\n  probeDetail: '',\n} }];\n"
+                },
+                "id": "7c6d0af1-e21f-48dc-83aa-263410fc88b9",
+                "name": "Skip Probe",
+                "type": "n8n-nodes-base.code",
+                "typeVersion": 2,
+                "position": [
+                    1568,
+                    224
+                ]
+            },
+            {
+                "parameters": {
+                    "jsCode": "// Aggregate all meeting probe results into a Slack report\n// Collect from both probe paths\n// Read accumulated results from static data\nconst staticData = $getWorkflowStaticData('global');\nconst allMeetings = staticData.probeResults || [];\n\n// Sort by elapsed (most recent first would be highest elapsed)\nallMeetings.sort((a, b) => (b.elapsedHours || 0) - (a.elapsedHours || 0));\nallMeetings.reverse(); // earliest first\n\nconst now = new Date();\nconst tz = 'America/Los_Angeles';\nconst nowPT = now.toLocaleTimeString('en-US', { timeZone: tz, hour: 'numeric', minute: '2-digit' });\nconst datePT = now.toLocaleDateString('en-US', { timeZone: tz, weekday: 'long', month: 'short', day: 'numeric' });\n\nif (!allMeetings.length) {\n  return [{ json: { summary: `:mag: *Meeting Data Monitor* \u2014 ${datePT} at ${nowPT} PT\\n_No meetings found today._` } }];\n}\n\nlet summary = `:mag: *Meeting Data Monitor* \u2014 ${datePT} at ${nowPT} PT\\n`;\nsummary += `_Tracking: Scott Metcalf, Shreyas Gore, Frank Shawn | ${allMeetings.length} meetings_\\n\\n`;\n\nsummary += ':large_green_circle: transcript data  :large_yellow_circle: no transcript yet  :date: upcoming\\n\\n';\n\nconst statusIcon = {\n  'ENRICHED': ':large_green_circle:',\n  'NOT_ENRICHED': ':large_yellow_circle:',\n  'NO_ACCOUNT': ':large_yellow_circle:',\n  'UPCOMING': ':date:',\n  'UNKNOWN': ':question:',\n};\n\nlet enriched = 0, notEnriched = 0, upcoming = 0;\n\nfor (const m of allMeetings) {\n  const icon = statusIcon[m.probeStatus] || ':question:';\n\n  summary += `${icon} *${m.time}* \u2014 ${m.subject} (${m.elapsed})\\n`;\n  summary += `    _${m.account}_ | ${m.rep || ''}\\n`;\n\n  if (m.probeStatus === 'ENRICHED') {\n    summary += `    :memo: ${m.probeDetail}\\n`;\n    enriched++;\n  } else if (m.probeStatus === 'NOT_ENRICHED') {\n    summary += `    :hourglass: ${m.probeDetail || 'No transcript yet'}\\n`;\n    notEnriched++;\n  } else if (m.probeStatus === 'UPCOMING') {\n    upcoming++;\n  }\n  summary += '\\n';\n}\n\nsummary += `---\\n_:large_green_circle: ${enriched} enriched | :large_yellow_circle: ${notEnriched} waiting | :date: ${upcoming} upcoming_`;\n\nreturn [{ json: { summary } }];\n"
+                },
+                "id": "c08d021b-0f46-4b1e-a8c3-ad296e60fead",
+                "name": "Build Report",
+                "type": "n8n-nodes-base.code",
+                "typeVersion": 2,
+                "position": [
+                    1344,
+                    416
+                ]
+            },
+            {
+                "parameters": {
+                    "jsCode": "// Reset the results collector for this run\nconst staticData = $getWorkflowStaticData('global');\nstaticData.probeResults = [];\nreturn $input.all();\n"
+                },
+                "id": "b066282a-bb19-474e-a133-a0d23a4c6db0",
+                "name": "Init Collector",
+                "type": "n8n-nodes-base.code",
+                "typeVersion": 2,
+                "position": [
+                    1006,
+                    360
+                ]
+            },
+            {
+                "parameters": {
+                    "jsCode": "// Append this meeting's probe result to the collector\nconst staticData = $getWorkflowStaticData('global');\nif (!staticData.probeResults) staticData.probeResults = [];\nconst item = $input.first().json;\nstaticData.probeResults.push(item);\nreturn [{ json: item }];\n"
+                },
+                "id": "6d79e059-f125-43b0-acf0-398cea3ffa8c",
+                "name": "Collect Result",
+                "type": "n8n-nodes-base.code",
+                "typeVersion": 2,
+                "position": [
+                    2364,
+                    388
+                ]
+            }
+        ],
+        "connections": {
+            "Every 30 Min (Weekdays 5am-8pm)": {
+                "main": [
+                    [
+                        {
+                            "node": "Get Auth Token",
+                            "type": "main",
+                            "index": 0
+                        }
+                    ]
+                ]
+            },
+            "Get Auth Token": {
+                "main": [
+                    [
+                        {
+                            "node": "Build Query",
+                            "type": "main",
+                            "index": 0
+                        }
+                    ]
+                ]
+            },
+            "Build Query": {
+                "main": [
+                    [
+                        {
+                            "node": "Fetch Today Meetings",
+                            "type": "main",
+                            "index": 0
+                        }
+                    ]
+                ]
+            },
+            "Fetch Today Meetings": {
+                "main": [
+                    [
+                        {
+                            "node": "Parse & Filter Meetings",
+                            "type": "main",
+                            "index": 0
+                        }
+                    ]
+                ]
+            },
+            "Parse & Filter Meetings": {
+                "main": [
+                    [
+                        {
+                            "node": "Init Collector",
+                            "type": "main",
+                            "index": 0
+                        }
+                    ]
+                ]
+            },
+            "Split Meetings": {
+                "main": [
+                    [
+                        {
+                            "node": "Build Report",
+                            "type": "main",
+                            "index": 0
+                        }
+                    ],
+                    [
+                        {
+                            "node": "Needs Probe?",
+                            "type": "main",
+                            "index": 0
+                        }
+                    ]
+                ]
+            },
+            "Needs Probe?": {
+                "main": [
+                    [
+                        {
+                            "node": "Build Probe Prompt",
+                            "type": "main",
+                            "index": 0
+                        }
+                    ],
+                    [
+                        {
+                            "node": "Skip Probe",
+                            "type": "main",
+                            "index": 0
+                        }
+                    ]
+                ]
+            },
+            "Build Probe Prompt": {
+                "main": [
+                    [
+                        {
+                            "node": "Probe Agent",
+                            "type": "main",
+                            "index": 0
+                        }
+                    ]
+                ]
+            },
+            "Probe Agent": {
+                "main": [
+                    [
+                        {
+                            "node": "Parse Probe",
+                            "type": "main",
+                            "index": 0
+                        }
+                    ]
+                ]
+            },
+            "Parse Probe": {
+                "main": [
+                    [
+                        {
+                            "node": "Collect Result",
+                            "type": "main",
+                            "index": 0
+                        }
+                    ]
+                ]
+            },
+            "Skip Probe": {
+                "main": [
+                    [
+                        {
+                            "node": "Collect Result",
+                            "type": "main",
+                            "index": 0
+                        }
+                    ]
+                ]
+            },
+            "Build Report": {
+                "main": [
+                    [
+                        {
+                            "node": "Open DM",
+                            "type": "main",
+                            "index": 0
+                        }
+                    ]
+                ]
+            },
+            "Open DM": {
+                "main": [
+                    [
+                        {
+                            "node": "Post Report",
+                            "type": "main",
+                            "index": 0
+                        }
+                    ]
+                ]
+            },
+            "Probe LLM": {
+                "ai_languageModel": [
+                    [
+                        {
+                            "node": "Probe Agent",
+                            "type": "ai_languageModel",
+                            "index": 0
+                        }
+                    ]
+                ]
+            },
+            "Probe MCP": {
+                "ai_tool": [
+                    [
+                        {
+                            "node": "Probe Agent",
+                            "type": "ai_tool",
+                            "index": 0
+                        }
+                    ]
+                ]
+            },
+            "Init Collector": {
+                "main": [
+                    [
+                        {
+                            "node": "Split Meetings",
+                            "type": "main",
+                            "index": 0
+                        }
+                    ]
+                ]
+            },
+            "Collect Result": {
+                "main": [
+                    [
+                        {
+                            "node": "Split Meetings",
+                            "type": "main",
+                            "index": 0
+                        }
+                    ]
+                ]
+            }
+        },
+        "authors": "Scott Metcalf",
+        "name": null,
+        "description": null,
+        "autosaved": false
+    }
+}

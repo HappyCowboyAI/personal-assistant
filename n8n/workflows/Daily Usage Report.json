@@ -1,0 +1,510 @@
+{
+    "updatedAt": "2026-03-27T15:06:43.051Z",
+    "createdAt": "2026-03-27T14:34:26.011Z",
+    "id": "TasATlMwYbql2j2Q",
+    "name": "Daily Usage Report",
+    "description": null,
+    "active": true,
+    "isArchived": false,
+    "nodes": [
+        {
+            "parameters": {
+                "rule": {
+                    "interval": [
+                        {
+                            "field": "cronExpression",
+                            "expression": "0 15 * * 1-5"
+                        }
+                    ]
+                }
+            },
+            "id": "9b8f3024-1f0b-45cd-a88a-d8b24f039b0d",
+            "name": "8am PT Weekdays",
+            "type": "n8n-nodes-base.scheduleTrigger",
+            "typeVersion": 1.2,
+            "position": [
+                0,
+                -96
+            ]
+        },
+        {
+            "parameters": {
+                "jsCode": "\nconst now = new Date();\n// Get \"today\" in PT\nconst ptStr = now.toLocaleString('en-US', { timeZone: 'America/Los_Angeles' });\nconst ptNow = new Date(ptStr);\nconst yesterday = new Date(ptNow);\nyesterday.setDate(yesterday.getDate() - 1);\n\nconst pad = (n) => String(n).padStart(2, '0');\nconst yStr = `${yesterday.getFullYear()}-${pad(yesterday.getMonth()+1)}-${pad(yesterday.getDate())}`;\nconst tStr = `${ptNow.getFullYear()}-${pad(ptNow.getMonth()+1)}-${pad(ptNow.getDate())}`;\n\nconst base = 'https://rhrlnkbphxntxxxcrgvv.supabase.co/rest/v1';\n\nreturn [{ json: {\n  messagesUrl: `${base}/messages?select=id,user_id,message_type,direction,sent_at,metadata&sent_at=gte.${yStr}T00:00:00&sent_at=lt.${tStr}T00:00:00&order=sent_at.desc&limit=5000`,\n  usersUrl: `${base}/users?select=id,email,assistant_name,onboarding_state&onboarding_state=eq.complete`,\n  yesterdayStr: yStr,\n  todayStr: tStr,\n}}];\n"
+            },
+            "id": "1170b9d1-1abb-4c31-b21f-ebe83911c0fa",
+            "name": "Build Query",
+            "type": "n8n-nodes-base.code",
+            "typeVersion": 2,
+            "position": [
+                224,
+                -96
+            ]
+        },
+        {
+            "parameters": {
+                "url": "={{ $('Build Query').first().json.messagesUrl }}",
+                "authentication": "predefinedCredentialType",
+                "nodeCredentialType": "supabaseApi",
+                "options": {}
+            },
+            "id": "9f132210-dfae-436f-b647-719b0b613ad4",
+            "name": "Fetch Messages",
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4.2,
+            "position": [
+                448,
+                -96
+            ],
+            "credentials": {
+                "supabaseApi": {
+                    "id": "ASRWWkQ0RSMOpNF1",
+                    "name": "Supabase account"
+                }
+            }
+        },
+        {
+            "parameters": {
+                "url": "={{ $json.usersUrl }}",
+                "authentication": "predefinedCredentialType",
+                "nodeCredentialType": "supabaseApi",
+                "options": {
+                    "batching": {
+                        "batch": {
+                            "batchSize": 1
+                        }
+                    }
+                }
+            },
+            "id": "82a47942-4460-463f-ba7d-44d49481ebe8",
+            "name": "Fetch Users",
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4.2,
+            "position": [
+                672,
+                -96
+            ],
+            "credentials": {
+                "supabaseApi": {
+                    "id": "ASRWWkQ0RSMOpNF1",
+                    "name": "Supabase account"
+                }
+            }
+        },
+        {
+            "parameters": {
+                "jsCode": "// Build daily usage report from Supabase messages + users data\nconst messages = $('Fetch Messages').all().map(i => i.json);\nconst allMessages = Array.isArray(messages[0]) ? messages[0] : messages;\nconst users = $('Fetch Users').all().map(i => i.json);\nconst allUsers = Array.isArray(users[0]) ? users[0] : users;\nconst dateStr = $('Build Query').first().json.yesterdayStr;\n\n// --- Deduplicate: count INTERACTIONS not raw message rows ---\n// Each workflow interaction logs multiple rows (user msg + assistant msg + conversation record)\n// We count unique interactions by: one count per (user_id, message_type, 10-min window)\n// This collapses duplicate logs from the same interaction\n\nconst outbound = allMessages.filter(m => m.direction === 'outbound');\n\nfunction getWindowKey(m) {\n  const ts = new Date(m.sent_at || 0);\n  // Round to 10-min window\n  const window = new Date(Math.floor(ts.getTime() / 600000) * 600000);\n  return m.user_id + ':' + m.message_type + ':' + window.toISOString();\n}\n\nconst seenWindows = new Set();\nconst uniqueInteractions = [];\nfor (const m of outbound) {\n  const key = getWindowKey(m);\n  if (!seenWindows.has(key)) {\n    seenWindows.add(key);\n    uniqueInteractions.push(m);\n  }\n}\n\n// Count by message_type\nconst byType = {};\nfor (const m of uniqueInteractions) {\n  const t = m.message_type || 'unknown';\n  byType[t] = (byType[t] || 0) + 1;\n}\n\n// Active users\nconst activeUserIds = new Set(uniqueInteractions.map(m => m.user_id).filter(Boolean));\n\n// Engaged users (initiated interaction)\nconst inbound = allMessages.filter(m => m.direction === 'inbound');\nconst inboundDeduped = [];\nconst seenInbound = new Set();\nfor (const m of inbound) {\n  const key = getWindowKey(m);\n  if (!seenInbound.has(key)) {\n    seenInbound.add(key);\n    inboundDeduped.push(m);\n  }\n}\nconst engagedUserIds = new Set(inboundDeduped.map(m => m.user_id).filter(Boolean));\n\n// Format type counts\nconst typeLabels = {\n  'digest': ':sunrise: Morning Digest',\n  'meeting_prep': ':calendar: Meeting Brief',\n  'meeting_recap': ':clipboard: Meeting Recap',\n  'followup_prompt': ':email: Follow-up Prompt',\n  'conversation': ':speech_balloon: DM Conversation',\n  'slash_command': ':zap: Slash Command (/bs)',\n  'silence_alert': ':no_bell: Silence Alert',\n  'deal_watch': ':mag: Deal Watch',\n  'announcement': ':mega: Announcement',\n};\n\nconst sortedTypes = Object.entries(byType).sort((a, b) => b[1] - a[1]);\nconst typeLines = sortedTypes.map(([type, count]) => {\n  const label = typeLabels[type] || type;\n  return label + ': *' + count + '*';\n}).join('\\n');\n\nconst totalInteractions = uniqueInteractions.length;\nconst totalUsers = allUsers.length;\nconst activeCount = activeUserIds.size;\nconst engagedCount = engagedUserIds.size;\nconst adoptionRate = totalUsers > 0 ? Math.round((activeCount / totalUsers) * 100) : 0;\n\nconst inactiveUsers = allUsers.filter(u => !activeUserIds.has(u.id));\nconst inactiveCount = inactiveUsers.length;\n\nconst dateDisplay = new Date(dateStr + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' });\n\n// --- Skill usage from inbound commands ---\nconst skillPatterns = {\n  'recap': /^(recap|followup|follow-up|follow up)\\b/i,\n  'brief': /^brief\\b/i,\n  'meet': /^(meet|prep|meeting brief|meeting prep)\\b/i,\n  'insights': /^insights?\\b/i,\n  'presentation': /^(presentation|slide|slides|deck)\\b/i,\n  'bbr': /^(bbr|pbr|business review)\\b/i,\n  'stakeholders': /^stakeholders?\\b/i,\n  'silence': /^silence\\b/i,\n  'help': /^help\\b/i,\n  'rename': /^rename\\b/i,\n  'emoji': /^emoji\\b/i,\n  'persona': /^persona\\b/i,\n  'scope': /^scope\\b/i,\n  'focus': /^focus\\b/i,\n};\n\nconst skillCounts = {};\nfor (const m of inboundDeduped) {\n  const text = (m.content || '').trim().toLowerCase();\n  for (const [skill, pattern] of Object.entries(skillPatterns)) {\n    if (pattern.test(text)) {\n      skillCounts[skill] = (skillCounts[skill] || 0) + 1;\n      break;\n    }\n  }\n}\n\n// Count natural language questions (inbound that didn't match any skill)\nlet nlQuestions = 0;\nfor (const m of inboundDeduped) {\n  const text = (m.content || '').trim().toLowerCase();\n  let matched = false;\n  for (const pattern of Object.values(skillPatterns)) {\n    if (pattern.test(text)) { matched = true; break; }\n  }\n  if (!matched && text.length > 3) nlQuestions++;\n}\nif (nlQuestions > 0) skillCounts['ask (natural language)'] = nlQuestions;\n\nconst skillLabels = {\n  'recap': ':clipboard: Recap / Follow-up',\n  'brief': ':sunrise: Brief',\n  'meet': ':calendar: Meeting Prep',\n  'insights': ':mag: Insights',\n  'presentation': ':bar_chart: Presentation',\n  'bbr': ':briefcase: Business Review',\n  'stakeholders': ':busts_in_silhouette: Stakeholders',\n  'silence': ':no_bell: Silence Check',\n  'help': ':question: Help',\n  'ask (natural language)': ':speech_balloon: Ask (natural language)',\n  'rename': ':pencil2: Rename',\n  'emoji': ':art: Emoji',\n  'persona': ':performing_arts: Persona',\n  'scope': ':dart: Scope',\n  'focus': ':eye: Focus',\n};\n\nconst sortedSkills = Object.entries(skillCounts).sort((a, b) => b[1] - a[1]);\nconst skillLines = sortedSkills\n  .filter(([skill]) => !['rename', 'emoji', 'persona', 'scope', 'focus', 'help'].includes(skill))\n  .map(([skill, count]) => {\n    const label = skillLabels[skill] || skill;\n    return label + ': *' + count + '*';\n  }).join('\\n');\n\n// --- CRM actions from metadata ---\n// Check outbound messages with metadata containing action indicators\nlet saveToSfCount = 0;\nlet createTaskCount = 0;\nlet draftFollowupCount = 0;\n\nfor (const m of allMessages) {\n  let meta = m.metadata || {};\n  if (typeof meta === 'string') { try { meta = JSON.parse(meta); } catch(e) { meta = {}; } }\n  \n  const mtype = m.message_type || '';\n  const content = (m.content || '').toLowerCase();\n  \n  // Count recap saves (logged as meeting_recap with save indicator)\n  if (content.includes('recap saved to salesforce') || content.includes('save_recap')) saveToSfCount++;\n  if (content.includes('task created in salesforce') || content.includes('create_task')) createTaskCount++;\n  if (mtype === 'followup_draft' || content.includes('draft follow-up') || content.includes('followup_draft')) draftFollowupCount++;\n}\n\n// Build blocks\nconst blocks = [\n  {\n    type: \"header\",\n    text: { type: \"plain_text\", text: \":bar_chart: Assistant Usage Report\", emoji: true }\n  },\n  {\n    type: \"context\",\n    elements: [{ type: \"mrkdwn\", text: dateDisplay }]\n  },\n  { type: \"divider\" },\n  {\n    type: \"section\",\n    fields: [\n      { type: \"mrkdwn\", text: \"*Interactions*\\n\" + totalInteractions },\n      { type: \"mrkdwn\", text: \"*Active Users*\\n\" + activeCount + \" of \" + totalUsers + \" (\" + adoptionRate + \"%)\" },\n      { type: \"mrkdwn\", text: \"*User-Initiated*\\n\" + engagedCount + \" users\" },\n      { type: \"mrkdwn\", text: \"*Inactive Yesterday*\\n\" + inactiveCount + \" users\" },\n    ]\n  },\n  { type: \"divider\" },\n  {\n    type: \"section\",\n    text: { type: \"mrkdwn\", text: \"*Interactions by Type*\\n\" + typeLines }\n  },\n];\n\n// Top 5 most active users\nconst userInteractionCount = {};\nfor (const m of uniqueInteractions) {\n  if (m.user_id) userInteractionCount[m.user_id] = (userInteractionCount[m.user_id] || 0) + 1;\n}\nconst topUsers = Object.entries(userInteractionCount)\n  .sort((a, b) => b[1] - a[1])\n  .slice(0, 5)\n  .map(([uid, count]) => {\n    const user = allUsers.find(u => u.id === uid);\n    const name = user ? (user.assistant_name || user.email.split('@')[0]) : uid.substring(0, 8);\n    return name + ': ' + count + ' interactions';\n  });\n\nif (topUsers.length > 0) {\n  blocks.push({ type: \"divider\" });\n  blocks.push({\n    type: \"section\",\n    text: { type: \"mrkdwn\", text: \"*Most Active Assistants*\\n\" + topUsers.join('\\n') }\n  });\n}\n\n// Skills section\nif (skillLines) {\n  blocks.push({ type: \"divider\" });\n  blocks.push({\n    type: \"section\",\n    text: { type: \"mrkdwn\", text: \"*Skills Used*\\n\" + skillLines }\n  });\n}\n\n// CRM Actions section\nconst crmTotal = saveToSfCount + createTaskCount + draftFollowupCount;\nif (crmTotal > 0) {\n  const crmLines = [];\n  if (saveToSfCount > 0) crmLines.push(':salesforce: Save to CRM: *' + saveToSfCount + '*');\n  if (createTaskCount > 0) crmLines.push(':memo: Create Task: *' + createTaskCount + '*');\n  if (draftFollowupCount > 0) crmLines.push(':email: Draft Follow-up: *' + draftFollowupCount + '*');\n  blocks.push({ type: \"divider\" });\n  blocks.push({\n    type: \"section\",\n    text: { type: \"mrkdwn\", text: \"*CRM Actions*\\n\" + crmLines.join('\\n') }\n  });\n}\n\nblocks.push({\n  type: \"context\",\n  elements: [{ type: \"mrkdwn\", text: \"People.ai Assistant Analytics \\u2022 \" + totalUsers + \" onboarded users \\u2022 \" + allMessages.length + \" raw msg rows deduplicated to \" + totalInteractions + \" interactions\" }]\n});\n\nconst notificationText = 'Assistant Usage: ' + totalInteractions + ' interactions, ' + activeCount + ' active users (' + adoptionRate + '%)';\n\nreturn [{ json: { blocks: JSON.stringify(blocks), notificationText } }];"
+            },
+            "id": "c3ec2d3f-24d0-49a7-be5a-676125a9c73b",
+            "name": "Build Report",
+            "type": "n8n-nodes-base.code",
+            "typeVersion": 2,
+            "position": [
+                896,
+                -96
+            ]
+        },
+        {
+            "parameters": {
+                "method": "POST",
+                "url": "https://slack.com/api/conversations.open",
+                "authentication": "genericCredentialType",
+                "genericAuthType": "httpHeaderAuth",
+                "sendHeaders": true,
+                "headerParameters": {
+                    "parameters": [
+                        {
+                            "name": "Content-Type",
+                            "value": "application/json"
+                        }
+                    ]
+                },
+                "sendBody": true,
+                "specifyBody": "json",
+                "jsonBody": "={{ JSON.stringify({ \"users\": \"U061WJ6RMJS\" }) }}",
+                "options": {}
+            },
+            "id": "924bb9be-ce13-4daf-ada3-bd726462caf7",
+            "name": "Open DM",
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4.2,
+            "position": [
+                1120,
+                -96
+            ],
+            "credentials": {
+                "httpHeaderAuth": {
+                    "id": "LluVuiMJ8NUbAiG7",
+                    "name": "Slackbot Auth Token"
+                }
+            }
+        },
+        {
+            "parameters": {
+                "method": "POST",
+                "url": "https://slack.com/api/chat.postMessage",
+                "authentication": "genericCredentialType",
+                "genericAuthType": "httpHeaderAuth",
+                "sendHeaders": true,
+                "headerParameters": {
+                    "parameters": [
+                        {
+                            "name": "Content-Type",
+                            "value": "application/json"
+                        }
+                    ]
+                },
+                "sendBody": true,
+                "specifyBody": "json",
+                "jsonBody": "={{ JSON.stringify({\n  \"channel\": $json.channel.id,\n  \"text\": $('Build Report').first().json.notificationText,\n  \"blocks\": $('Build Report').first().json.blocks,\n  \"username\": \"Assistant Analytics\",\n  \"icon_emoji\": \":bar_chart:\"\n}) }}",
+                "options": {}
+            },
+            "id": "e2a5136a-5bd2-4354-adc7-6875fe9bb946",
+            "name": "Send Report",
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4.2,
+            "position": [
+                1344,
+                -96
+            ],
+            "credentials": {
+                "httpHeaderAuth": {
+                    "id": "LluVuiMJ8NUbAiG7",
+                    "name": "Slackbot Auth Token"
+                }
+            }
+        }
+    ],
+    "connections": {
+        "8am PT Weekdays": {
+            "main": [
+                [
+                    {
+                        "node": "Build Query",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Build Query": {
+            "main": [
+                [
+                    {
+                        "node": "Fetch Users",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Fetch Messages": {
+            "main": [
+                [
+                    {
+                        "node": "Build Report",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Fetch Users": {
+            "main": [
+                [
+                    {
+                        "node": "Fetch Messages",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Build Report": {
+            "main": [
+                [
+                    {
+                        "node": "Open DM",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Open DM": {
+            "main": [
+                [
+                    {
+                        "node": "Send Report",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        }
+    },
+    "settings": {
+        "executionOrder": "v1",
+        "saveManualExecutions": true,
+        "callerPolicy": "workflowsFromSameOwner",
+        "timezone": "America/Los_Angeles",
+        "availableInMCP": false
+    },
+    "staticData": {
+        "node:8am PT Weekdays": {
+            "recurrenceRules": []
+        }
+    },
+    "meta": null,
+    "pinData": {},
+    "versionId": "7f986f27-ef40-4787-a5e4-adeb95df8d40",
+    "activeVersionId": "7f986f27-ef40-4787-a5e4-adeb95df8d40",
+    "versionCounter": 23,
+    "triggerCount": 1,
+    "tags": [],
+    "activeVersion": {
+        "updatedAt": "2026-03-27T15:06:43.052Z",
+        "createdAt": "2026-03-27T15:06:43.052Z",
+        "versionId": "7f986f27-ef40-4787-a5e4-adeb95df8d40",
+        "workflowId": "TasATlMwYbql2j2Q",
+        "nodes": [
+            {
+                "parameters": {
+                    "rule": {
+                        "interval": [
+                            {
+                                "field": "cronExpression",
+                                "expression": "0 15 * * 1-5"
+                            }
+                        ]
+                    }
+                },
+                "id": "9b8f3024-1f0b-45cd-a88a-d8b24f039b0d",
+                "name": "8am PT Weekdays",
+                "type": "n8n-nodes-base.scheduleTrigger",
+                "typeVersion": 1.2,
+                "position": [
+                    0,
+                    -96
+                ]
+            },
+            {
+                "parameters": {
+                    "jsCode": "\nconst now = new Date();\n// Get \"today\" in PT\nconst ptStr = now.toLocaleString('en-US', { timeZone: 'America/Los_Angeles' });\nconst ptNow = new Date(ptStr);\nconst yesterday = new Date(ptNow);\nyesterday.setDate(yesterday.getDate() - 1);\n\nconst pad = (n) => String(n).padStart(2, '0');\nconst yStr = `${yesterday.getFullYear()}-${pad(yesterday.getMonth()+1)}-${pad(yesterday.getDate())}`;\nconst tStr = `${ptNow.getFullYear()}-${pad(ptNow.getMonth()+1)}-${pad(ptNow.getDate())}`;\n\nconst base = 'https://rhrlnkbphxntxxxcrgvv.supabase.co/rest/v1';\n\nreturn [{ json: {\n  messagesUrl: `${base}/messages?select=id,user_id,message_type,direction,sent_at,metadata&sent_at=gte.${yStr}T00:00:00&sent_at=lt.${tStr}T00:00:00&order=sent_at.desc&limit=5000`,\n  usersUrl: `${base}/users?select=id,email,assistant_name,onboarding_state&onboarding_state=eq.complete`,\n  yesterdayStr: yStr,\n  todayStr: tStr,\n}}];\n"
+                },
+                "id": "1170b9d1-1abb-4c31-b21f-ebe83911c0fa",
+                "name": "Build Query",
+                "type": "n8n-nodes-base.code",
+                "typeVersion": 2,
+                "position": [
+                    224,
+                    -96
+                ]
+            },
+            {
+                "parameters": {
+                    "url": "={{ $('Build Query').first().json.messagesUrl }}",
+                    "authentication": "predefinedCredentialType",
+                    "nodeCredentialType": "supabaseApi",
+                    "options": {}
+                },
+                "id": "9f132210-dfae-436f-b647-719b0b613ad4",
+                "name": "Fetch Messages",
+                "type": "n8n-nodes-base.httpRequest",
+                "typeVersion": 4.2,
+                "position": [
+                    448,
+                    -96
+                ],
+                "credentials": {
+                    "supabaseApi": {
+                        "id": "ASRWWkQ0RSMOpNF1",
+                        "name": "Supabase account"
+                    }
+                }
+            },
+            {
+                "parameters": {
+                    "url": "={{ $json.usersUrl }}",
+                    "authentication": "predefinedCredentialType",
+                    "nodeCredentialType": "supabaseApi",
+                    "options": {
+                        "batching": {
+                            "batch": {
+                                "batchSize": 1
+                            }
+                        }
+                    }
+                },
+                "id": "82a47942-4460-463f-ba7d-44d49481ebe8",
+                "name": "Fetch Users",
+                "type": "n8n-nodes-base.httpRequest",
+                "typeVersion": 4.2,
+                "position": [
+                    672,
+                    -96
+                ],
+                "credentials": {
+                    "supabaseApi": {
+                        "id": "ASRWWkQ0RSMOpNF1",
+                        "name": "Supabase account"
+                    }
+                }
+            },
+            {
+                "parameters": {
+                    "jsCode": "// Build daily usage report from Supabase messages + users data\nconst messages = $('Fetch Messages').all().map(i => i.json);\nconst allMessages = Array.isArray(messages[0]) ? messages[0] : messages;\nconst users = $('Fetch Users').all().map(i => i.json);\nconst allUsers = Array.isArray(users[0]) ? users[0] : users;\nconst dateStr = $('Build Query').first().json.yesterdayStr;\n\n// --- Deduplicate: count INTERACTIONS not raw message rows ---\n// Each workflow interaction logs multiple rows (user msg + assistant msg + conversation record)\n// We count unique interactions by: one count per (user_id, message_type, 10-min window)\n// This collapses duplicate logs from the same interaction\n\nconst outbound = allMessages.filter(m => m.direction === 'outbound');\n\nfunction getWindowKey(m) {\n  const ts = new Date(m.sent_at || 0);\n  // Round to 10-min window\n  const window = new Date(Math.floor(ts.getTime() / 600000) * 600000);\n  return m.user_id + ':' + m.message_type + ':' + window.toISOString();\n}\n\nconst seenWindows = new Set();\nconst uniqueInteractions = [];\nfor (const m of outbound) {\n  const key = getWindowKey(m);\n  if (!seenWindows.has(key)) {\n    seenWindows.add(key);\n    uniqueInteractions.push(m);\n  }\n}\n\n// Count by message_type\nconst byType = {};\nfor (const m of uniqueInteractions) {\n  const t = m.message_type || 'unknown';\n  byType[t] = (byType[t] || 0) + 1;\n}\n\n// Active users\nconst activeUserIds = new Set(uniqueInteractions.map(m => m.user_id).filter(Boolean));\n\n// Engaged users (initiated interaction)\nconst inbound = allMessages.filter(m => m.direction === 'inbound');\nconst inboundDeduped = [];\nconst seenInbound = new Set();\nfor (const m of inbound) {\n  const key = getWindowKey(m);\n  if (!seenInbound.has(key)) {\n    seenInbound.add(key);\n    inboundDeduped.push(m);\n  }\n}\nconst engagedUserIds = new Set(inboundDeduped.map(m => m.user_id).filter(Boolean));\n\n// Format type counts\nconst typeLabels = {\n  'digest': ':sunrise: Morning Digest',\n  'meeting_prep': ':calendar: Meeting Brief',\n  'meeting_recap': ':clipboard: Meeting Recap',\n  'followup_prompt': ':email: Follow-up Prompt',\n  'conversation': ':speech_balloon: DM Conversation',\n  'slash_command': ':zap: Slash Command (/bs)',\n  'silence_alert': ':no_bell: Silence Alert',\n  'deal_watch': ':mag: Deal Watch',\n  'announcement': ':mega: Announcement',\n};\n\nconst sortedTypes = Object.entries(byType).sort((a, b) => b[1] - a[1]);\nconst typeLines = sortedTypes.map(([type, count]) => {\n  const label = typeLabels[type] || type;\n  return label + ': *' + count + '*';\n}).join('\\n');\n\nconst totalInteractions = uniqueInteractions.length;\nconst totalUsers = allUsers.length;\nconst activeCount = activeUserIds.size;\nconst engagedCount = engagedUserIds.size;\nconst adoptionRate = totalUsers > 0 ? Math.round((activeCount / totalUsers) * 100) : 0;\n\nconst inactiveUsers = allUsers.filter(u => !activeUserIds.has(u.id));\nconst inactiveCount = inactiveUsers.length;\n\nconst dateDisplay = new Date(dateStr + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' });\n\n// --- Skill usage from inbound commands ---\nconst skillPatterns = {\n  'recap': /^(recap|followup|follow-up|follow up)\\b/i,\n  'brief': /^brief\\b/i,\n  'meet': /^(meet|prep|meeting brief|meeting prep)\\b/i,\n  'insights': /^insights?\\b/i,\n  'presentation': /^(presentation|slide|slides|deck)\\b/i,\n  'bbr': /^(bbr|pbr|business review)\\b/i,\n  'stakeholders': /^stakeholders?\\b/i,\n  'silence': /^silence\\b/i,\n  'help': /^help\\b/i,\n  'rename': /^rename\\b/i,\n  'emoji': /^emoji\\b/i,\n  'persona': /^persona\\b/i,\n  'scope': /^scope\\b/i,\n  'focus': /^focus\\b/i,\n};\n\nconst skillCounts = {};\nfor (const m of inboundDeduped) {\n  const text = (m.content || '').trim().toLowerCase();\n  for (const [skill, pattern] of Object.entries(skillPatterns)) {\n    if (pattern.test(text)) {\n      skillCounts[skill] = (skillCounts[skill] || 0) + 1;\n      break;\n    }\n  }\n}\n\n// Count natural language questions (inbound that didn't match any skill)\nlet nlQuestions = 0;\nfor (const m of inboundDeduped) {\n  const text = (m.content || '').trim().toLowerCase();\n  let matched = false;\n  for (const pattern of Object.values(skillPatterns)) {\n    if (pattern.test(text)) { matched = true; break; }\n  }\n  if (!matched && text.length > 3) nlQuestions++;\n}\nif (nlQuestions > 0) skillCounts['ask (natural language)'] = nlQuestions;\n\nconst skillLabels = {\n  'recap': ':clipboard: Recap / Follow-up',\n  'brief': ':sunrise: Brief',\n  'meet': ':calendar: Meeting Prep',\n  'insights': ':mag: Insights',\n  'presentation': ':bar_chart: Presentation',\n  'bbr': ':briefcase: Business Review',\n  'stakeholders': ':busts_in_silhouette: Stakeholders',\n  'silence': ':no_bell: Silence Check',\n  'help': ':question: Help',\n  'ask (natural language)': ':speech_balloon: Ask (natural language)',\n  'rename': ':pencil2: Rename',\n  'emoji': ':art: Emoji',\n  'persona': ':performing_arts: Persona',\n  'scope': ':dart: Scope',\n  'focus': ':eye: Focus',\n};\n\nconst sortedSkills = Object.entries(skillCounts).sort((a, b) => b[1] - a[1]);\nconst skillLines = sortedSkills\n  .filter(([skill]) => !['rename', 'emoji', 'persona', 'scope', 'focus', 'help'].includes(skill))\n  .map(([skill, count]) => {\n    const label = skillLabels[skill] || skill;\n    return label + ': *' + count + '*';\n  }).join('\\n');\n\n// --- CRM actions from metadata ---\n// Check outbound messages with metadata containing action indicators\nlet saveToSfCount = 0;\nlet createTaskCount = 0;\nlet draftFollowupCount = 0;\n\nfor (const m of allMessages) {\n  let meta = m.metadata || {};\n  if (typeof meta === 'string') { try { meta = JSON.parse(meta); } catch(e) { meta = {}; } }\n  \n  const mtype = m.message_type || '';\n  const content = (m.content || '').toLowerCase();\n  \n  // Count recap saves (logged as meeting_recap with save indicator)\n  if (content.includes('recap saved to salesforce') || content.includes('save_recap')) saveToSfCount++;\n  if (content.includes('task created in salesforce') || content.includes('create_task')) createTaskCount++;\n  if (mtype === 'followup_draft' || content.includes('draft follow-up') || content.includes('followup_draft')) draftFollowupCount++;\n}\n\n// Build blocks\nconst blocks = [\n  {\n    type: \"header\",\n    text: { type: \"plain_text\", text: \":bar_chart: Assistant Usage Report\", emoji: true }\n  },\n  {\n    type: \"context\",\n    elements: [{ type: \"mrkdwn\", text: dateDisplay }]\n  },\n  { type: \"divider\" },\n  {\n    type: \"section\",\n    fields: [\n      { type: \"mrkdwn\", text: \"*Interactions*\\n\" + totalInteractions },\n      { type: \"mrkdwn\", text: \"*Active Users*\\n\" + activeCount + \" of \" + totalUsers + \" (\" + adoptionRate + \"%)\" },\n      { type: \"mrkdwn\", text: \"*User-Initiated*\\n\" + engagedCount + \" users\" },\n      { type: \"mrkdwn\", text: \"*Inactive Yesterday*\\n\" + inactiveCount + \" users\" },\n    ]\n  },\n  { type: \"divider\" },\n  {\n    type: \"section\",\n    text: { type: \"mrkdwn\", text: \"*Interactions by Type*\\n\" + typeLines }\n  },\n];\n\n// Top 5 most active users\nconst userInteractionCount = {};\nfor (const m of uniqueInteractions) {\n  if (m.user_id) userInteractionCount[m.user_id] = (userInteractionCount[m.user_id] || 0) + 1;\n}\nconst topUsers = Object.entries(userInteractionCount)\n  .sort((a, b) => b[1] - a[1])\n  .slice(0, 5)\n  .map(([uid, count]) => {\n    const user = allUsers.find(u => u.id === uid);\n    const name = user ? (user.assistant_name || user.email.split('@')[0]) : uid.substring(0, 8);\n    return name + ': ' + count + ' interactions';\n  });\n\nif (topUsers.length > 0) {\n  blocks.push({ type: \"divider\" });\n  blocks.push({\n    type: \"section\",\n    text: { type: \"mrkdwn\", text: \"*Most Active Assistants*\\n\" + topUsers.join('\\n') }\n  });\n}\n\n// Skills section\nif (skillLines) {\n  blocks.push({ type: \"divider\" });\n  blocks.push({\n    type: \"section\",\n    text: { type: \"mrkdwn\", text: \"*Skills Used*\\n\" + skillLines }\n  });\n}\n\n// CRM Actions section\nconst crmTotal = saveToSfCount + createTaskCount + draftFollowupCount;\nif (crmTotal > 0) {\n  const crmLines = [];\n  if (saveToSfCount > 0) crmLines.push(':salesforce: Save to CRM: *' + saveToSfCount + '*');\n  if (createTaskCount > 0) crmLines.push(':memo: Create Task: *' + createTaskCount + '*');\n  if (draftFollowupCount > 0) crmLines.push(':email: Draft Follow-up: *' + draftFollowupCount + '*');\n  blocks.push({ type: \"divider\" });\n  blocks.push({\n    type: \"section\",\n    text: { type: \"mrkdwn\", text: \"*CRM Actions*\\n\" + crmLines.join('\\n') }\n  });\n}\n\nblocks.push({\n  type: \"context\",\n  elements: [{ type: \"mrkdwn\", text: \"People.ai Assistant Analytics \\u2022 \" + totalUsers + \" onboarded users \\u2022 \" + allMessages.length + \" raw msg rows deduplicated to \" + totalInteractions + \" interactions\" }]\n});\n\nconst notificationText = 'Assistant Usage: ' + totalInteractions + ' interactions, ' + activeCount + ' active users (' + adoptionRate + '%)';\n\nreturn [{ json: { blocks: JSON.stringify(blocks), notificationText } }];"
+                },
+                "id": "c3ec2d3f-24d0-49a7-be5a-676125a9c73b",
+                "name": "Build Report",
+                "type": "n8n-nodes-base.code",
+                "typeVersion": 2,
+                "position": [
+                    896,
+                    -96
+                ]
+            },
+            {
+                "parameters": {
+                    "method": "POST",
+                    "url": "https://slack.com/api/conversations.open",
+                    "authentication": "genericCredentialType",
+                    "genericAuthType": "httpHeaderAuth",
+                    "sendHeaders": true,
+                    "headerParameters": {
+                        "parameters": [
+                            {
+                                "name": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ]
+                    },
+                    "sendBody": true,
+                    "specifyBody": "json",
+                    "jsonBody": "={{ JSON.stringify({ \"users\": \"U061WJ6RMJS\" }) }}",
+                    "options": {}
+                },
+                "id": "924bb9be-ce13-4daf-ada3-bd726462caf7",
+                "name": "Open DM",
+                "type": "n8n-nodes-base.httpRequest",
+                "typeVersion": 4.2,
+                "position": [
+                    1120,
+                    -96
+                ],
+                "credentials": {
+                    "httpHeaderAuth": {
+                        "id": "LluVuiMJ8NUbAiG7",
+                        "name": "Slackbot Auth Token"
+                    }
+                }
+            },
+            {
+                "parameters": {
+                    "method": "POST",
+                    "url": "https://slack.com/api/chat.postMessage",
+                    "authentication": "genericCredentialType",
+                    "genericAuthType": "httpHeaderAuth",
+                    "sendHeaders": true,
+                    "headerParameters": {
+                        "parameters": [
+                            {
+                                "name": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ]
+                    },
+                    "sendBody": true,
+                    "specifyBody": "json",
+                    "jsonBody": "={{ JSON.stringify({\n  \"channel\": $json.channel.id,\n  \"text\": $('Build Report').first().json.notificationText,\n  \"blocks\": $('Build Report').first().json.blocks,\n  \"username\": \"Assistant Analytics\",\n  \"icon_emoji\": \":bar_chart:\"\n}) }}",
+                    "options": {}
+                },
+                "id": "e2a5136a-5bd2-4354-adc7-6875fe9bb946",
+                "name": "Send Report",
+                "type": "n8n-nodes-base.httpRequest",
+                "typeVersion": 4.2,
+                "position": [
+                    1344,
+                    -96
+                ],
+                "credentials": {
+                    "httpHeaderAuth": {
+                        "id": "LluVuiMJ8NUbAiG7",
+                        "name": "Slackbot Auth Token"
+                    }
+                }
+            }
+        ],
+        "connections": {
+            "8am PT Weekdays": {
+                "main": [
+                    [
+                        {
+                            "node": "Build Query",
+                            "type": "main",
+                            "index": 0
+                        }
+                    ]
+                ]
+            },
+            "Build Query": {
+                "main": [
+                    [
+                        {
+                            "node": "Fetch Users",
+                            "type": "main",
+                            "index": 0
+                        }
+                    ]
+                ]
+            },
+            "Fetch Messages": {
+                "main": [
+                    [
+                        {
+                            "node": "Build Report",
+                            "type": "main",
+                            "index": 0
+                        }
+                    ]
+                ]
+            },
+            "Fetch Users": {
+                "main": [
+                    [
+                        {
+                            "node": "Fetch Messages",
+                            "type": "main",
+                            "index": 0
+                        }
+                    ]
+                ]
+            },
+            "Build Report": {
+                "main": [
+                    [
+                        {
+                            "node": "Open DM",
+                            "type": "main",
+                            "index": 0
+                        }
+                    ]
+                ]
+            },
+            "Open DM": {
+                "main": [
+                    [
+                        {
+                            "node": "Send Report",
+                            "type": "main",
+                            "index": 0
+                        }
+                    ]
+                ]
+            }
+        },
+        "authors": "Scott Metcalf",
+        "name": null,
+        "description": null,
+        "autosaved": false
+    }
+}

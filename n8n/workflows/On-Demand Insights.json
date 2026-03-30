@@ -1,0 +1,1029 @@
+{
+    "updatedAt": "2026-03-25T19:06:16.588Z",
+    "createdAt": "2026-02-25T07:18:21.243Z",
+    "id": "cV5GDdW5MiukdJdN",
+    "name": "Opportunity Insights",
+    "description": null,
+    "active": true,
+    "isArchived": false,
+    "nodes": [
+        {
+            "parameters": {
+                "inputSource": "passthrough"
+            },
+            "id": "e1cd24a4-7342-40ee-b076-c831e9c76164",
+            "name": "Workflow Input Trigger",
+            "type": "n8n-nodes-base.executeWorkflowTrigger",
+            "typeVersion": 1.1,
+            "position": [
+                208,
+                208
+            ]
+        },
+        {
+            "parameters": {
+                "method": "POST",
+                "url": "https://api.people.ai/v3/auth/tokens",
+                "sendHeaders": true,
+                "headerParameters": {
+                    "parameters": [
+                        {
+                            "name": "Content-Type",
+                            "value": "application/x-www-form-urlencoded"
+                        }
+                    ]
+                },
+                "sendBody": true,
+                "specifyBody": "string",
+                "body": "client_id=YOUR_CLIENT_ID&client_secret=YOUR_CLIENT_SECRET&grant_type=client_credentials",
+                "options": {}
+            },
+            "id": "db7ae533-0068-4553-bce7-83a46677a0e5",
+            "name": "Get Auth Token",
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4.2,
+            "position": [
+                432,
+                208
+            ]
+        },
+        {
+            "parameters": {
+                "method": "POST",
+                "url": "https://api.people.ai/v3/beta/insights/export",
+                "sendHeaders": true,
+                "headerParameters": {
+                    "parameters": [
+                        {
+                            "name": "Content-Type",
+                            "value": "application/json"
+                        },
+                        {
+                            "name": "Authorization",
+                            "value": "=Bearer {{ $('Get Auth Token').first().json.access_token }}"
+                        }
+                    ]
+                },
+                "sendBody": true,
+                "specifyBody": "json",
+                "jsonBody": "{\"object\": \"user\", \"columns\": [{\"slug\": \"ootb_user_name\"}, {\"slug\": \"ootb_user_email\"}, {\"slug\": \"ootb_user_manager\"}]}",
+                "options": {}
+            },
+            "id": "13d135e8-d1ee-4236-92f5-40de023669dc",
+            "name": "Fetch User Hierarchy",
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4.2,
+            "position": [
+                656,
+                208
+            ]
+        },
+        {
+            "parameters": {
+                "jsCode": "// Parse CSV from People.ai User hierarchy export\nconst csvData = $('Fetch User Hierarchy').first().json.data;\n\nif (!csvData) {\n  return [{ json: { hierarchy: {}, managerToReports: {}, userCount: 0, error: 'No hierarchy data returned' } }];\n}\n\nconst lines = csvData.split('\\n').filter(l => l.trim());\nif (lines.length < 2) {\n  return [{ json: { hierarchy: {}, managerToReports: {}, userCount: 0, error: 'Hierarchy CSV has no data rows' } }];\n}\n\nfunction parseCsvLine(line) {\n  const result = [];\n  let current = '';\n  let inQuotes = false;\n  for (let i = 0; i < line.length; i++) {\n    const ch = line[i];\n    if (ch === '\"') {\n      if (inQuotes && i + 1 < line.length && line[i + 1] === '\"') {\n        current += '\"';\n        i++;\n      } else {\n        inQuotes = !inQuotes;\n      }\n    } else if (ch === ',' && !inQuotes) {\n      result.push(current.trim());\n      current = '';\n    } else {\n      current += ch;\n    }\n  }\n  result.push(current.trim());\n  return result;\n}\n\nconst headers = parseCsvLine(lines[0]);\nconst headerMap = {};\nheaders.forEach((h, i) => { headerMap[h] = i; });\n\nfunction getField(row, ...names) {\n  for (const name of names) {\n    if (headerMap[name] !== undefined && row[headerMap[name]]) {\n      return row[headerMap[name]];\n    }\n  }\n  return '';\n}\n\nconst hierarchy = {};\nconst managerToReports = {};\n\nfor (let i = 1; i < lines.length; i++) {\n  const row = parseCsvLine(lines[i]);\n  if (row.length < headers.length) continue;\n\n  const name = getField(row, 'ootb_user_name', 'User Name', 'Name');\n  const email = getField(row, 'ootb_user_email', 'User Email', 'Email').toLowerCase();\n  const manager = getField(row, 'ootb_user_manager', 'Manager', 'User Manager');\n\n  if (email) {\n    hierarchy[email] = { name, email, manager };\n  }\n\n  if (manager) {\n    const mgrLower = manager.toLowerCase();\n    if (!managerToReports[mgrLower]) {\n      managerToReports[mgrLower] = [];\n    }\n    managerToReports[mgrLower].push({ name, email });\n  }\n}\n\nreturn [{ json: { hierarchy, managerToReports, userCount: Object.keys(hierarchy).length } }];\n"
+            },
+            "id": "c7ee348e-fb8e-40e1-96b0-43c4b55f7bd8",
+            "name": "Parse Hierarchy",
+            "type": "n8n-nodes-base.code",
+            "typeVersion": 2,
+            "position": [
+                880,
+                208
+            ]
+        },
+        {
+            "parameters": {
+                "method": "POST",
+                "url": "https://api.people.ai/v3/beta/insights/export",
+                "sendHeaders": true,
+                "headerParameters": {
+                    "parameters": [
+                        {
+                            "name": "Content-Type",
+                            "value": "application/json"
+                        },
+                        {
+                            "name": "Authorization",
+                            "value": "=Bearer {{ $('Get Auth Token').first().json.access_token }}"
+                        }
+                    ]
+                },
+                "sendBody": true,
+                "specifyBody": "json",
+                "jsonBody": "{\"object\": \"opportunity\", \"filter\": {\"$and\": [{\"attribute\": {\"slug\": \"ootb_opportunity_is_closed\"}, \"clause\": {\"$eq\": false}}, {\"attribute\": {\"slug\": \"ootb_opportunity_close_date\", \"variation_id\": \"ootb_opportunity_close_date_0\"}, \"clause\": {\"$within\": {\"$ref\": \"time_ranges.this_fyear\"}}}]}, \"columns\": [{\"slug\": \"ootb_opportunity_owners\"}, {\"slug\": \"ootb_opportunity_name\"}, {\"slug\": \"ootb_opportunity_account_name\"}, {\"slug\": \"ootb_opportunity_close_date\"}, {\"slug\": \"ootb_opportunity_current_stage\"}, {\"slug\": \"ootb_opportunity_converted_amount\"}, {\"slug\": \"ootb_opportunity_crm_id\"}, {\"slug\": \"ootb_opportunity_engagement_level\"}, {\"slug\": \"ootb_opportunity_days_in_stage\"}, {\"slug\": \"ootb_opportunity_count_of_meetings_standard\"}, {\"slug\": \"ootb_opportunity_upcoming_meetings_standard\"}, {\"slug\": \"ootb_opportunity_count_of_emails_received\"}, {\"slug\": \"ootb_opportunity_count_of_emails_sent\"}, {\"slug\": \"ootb_opportunity_executive_activities\"}, {\"slug\": \"ootb_opportunity_meetings_with_director_vp_exec\"}, {\"slug\": \"ootb_opportunity_people_engaged\"}, {\"slug\": \"ootb_opportunity_total_activities_count\"}], \"sort\": [{\"attribute\": {\"slug\": \"ootb_opportunity_owners\"}, \"direction\": \"asc\"}]}",
+                "options": {}
+            },
+            "id": "27e1b569-9e36-486a-b7e8-ec159e6e3514",
+            "name": "Fetch Insights Opps",
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4.2,
+            "position": [
+                1104,
+                208
+            ]
+        },
+        {
+            "parameters": {
+                "jsCode": "const csvData = $('Fetch Insights Opps').first().json.data;\n\nif (!csvData) {\n  return [{ json: { opps: [], oppCount: 0, error: 'No opportunity data returned' } }];\n}\n\nconst lines = csvData.split('\\n').filter(l => l.trim());\nif (lines.length < 2) {\n  return [{ json: { opps: [], oppCount: 0 } }];\n}\n\nfunction parseCsvLine(line) {\n  const result = [];\n  let current = '';\n  let inQuotes = false;\n  for (let i = 0; i < line.length; i++) {\n    const ch = line[i];\n    if (ch === '\"') {\n      if (inQuotes && i + 1 < line.length && line[i + 1] === '\"') {\n        current += '\"';\n        i++;\n      } else {\n        inQuotes = !inQuotes;\n      }\n    } else if (ch === ',' && !inQuotes) {\n      result.push(current.trim());\n      current = '';\n    } else {\n      current += ch;\n    }\n  }\n  result.push(current.trim());\n  return result;\n}\n\nconst headers = parseCsvLine(lines[0]);\nconst headerMap = {};\nheaders.forEach((h, i) => { headerMap[h.toLowerCase()] = i; });\n\nfunction get(row, ...names) {\n  for (const name of names) {\n    const idx = headerMap[name.toLowerCase()];\n    if (idx !== undefined && row[idx] !== undefined && row[idx] !== '') return row[idx];\n  }\n  return '';\n}\n\nconst opps = [];\nfor (let i = 1; i < lines.length; i++) {\n  const row = parseCsvLine(lines[i]);\n  if (row.length < 2) continue;\n\n  opps.push({\n    owners: get(row, 'Opportunity Owner (name)', 'Opportunity Owners', 'Owners', 'Owner'),\n    name: get(row, 'Opportunity Name', 'Name'),\n    account: get(row, 'Account Name', 'Account'),\n    closeDate: get(row, 'Close Date'),\n    stage: get(row, 'Stage', 'Current Stage'),\n    amount: get(row, 'Amount (Converted)', 'Converted Amount', 'Amount'),\n    crmId: get(row, 'Record ID', 'CRM ID', 'Opportunity CRM ID', 'CRM Id'),\n    engagement: get(row, 'Opportunity Engagement Level', 'Engagement Level', 'Engagement'),\n    daysInStage: get(row, 'Days in Stage', 'Days In Stage'),\n    meetings30d: get(row, 'Meetings (Last 30 Days)', 'Count Of Meetings Standard', 'Meetings', 'Count of Meetings'),\n    upcomingMeetings: get(row, 'Upcoming Meetings', 'Upcoming Meetings Standard'),\n    emailsReceived: get(row, 'Emails Received (Last 30 Days)', 'Count Of Emails Received', 'Emails Received'),\n    emailsSent: get(row, 'Emails Sent (Last 30 Days)', 'Count Of Emails Sent', 'Emails Sent'),\n    execActivities: get(row, 'Executive Activities', 'Exec Activities'),\n    execMeetings: get(row, 'Meetings with Director/VP/Exec', 'Meetings With Director VP Exec', 'Executive Meetings'),\n    peopleEngaged: get(row, 'People Engaged', 'Contacts Engaged'),\n    totalActivities: get(row, 'Total Activities', 'Total Activities Count')\n  });\n}\n\nreturn [{ json: { opps, oppCount: opps.length, headers: headers } }];\n"
+            },
+            "id": "d9d8b84f-b148-4db5-8b73-4ae9ff952a5a",
+            "name": "Parse Insights CSV",
+            "type": "n8n-nodes-base.code",
+            "typeVersion": 2,
+            "position": [
+                1328,
+                208
+            ]
+        },
+        {
+            "parameters": {
+                "method": "POST",
+                "url": "https://api.people.ai/v3/beta/insights/export",
+                "sendHeaders": true,
+                "headerParameters": {
+                    "parameters": [
+                        {
+                            "name": "Content-Type",
+                            "value": "application/json"
+                        },
+                        {
+                            "name": "Authorization",
+                            "value": "=Bearer {{ $('Get Auth Token').first().json.access_token }}"
+                        }
+                    ]
+                },
+                "sendBody": true,
+                "specifyBody": "json",
+                "jsonBody": "{\"object\": \"account\", \"columns\": [{\"slug\": \"ootb_account_name\"}, {\"slug\": \"ootb_account_original_owner\"}, {\"slug\": \"ootb_account_engagement_level\"}, {\"slug\": \"ootb_account_open_opportunities\"}, {\"slug\": \"ootb_account_count_of_meetings_standard\"}, {\"slug\": \"ootb_account_people_engaged\"}, {\"slug\": \"ootb_account_executive_engaged\"}, {\"slug\": \"ootb_account_executive_activities\"}, {\"slug\": \"ootb_account_crm_id\"}]}",
+                "options": {}
+            },
+            "id": "63a66fb4-0555-4198-a9d8-0bd20f5efe96",
+            "name": "Fetch Account Data",
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4.2,
+            "position": [
+                1552,
+                208
+            ],
+            "continueOnFail": true
+        },
+        {
+            "parameters": {
+                "jsCode": "// Parse account data for Hidden Opp classification\n// Handles cases where API query might fail or return no data\nconst input = $('Fetch Account Data').first().json;\nconst csvData = input.data;\n\nif (!csvData) {\n  return [{ json: { accounts: [], accountCount: 0, error: input.error || 'No account data returned' } }];\n}\n\nconst lines = csvData.split('\\n').filter(l => l.trim());\nif (lines.length < 2) {\n  return [{ json: { accounts: [], accountCount: 0 } }];\n}\n\nfunction parseCsvLine(line) {\n  const result = [];\n  let current = '';\n  let inQuotes = false;\n  for (let i = 0; i < line.length; i++) {\n    const ch = line[i];\n    if (ch === '\"') {\n      if (inQuotes && i + 1 < line.length && line[i + 1] === '\"') {\n        current += '\"';\n        i++;\n      } else {\n        inQuotes = !inQuotes;\n      }\n    } else if (ch === ',' && !inQuotes) {\n      result.push(current.trim());\n      current = '';\n    } else {\n      current += ch;\n    }\n  }\n  result.push(current.trim());\n  return result;\n}\n\nconst headers = parseCsvLine(lines[0]);\nconst headerMap = {};\nheaders.forEach((h, i) => { headerMap[h.toLowerCase()] = i; });\n\nfunction get(row, ...names) {\n  for (const name of names) {\n    const idx = headerMap[name.toLowerCase()];\n    if (idx !== undefined && row[idx] !== undefined && row[idx] !== '') return row[idx];\n  }\n  return '';\n}\n\nconst allAccounts = [];\nfor (let i = 1; i < lines.length; i++) {\n  const row = parseCsvLine(lines[i]);\n  if (row.length < 2) continue;\n\n  allAccounts.push({\n    name: get(row, 'Account Name', 'Name', 'Account'),\n    owner: get(row, 'Original Owner', 'Owner'),\n    engagement: get(row, 'Engagement Level', 'Engagement'),\n    openOpps: get(row, 'Open Opportunities', 'Open Opps'),\n    meetings: get(row, 'Count Of Meetings Standard', 'Meetings', 'Count of Meetings'),\n    peopleEngaged: get(row, 'People Engaged', 'Contacts Engaged'),\n    execEngaged: get(row, 'Executive Engaged', 'Exec Engaged'),\n    execActivities: get(row, 'Executive Activities', 'Exec Activities'),\n    crmId: get(row, 'CRM ID', 'Account CRM ID', 'CRM Id')\n  });\n}\n\n// Filter to accounts with zero open opportunities\nconst hiddenCandidates = allAccounts.filter(a => {\n  const openOpps = parseInt(a.openOpps) || 0;\n  return openOpps === 0;\n});\n\nreturn [{ json: { accounts: hiddenCandidates, accountCount: hiddenCandidates.length, totalAccounts: allAccounts.length } }];\n"
+            },
+            "id": "a8022d35-ae7e-464c-9c06-2616e3c6a913",
+            "name": "Parse Account CSV",
+            "type": "n8n-nodes-base.code",
+            "typeVersion": 2,
+            "position": [
+                1776,
+                208
+            ]
+        },
+        {
+            "parameters": {
+                "jsCode": "// Apply classification formulas from Opportunity Insights spec\n// Merges data from Parse Insights CSV and Parse Account CSV\nconst oppsData = $('Parse Insights CSV').first().json;\nconst accountsData = $('Parse Account CSV').first().json;\n\nconst opps = oppsData.opps || [];\nconst accounts = accountsData.accounts || [];\n\n// Null-safe numeric helper\nfunction num(val) {\n  if (val === null || val === undefined || val === '') return null;\n  const n = parseFloat(String(val).replace(/[^0-9.\\-]/g, ''));\n  return isNaN(n) ? null : n;\n}\nfunction n(val) { return num(val) || 0; }\n\n// Days in Stage comes as HH:MM:SS duration from the API\nfunction parseDays(val) {\n  if (val === null || val === undefined || val === '') return 0;\n  const s = String(val);\n  const match = s.match(/(\\d+):(\\d+):(\\d+)/);\n  if (match) return Math.round(parseInt(match[1]) / 24);\n  return n(val);\n}\n\n// Classify each opportunity\nconst classifiedOpps = opps.map(opp => {\n  const engagement = n(opp.engagement);\n  const daysInStage = parseDays(opp.daysInStage);\n  const meetings30d = n(opp.meetings30d);\n  const upcomingMeetings = n(opp.upcomingMeetings);\n  const emailsReceived = n(opp.emailsReceived);\n  const emailsSent = n(opp.emailsSent);\n  const execActivities = n(opp.execActivities);\n  const execMeetings = n(opp.execMeetings);\n  const peopleEngaged = n(opp.peopleEngaged);\n  const totalActivities = n(opp.totalActivities);\n\n  // Derived metrics\n  const emailResponsiveness = emailsSent > 0 ? emailsReceived / emailsSent : 0;\n  const totalMeetings = meetings30d + (n(opp.execMeetings) || 0);\n  const execCoverage = totalMeetings > 0 ? 100 * execMeetings / totalMeetings : 0;\n  const stakeholderBreadth = daysInStage > 7 ? peopleEngaged / (daysInStage / 7) : peopleEngaged;\n\n  let classification = 'healthy';\n  let flags = [];\n\n  // === STALLED check ===\n  const isStalled = engagement < 25 ||\n    (engagement < 50 && daysInStage > 45 && meetings30d === 0);\n\n  if (isStalled) {\n    classification = 'stalled';\n    if (engagement < 25) flags.push('Very low engagement (' + engagement + ')');\n    if (daysInStage > 45) flags.push('Stuck in stage ' + daysInStage + ' days');\n    if (meetings30d === 0) flags.push('No meetings in 30 days');\n  }\n\n  // === RISK check (only if not stalled) ===\n  if (classification === 'healthy') {\n    let riskSignals = 0;\n    let riskFlags = [];\n    if (execActivities === 0) { riskSignals++; riskFlags.push('No exec engagement'); }\n    if (emailResponsiveness < 0.3 && emailsSent > 0) { riskSignals++; riskFlags.push('Low email response (' + emailResponsiveness.toFixed(2) + ')'); }\n    if (peopleEngaged < 3) { riskSignals++; riskFlags.push('Single-threaded (' + peopleEngaged + ' contacts)'); }\n    if (execCoverage < 10 && totalMeetings > 0) { riskSignals++; riskFlags.push('Below power line (' + execCoverage.toFixed(0) + '% exec)'); }\n\n    if (riskSignals >= 2) {\n      classification = 'risk';\n      flags = riskFlags;\n    }\n  }\n\n  // === ACCELERATING check (only if still healthy) ===\n  if (classification === 'healthy') {\n    let accelSignals = 0;\n    let accelFlags = [];\n    if (upcomingMeetings >= 2) { accelSignals++; accelFlags.push(upcomingMeetings + ' upcoming meetings'); }\n    if (execActivities >= 3) { accelSignals++; accelFlags.push(execActivities + ' exec activities'); }\n    if (meetings30d >= 4) { accelSignals++; accelFlags.push(meetings30d + ' meetings in 30d'); }\n\n    if (engagement >= 70 && accelSignals >= 2) {\n      classification = 'accelerating';\n      flags = accelFlags;\n    }\n  }\n\n  return {\n    ...opp,\n    classification,\n    flags,\n    derivedMetrics: {\n      engagement, daysInStage, meetings30d, upcomingMeetings,\n      emailResponsiveness: emailResponsiveness.toFixed(2),\n      execCoverage: execCoverage.toFixed(1),\n      stakeholderBreadth: stakeholderBreadth.toFixed(2),\n      execActivities, peopleEngaged, totalActivities\n    }\n  };\n});\n\n// Classify accounts for Hidden Opps\nconst hiddenAccounts = accounts.filter(acct => {\n  const engagement = n(acct.engagement);\n  const meetings = n(acct.meetings);\n  return engagement >= 50 && meetings > 0;\n}).map(acct => ({\n  ...acct,\n  classification: 'hidden',\n  flags: ['High engagement (' + n(acct.engagement) + ') with ' + n(acct.meetings) + ' meetings but no open opportunity']\n}));\n\nconst counts = {\n  stalled: classifiedOpps.filter(o => o.classification === 'stalled').length,\n  risk: classifiedOpps.filter(o => o.classification === 'risk').length,\n  healthy: classifiedOpps.filter(o => o.classification === 'healthy').length,\n  accelerating: classifiedOpps.filter(o => o.classification === 'accelerating').length,\n  hidden: hiddenAccounts.length,\n  total: classifiedOpps.length\n};\n\nreturn [{ json: { classifiedOpps, hiddenAccounts, counts } }];\n"
+            },
+            "id": "8a19b2bf-d50b-4bb1-a71c-8beea36ff337",
+            "name": "Classify Deals",
+            "type": "n8n-nodes-base.code",
+            "typeVersion": 2,
+            "position": [
+                2000,
+                208
+            ]
+        },
+        {
+            "parameters": {
+                "jsCode": "const data = $('Classify Deals').first().json;\nconst input = $('Workflow Input Trigger').first().json;\nconst hierarchyData = $('Parse Hierarchy').first().json;\n\nconst classifiedOpps = data.classifiedOpps || [];\nconst hiddenAccounts = data.hiddenAccounts || [];\n\n// Support both passthrough (camelCase/nested) and explicit inputData (snake_case/flat)\nconst ur = input.userRecord || {};\nconst userEmail = (ur.email || input.email || '').toLowerCase();\nconst repName = userEmail.split('@')[0]\n  .replace(/\\./g, ' ')\n  .replace(/\\b\\w/g, c => c.toUpperCase());\nconst repLower = repName.toLowerCase();\nconst digestScope = ur.digest_scope || input.digest_scope || 'my_deals';\nconst insightType = input.insightType || 'all';\n\nlet filteredOpps = classifiedOpps;\nlet filteredAccounts = hiddenAccounts;\nlet scopeLabel = '';\n\n// === Scope-based filtering ===\nif (digestScope === 'my_deals') {\n  filteredOpps = classifiedOpps.filter(opp => {\n    const owners = (opp.owners || '').toLowerCase();\n    return owners.includes(repLower);\n  });\n  filteredAccounts = hiddenAccounts.filter(acct => {\n    const owner = (acct.owner || '').toLowerCase();\n    return owner.includes(repLower);\n  });\n  scopeLabel = repName + \"'s deals\";\n\n} else if (digestScope === 'team_deals') {\n  const managerToReports = hierarchyData.managerToReports || {};\n  let reportNames = [repLower];\n\n  for (const [mgrKey, reports] of Object.entries(managerToReports)) {\n    if (mgrKey.includes(repLower) || repLower.includes(mgrKey)) {\n      for (const report of reports) {\n        const rName = (report.name || '').toLowerCase();\n        if (rName && !reportNames.includes(rName)) reportNames.push(rName);\n      }\n    }\n  }\n  if (managerToReports[userEmail]) {\n    for (const report of managerToReports[userEmail]) {\n      const rName = (report.name || '').toLowerCase();\n      if (rName && !reportNames.includes(rName)) reportNames.push(rName);\n    }\n  }\n\n  filteredOpps = classifiedOpps.filter(opp => {\n    const owners = (opp.owners || '').toLowerCase();\n    return reportNames.some(name => owners.includes(name));\n  });\n  filteredAccounts = hiddenAccounts.filter(acct => {\n    const owner = (acct.owner || '').toLowerCase();\n    return reportNames.some(name => owner.includes(name));\n  });\n  scopeLabel = repName + \"'s team (\" + reportNames.length + \" reps)\";\n\n} else {\n  scopeLabel = \"Full pipeline\";\n}\n\n// === Build tables per classification ===\nfunction buildOppTable(opps, includeFlags) {\n  if (opps.length === 0) return '(none)';\n  let table = '| Opportunity | Account | Owner | Stage | Engagement | CRM ID |' + (includeFlags ? ' Flags |' : '') + '\\n';\n  table += '|---|---|---|---|---|---|' + (includeFlags ? '---|' : '') + '\\n';\n  for (const opp of opps) {\n    table += '| ' + (opp.name || '') + ' | ' + (opp.account || '') + ' | ' + (opp.owners || '') +\n      ' | ' + (opp.stage || '') + ' | ' + (opp.engagement || '') + ' | ' + (opp.crmId || '') +\n      (includeFlags ? ' | ' + (opp.flags || []).join('; ') : '') + ' |\\n';\n  }\n  return table;\n}\n\nfunction buildAccountTable(accounts) {\n  if (accounts.length === 0) return '(none)';\n  let table = '| Account | Owner | Engagement | Meetings | People Engaged | CRM ID | Flags |\\n';\n  table += '|---|---|---|---|---|---|---|\\n';\n  for (const acct of accounts) {\n    table += '| ' + (acct.name || '') + ' | ' + (acct.owner || '') + ' | ' + (acct.engagement || '') +\n      ' | ' + (acct.meetings || '') + ' | ' + (acct.peopleEngaged || '') + ' | ' + (acct.crmId || '') +\n      ' | ' + (acct.flags || []).join('; ') + ' |\\n';\n  }\n  return table;\n}\n\nconst stalledDeals = filteredOpps.filter(o => o.classification === 'stalled');\nconst riskDeals = filteredOpps.filter(o => o.classification === 'risk');\nconst acceleratingDeals = filteredOpps.filter(o => o.classification === 'accelerating');\nconst healthyDeals = filteredOpps.filter(o => o.classification === 'healthy');\n\nconst stalledTable = buildOppTable(stalledDeals, true);\nconst riskTable = buildOppTable(riskDeals, true);\nconst acceleratingTable = buildOppTable(acceleratingDeals, true);\nconst hiddenTable = buildAccountTable(filteredAccounts);\n\nconst scopedCounts = {\n  stalled: stalledDeals.length,\n  risk: riskDeals.length,\n  healthy: healthyDeals.length,\n  accelerating: acceleratingDeals.length,\n  hidden: filteredAccounts.length,\n  total: filteredOpps.length\n};\n\nconst summaryLine = 'Pipeline: ' + scopedCounts.total + ' deals (' +\n  scopedCounts.stalled + ' stalled, ' +\n  scopedCounts.risk + ' at risk, ' +\n  scopedCounts.healthy + ' healthy, ' +\n  scopedCounts.accelerating + ' accelerating) + ' +\n  scopedCounts.hidden + ' hidden opportunity accounts';\n\nreturn [{ json: {\n  insightType,\n  repName,\n  scopeLabel,\n  digestScope,\n  stalledTable, stalledCount: stalledDeals.length,\n  riskTable, riskCount: riskDeals.length,\n  acceleratingTable, acceleratingCount: acceleratingDeals.length,\n  hiddenTable, hiddenCount: filteredAccounts.length,\n  healthyCount: healthyDeals.length,\n  totalOppCount: filteredOpps.length,\n  summaryLine,\n  // Pass top deals for MCP investigation hints\n  topStalled: stalledDeals.slice(0, 5).map(d => d.name),\n  topRisk: riskDeals.slice(0, 5).map(d => d.name),\n  topAccel: acceleratingDeals.slice(0, 5).map(d => d.name),\n  topHidden: filteredAccounts.slice(0, 5).map(d => d.name)\n}}];\n"
+            },
+            "id": "d259bd5a-1cdf-4fd0-91c2-249cc1920fc2",
+            "name": "Filter by Scope",
+            "type": "n8n-nodes-base.code",
+            "typeVersion": 2,
+            "position": [
+                2224,
+                208
+            ]
+        },
+        {
+            "parameters": {
+                "jsCode": "const data = $('Filter by Scope').first().json;\nconst input = $('Workflow Input Trigger').first().json;\n\n// Support both passthrough (camelCase/nested) and explicit inputData (snake_case/flat)\nconst ur = input.userRecord || {};\nconst assistantName = input.assistantName || ur.assistant_name || input.assistant_name || 'Aria';\nconst assistantEmoji = input.assistantEmoji || ur.assistant_emoji || input.assistant_emoji || ':robot_face:';\nconst assistantPersona = ur.assistant_persona || input.assistant_persona || 'direct, action-oriented, and conversational';\nconst repName = data.repName || 'Rep';\nconst timezone = ur.timezone || input.timezone || 'America/Los_Angeles';\nconst currentDate = new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });\nconst timeStr = new Date().toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', timeZone: timezone });\nconst emojiClean = assistantEmoji.replace(/:/g, '');\n\nconst insightType = data.insightType || 'all';\nconst scopeLabel = data.scopeLabel || '';\nconst digestScope = data.digestScope || 'my_deals';\nconst summaryLine = data.summaryLine || '';\n\n// === Block Kit formatting rules ===\nconst blockKitRules = `OUTPUT FORMAT \u2014 CRITICAL:\nRespond with ONLY a valid JSON object. No prose. No explanation. No markdown code fences (no backticks).\n\nYour response must have exactly this shape:\n{\n  \"notification_text\": \"string \u2014 one sentence, shown in push notifications\",\n  \"blocks\": [ array of valid Slack Block Kit blocks ]\n}\n\nBLOCK KIT STRUCTURE RULES:\n- Use a \"header\" block for the message title (plain_text only, emoji: true)\n- Use \"section\" blocks with \"mrkdwn\" text for all body content\n- Use \"divider\" blocks between major sections (maximum 3 per message)\n- Use \"section\" with \"fields\" for two-column data\n  - MAXIMUM 10 fields per section block (Slack API hard limit)\n  - If you have more than 10 data points, split into multiple section blocks\n- Use \"context\" block at the bottom for timestamp and data source\n- Maximum 50 blocks per message\n\nMRKDWN RULES (inside all text fields):\n- Bold: *text* \u2014 single asterisks only\n- Line break: \\n\n- Blank line: \\n\\n\n- Bullet points: use the \\u2022 character on its own line\n- NO ## headers \u2014 use *bold text* on its own line instead\n- NO **double asterisks**\n- NO standard markdown links [text](url) \u2014 use <https://url|text>\n- NO dash bullets (-)\n\nDEEP LINKS \u2014 make the deal or account NAME itself a clickable link. Do NOT add a separate \"View in People.ai\" line.\n- For opportunities: <https://app.people.ai/opportunity/CRMID|Deal Name Here> (replace CRMID with the CRM ID from the data table, and \"Deal Name Here\" with the actual opportunity name)\n- For accounts: <https://app.people.ai/accounts/CRMID|Account Name Here>\n- Example: *<https://app.people.ai/opportunity/006abc123|PwC - ClosePlan Pilot>* | Closes May 31\n\nTOOL CALL BUDGET \u2014 CRITICAL:\nYou have a STRICT limit of 8-10 tool calls total. Plan carefully:\n- Make at most 2-3 MCP calls per deal category (stalled, risk, accelerating)\n- After 8 tool calls, STOP researching and produce your final output immediately\n- The pipeline data is already classified in your context \u2014 MCP is only for qualitative color on top deals\n- If a tool call fails, move on \u2014 do NOT retry\n- NEVER exceed 10 tool calls. Produce output with what you have.\n\nEMOJI STATUS INDICATORS \u2014 use these consistently:\n\\ud83d\\ude80 Acceleration / strong momentum\n\\u26a0\\ufe0f Risk pattern detected\n\\ud83d\\udc8e Hidden upside opportunity\n\\ud83d\\udd34 Stalled / critical risk\n\\u2705 Healthy / on track\n\\ud83d\\udcc8 Engagement rising\n\\ud83d\\udcc9 Engagement falling`;\n\n// === Scope-aware role intro ===\nfunction buildRoleIntro() {\n  if (digestScope === 'my_deals') {\n    return `You are ${assistantName}, a personal sales intelligence analyst for ${repName}. You help them see what's really happening in their pipeline using quantitative signals.\n\nYour personality: ${assistantPersona}\n\nToday is ${currentDate}. ${repName} is in ${timezone}.\nScope: ${scopeLabel}`;\n  } else if (digestScope === 'team_deals') {\n    return `You are ${assistantName}, a sales management intelligence analyst for ${repName}. You help them lead their team by surfacing pipeline risks and opportunities using quantitative signals.\n\nYour personality: ${assistantPersona}\n\nToday is ${currentDate}. ${repName} is in ${timezone}.\nScope: ${scopeLabel}`;\n  } else {\n    return `You are ${assistantName}, an executive pipeline intelligence analyst for ${repName}. You provide strategic pipeline visibility using quantitative classification signals.\n\nYour personality: ${assistantPersona}\n\nToday is ${currentDate}. ${repName} is in ${timezone}.\nScope: ${scopeLabel}`;\n  }\n}\n\nconst footer = digestScope === 'team_deals'\n  ? `People.ai team intelligence \\u2022 ${currentDate} \\u2022 ${timeStr} PT`\n  : digestScope === 'top_pipeline'\n    ? `People.ai executive intelligence \\u2022 ${currentDate} \\u2022 ${timeStr} PT`\n    : `People.ai pipeline intelligence \\u2022 ${currentDate} \\u2022 ${timeStr} PT`;\n\n// === Build type-specific prompts ===\nfunction buildPrompts(type) {\n  const roleIntro = buildRoleIntro();\n\n  if (type === 'stalled') {\n    const systemPrompt = roleIntro + `\n\n\\u2501\\u2501\\u2501 CLASSIFICATION SUMMARY \\u2501\\u2501\\u2501\n${summaryLine}\n\n\\u2501\\u2501\\u2501 STALLED DEALS (${data.stalledCount}) \\u2501\\u2501\\u2501\nClassification: engagement < 25, OR (engagement < 50 AND days_in_stage > 45 AND no meetings in 30d)\n${data.stalledTable}\n\nYou have access to People.ai MCP tools. Use them ONLY for qualitative context on the top 3-5 stalled deals:\n- Recent activity timeline (when did engagement drop?)\n- Stakeholder analysis (who is/isn't engaged?)\n- Historical patterns (has this account gone cold before?)\n\nDo NOT use MCP to list or search for opportunities \\u2014 they are already classified above.\n\nWrite a pipeline intelligence briefing as a recovery specialist:\n\n1. Header \\u2014 \"${emojiClean} Stalled Deals \\u2014 ${assistantName}\"\n2. Stall Summary (2-3 sentences) \\u2014 how many deals are stalled, total value at risk, common patterns\n3. Recovery Priority (top 3-5 deals) \\u2014 for each: what stalled, how long, recommended recovery action. Make the deal name a clickable People.ai link. Use \\ud83d\\udd34 \\u26a0\\ufe0f indicators.\n4. Patterns \\u2014 common stall signals across deals (single-threaded, no exec, dark accounts)\n5. Recovery Playbook \\u2014 2-3 concrete actions to revive the highest-value stalled deals this week\n6. Context footer \\u2014 \"${footer}\"\n\n${blockKitRules}`;\n\n    const agentPrompt = `Generate a stalled deals intelligence report for ${repName}. ${data.stalledCount} stalled deals are loaded in your system prompt.\n\nUse People.ai MCP tools to investigate the top ${Math.min(data.stalledCount, 5)} stalled deals: look for when engagement dropped, who the last contacts were, and any signals of life.\n\nOutput ONLY the Block Kit JSON object, nothing else.`;\n\n    return { systemPrompt, agentPrompt };\n  }\n\n  if (type === 'risk') {\n    const systemPrompt = roleIntro + `\n\n\\u2501\\u2501\\u2501 CLASSIFICATION SUMMARY \\u2501\\u2501\\u2501\n${summaryLine}\n\n\\u2501\\u2501\\u2501 AT-RISK DEALS (${data.riskCount}) \\u2501\\u2501\\u2501\nClassification: 2+ risk signals from (no exec engagement, email responsiveness < 0.3, < 3 people engaged, exec coverage < 10%)\n${data.riskTable}\n\nYou have access to People.ai MCP tools. Use them ONLY for qualitative context on the top 3-5 at-risk deals:\n- Risk signal validation (confirm the quantitative flags with activity data)\n- Stakeholder map (who should be engaged but isn't?)\n- Competitive signals or deal blockers\n\nDo NOT use MCP to list or search for opportunities.\n\nWrite a pipeline intelligence briefing as a risk analyst:\n\n1. Header \\u2014 \"${emojiClean} At-Risk Deals \\u2014 ${assistantName}\"\n2. Risk Summary (2-3 sentences) \\u2014 how many deals at risk, total value exposed, most common risk signals\n3. Critical Risks (top 3-5 deals) \\u2014 for each: specific risk signals, severity, recommended mitigation. Make the deal name a clickable People.ai link. Use \\u26a0\\ufe0f \\ud83d\\udd34 indicators.\n4. Risk Patterns \\u2014 systemic issues across at-risk deals (e.g., exec engagement gap, single-threading)\n5. Mitigation Plan \\u2014 2-3 prioritized actions to address the biggest risks this week\n6. Context footer \\u2014 \"${footer}\"\n\n${blockKitRules}`;\n\n    const agentPrompt = `Generate an at-risk deals intelligence report for ${repName}. ${data.riskCount} at-risk deals are loaded.\n\nUse People.ai MCP tools to validate risk signals on the top ${Math.min(data.riskCount, 5)} at-risk deals: check activity gaps, stakeholder coverage, and engagement trends.\n\nOutput ONLY the Block Kit JSON object, nothing else.`;\n\n    return { systemPrompt, agentPrompt };\n  }\n\n  if (type === 'hidden') {\n    const systemPrompt = roleIntro + `\n\n\\u2501\\u2501\\u2501 CLASSIFICATION SUMMARY \\u2501\\u2501\\u2501\n${summaryLine}\n\n\\u2501\\u2501\\u2501 HIDDEN OPPORTUNITY ACCOUNTS (${data.hiddenCount}) \\u2501\\u2501\\u2501\nClassification: engagement >= 50 AND meetings > 0 AND zero open opportunities\nThese are accounts showing buying signals but with no opportunity created in CRM.\n${data.hiddenTable}\n\nYou have access to People.ai MCP tools. Use them ONLY for qualitative context on the top 3-5 hidden opportunity accounts:\n- Recent activity details (who is meeting with whom?)\n- Account history (any past opportunities, closed-lost deals?)\n- Engagement trajectory (rising or stable?)\n\nDo NOT use MCP to list or search for opportunities.\n\nWrite a pipeline intelligence briefing as a pipeline advisor:\n\n1. Header \\u2014 \"${emojiClean} Hidden Opportunities \\u2014 ${assistantName}\"\n2. Discovery Summary (2-3 sentences) \\u2014 how many hidden opp accounts found, what engagement signals suggest\n3. Top Discoveries (top 3-5 accounts) \\u2014 for each: engagement level, who is active, what suggests an opportunity. Make the deal name a clickable People.ai link. Use \\ud83d\\udc8e \\ud83d\\udcc8 indicators.\n4. Why These Matter \\u2014 what the engagement data tells us about buying intent\n5. Next Steps \\u2014 2-3 actions to qualify and convert the highest-potential hidden opportunities\n6. Context footer \\u2014 \"${footer}\"\n\n${blockKitRules}`;\n\n    const agentPrompt = `Generate a hidden opportunities intelligence report for ${repName}. ${data.hiddenCount} accounts with high engagement but no open opportunities are loaded.\n\nUse People.ai MCP tools to investigate the top ${Math.min(data.hiddenCount, 5)} accounts: look for recent meeting activity, past deal history, and engagement patterns that suggest buying intent.\n\nOutput ONLY the Block Kit JSON object, nothing else.`;\n\n    return { systemPrompt, agentPrompt };\n  }\n\n  if (type === 'accelerating') {\n    const systemPrompt = roleIntro + `\n\n\\u2501\\u2501\\u2501 CLASSIFICATION SUMMARY \\u2501\\u2501\\u2501\n${summaryLine}\n\n\\u2501\\u2501\\u2501 ACCELERATING DEALS (${data.acceleratingCount}) \\u2501\\u2501\\u2501\nClassification: engagement >= 70 AND 2+ acceleration signals (upcoming meetings >= 2, exec activities >= 3, meetings in 30d >= 4)\n${data.acceleratingTable}\n\nYou have access to People.ai MCP tools. Use them ONLY for qualitative context on the top 3-5 accelerating deals:\n- Momentum validation (confirm velocity with activity data)\n- Stakeholder engagement depth (multithreaded? exec sponsor?)\n- Close readiness signals (what needs to happen to close?)\n\nDo NOT use MCP to list or search for opportunities.\n\nWrite a pipeline intelligence briefing as a close specialist:\n\n1. Header \\u2014 \"${emojiClean} Accelerating Deals \\u2014 ${assistantName}\"\n2. Momentum Summary (2-3 sentences) \\u2014 how many deals accelerating, total value in motion, key drivers\n3. Top Movers (top 3-5 deals) \\u2014 for each: acceleration signals, engagement strength, what to do to maintain momentum. Make the deal name a clickable People.ai link. Use \\ud83d\\ude80 \\ud83d\\udd25 \\u2705 indicators.\n4. Acceleration Patterns \\u2014 what's working across these deals (exec engagement, meeting cadence, multithreading)\n5. Close Playbook \\u2014 2-3 actions to keep momentum and accelerate toward close\n6. Context footer \\u2014 \"${footer}\"\n\n${blockKitRules}`;\n\n    const agentPrompt = `Generate an accelerating deals intelligence report for ${repName}. ${data.acceleratingCount} accelerating deals are loaded.\n\nUse People.ai MCP tools to validate momentum on the top ${Math.min(data.acceleratingCount, 5)} deals: check recent activity cadence, stakeholder depth, and close readiness.\n\nOutput ONLY the Block Kit JSON object, nothing else.`;\n\n    return { systemPrompt, agentPrompt };\n  }\n\n  // === ALL \u2014 comprehensive intelligence report ===\n  const systemPrompt = roleIntro + `\n\n\\u2501\\u2501\\u2501 PIPELINE CLASSIFICATION \\u2501\\u2501\\u2501\n${summaryLine}\n\n\\u2501\\u2501\\u2501 STALLED (${data.stalledCount}) \\u2501\\u2501\\u2501\n${data.stalledTable}\n\n\\u2501\\u2501\\u2501 AT RISK (${data.riskCount}) \\u2501\\u2501\\u2501\n${data.riskTable}\n\n\\u2501\\u2501\\u2501 ACCELERATING (${data.acceleratingCount}) \\u2501\\u2501\\u2501\n${data.acceleratingTable}\n\n\\u2501\\u2501\\u2501 HIDDEN OPPORTUNITIES (${data.hiddenCount}) \\u2501\\u2501\\u2501\n${data.hiddenTable}\n\nHealthy deals: ${data.healthyCount} (not shown \\u2014 no action needed)\n\nYou have access to People.ai MCP tools. Use them to investigate the top 2-3 deals in each category for qualitative context.\nDo NOT use MCP to list or search for opportunities \\u2014 they are already classified above.\n\nWrite a comprehensive pipeline intelligence briefing:\n\n1. Header \\u2014 \"${emojiClean} Pipeline Intelligence \\u2014 ${assistantName}\"\n2. Pipeline Pulse (2-3 sentences) \\u2014 overall health, biggest risks, biggest opportunities\n3. \\ud83d\\udd34 Stalled Deals \\u2014 top 2-3 stalled deals with recovery recommendations. Make deal names clickable People.ai links.\n4. \\u26a0\\ufe0f At-Risk Deals \\u2014 top 2-3 at-risk deals with mitigation steps. Make deal names clickable People.ai links.\n5. \\ud83d\\ude80 Accelerating Deals \\u2014 top 2-3 deals with momentum. What to do to close. Make deal names clickable People.ai links.\n6. \\ud83d\\udc8e Hidden Opportunities \\u2014 top 2-3 accounts with no opp but high engagement. Make deal names clickable People.ai links.\n7. This Week's Actions \\u2014 3-5 prioritized actions across all categories\n8. Context footer \\u2014 \"${footer}\"\n\n${blockKitRules}`;\n\n  const agentPrompt = `Generate a comprehensive pipeline intelligence report for ${repName}. All deals are classified and loaded above across 4 categories.\n\nUse People.ai MCP tools to investigate the top 2-3 deals in each category: validate signals, get recent activity context, and assess deal/account health.\n\nOutput ONLY the Block Kit JSON object, nothing else.`;\n\n  return { systemPrompt, agentPrompt };\n}\n\nconst { systemPrompt, agentPrompt } = buildPrompts(insightType);\n\nreturn [{ json: {\n  userId: input.dbUserId || input.id,\n  slackUserId: input.userId || input.slack_user_id,\n  channelId: input.channelId,\n  assistantName,\n  assistantEmoji,\n  repName,\n  insightType,\n  systemPrompt,\n  agentPrompt\n}}];\n"
+            },
+            "id": "5ee3ade5-299b-4c35-a04e-722b596f203f",
+            "name": "Resolve Insights Identity",
+            "type": "n8n-nodes-base.code",
+            "typeVersion": 2,
+            "position": [
+                2448,
+                208
+            ]
+        },
+        {
+            "parameters": {
+                "promptType": "define",
+                "text": "={{ $('Resolve Insights Identity').first().json.agentPrompt }}",
+                "options": {
+                    "systemMessage": "={{ $('Resolve Insights Identity').first().json.systemPrompt }}",
+                    "maxIterations": 15
+                }
+            },
+            "id": "eac33ddd-01eb-4487-bbae-c84c36b8d219",
+            "name": "Insights Agent",
+            "type": "@n8n/n8n-nodes-langchain.agent",
+            "typeVersion": 1.7,
+            "position": [
+                2672,
+                208
+            ],
+            "continueOnFail": true
+        },
+        {
+            "parameters": {
+                "model": {
+                    "__rl": true,
+                    "value": "claude-sonnet-4-6",
+                    "mode": "list",
+                    "cachedResultName": "Claude Sonnet 4.6"
+                },
+                "options": {}
+            },
+            "id": "19b726f4-283c-4735-a8ac-8dd36a5a6a57",
+            "name": "Anthropic Chat Model",
+            "type": "@n8n/n8n-nodes-langchain.lmChatAnthropic",
+            "typeVersion": 1.3,
+            "position": [
+                2688,
+                432
+            ],
+            "credentials": {
+                "anthropicApi": {
+                    "id": "rlAz7ZSl4y6AwRUq",
+                    "name": "Anthropic account 2"
+                }
+            }
+        },
+        {
+            "parameters": {
+                "endpointUrl": "https://mcp-canary.people.ai/mcp",
+                "authentication": "multipleHeadersAuth",
+                "options": {}
+            },
+            "id": "c2fc3bdd-ca85-4f44-a65f-d74771fa7456",
+            "name": "People.ai MCP",
+            "type": "@n8n/n8n-nodes-langchain.mcpClientTool",
+            "typeVersion": 1.2,
+            "position": [
+                2816,
+                432
+            ],
+            "credentials": {
+                "httpMultipleHeadersAuth": {
+                    "id": "wvV5pwBeIL7f2vLG",
+                    "name": "People.ai MCP Multi-Header"
+                }
+            }
+        },
+        {
+            "parameters": {
+                "jsCode": "// Parse the agent's Block Kit JSON output\nconst agentOutput = $('Insights Agent').first().json.output;\n\nlet parsed;\ntry {\n  // Try to extract JSON from the output \u2014 Claude sometimes wraps it in prose or code fences\n  let cleaned = agentOutput;\n\n  // Remove code fences\n  cleaned = cleaned.replace(/^```json\\s*/i, '').replace(/^```\\s*/i, '').replace(/```\\s*$/i, '').trim();\n\n  // If it doesn't start with {, try to find JSON object in the text\n  if (!cleaned.startsWith('{')) {\n    const jsonMatch = cleaned.match(/\\{[\\s\\S]*\"blocks\"[\\s\\S]*\\}/);\n    if (jsonMatch) {\n      cleaned = jsonMatch[0];\n    }\n  }\n\n  parsed = JSON.parse(cleaned);\n} catch (e) {\n  // Fallback: split raw output into chunks that fit Slack's 3000 char limit per block\n  const maxLen = 2900;\n  const text = agentOutput || 'Briefing generation failed.';\n  const chunks = [];\n  for (let i = 0; i < text.length; i += maxLen) {\n    chunks.push(text.slice(i, i + maxLen));\n  }\n\n  const blocks = chunks.map((chunk, idx) => ({\n    type: \"section\",\n    text: { type: \"mrkdwn\", text: idx === 0 ? chunk : '...' + chunk }\n  }));\n\n  parsed = {\n    notification_text: \"Your briefing is ready\",\n    blocks\n  };\n}\n\n// Enforce Slack limits\nif (parsed.blocks) {\n  parsed.blocks = parsed.blocks.map(block => {\n    // Max 10 fields per section\n    if (block.fields && block.fields.length > 10) {\n      block.fields = block.fields.slice(0, 10);\n    }\n    // Max 3000 chars per text field in section blocks\n    if (block.text && block.text.text && block.text.text.length > 3000) {\n      block.text.text = block.text.text.slice(0, 2997) + '...';\n    }\n    // Max 3000 chars per field text\n    if (block.fields) {\n      block.fields = block.fields.map(f => {\n        if (f.text && f.text.length > 2000) {\n          f.text = f.text.slice(0, 1997) + '...';\n        }\n        return f;\n      });\n    }\n    return block;\n  });\n  // Max 50 blocks\n  if (parsed.blocks.length > 50) {\n    parsed.blocks = parsed.blocks.slice(0, 50);\n  }\n}\n\nreturn [{\n  json: {\n    notificationText: parsed.notification_text || \"Your briefing\",\n    blocks: JSON.stringify(parsed.blocks),\n    rawContent: agentOutput\n  }\n}];"
+            },
+            "id": "1262d1c1-e1ab-4389-8afc-99ceb224124a",
+            "name": "Parse Blocks",
+            "type": "n8n-nodes-base.code",
+            "typeVersion": 2,
+            "position": [
+                3024,
+                208
+            ]
+        },
+        {
+            "parameters": {
+                "method": "POST",
+                "url": "https://slack.com/api/chat.postMessage",
+                "authentication": "genericCredentialType",
+                "genericAuthType": "httpHeaderAuth",
+                "sendHeaders": true,
+                "headerParameters": {
+                    "parameters": [
+                        {
+                            "name": "Content-Type",
+                            "value": "application/json"
+                        }
+                    ]
+                },
+                "sendBody": true,
+                "specifyBody": "json",
+                "jsonBody": "={{ JSON.stringify({ channel: $('Workflow Input Trigger').first().json.channelId, text: $('Parse Blocks').first().json.notificationText, username: $('Resolve Insights Identity').first().json.assistantName, icon_emoji: $('Resolve Insights Identity').first().json.assistantEmoji, blocks: JSON.parse($('Parse Blocks').first().json.blocks), unfurl_links: false, unfurl_media: false }) }}",
+                "options": {}
+            },
+            "id": "ec7527df-00a7-4fa7-b991-518a66fc1f33",
+            "name": "Send Insights",
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4.2,
+            "position": [
+                3248,
+                208
+            ],
+            "credentials": {
+                "httpHeaderAuth": {
+                    "id": "LluVuiMJ8NUbAiG7",
+                    "name": "Slackbot Auth Token"
+                }
+            },
+            "continueOnFail": true
+        }
+    ],
+    "connections": {
+        "Workflow Input Trigger": {
+            "main": [
+                [
+                    {
+                        "node": "Get Auth Token",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Get Auth Token": {
+            "main": [
+                [
+                    {
+                        "node": "Fetch User Hierarchy",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Fetch User Hierarchy": {
+            "main": [
+                [
+                    {
+                        "node": "Parse Hierarchy",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Parse Hierarchy": {
+            "main": [
+                [
+                    {
+                        "node": "Fetch Insights Opps",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Fetch Insights Opps": {
+            "main": [
+                [
+                    {
+                        "node": "Parse Insights CSV",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Parse Insights CSV": {
+            "main": [
+                [
+                    {
+                        "node": "Fetch Account Data",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Fetch Account Data": {
+            "main": [
+                [
+                    {
+                        "node": "Parse Account CSV",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Parse Account CSV": {
+            "main": [
+                [
+                    {
+                        "node": "Classify Deals",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Classify Deals": {
+            "main": [
+                [
+                    {
+                        "node": "Filter by Scope",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Filter by Scope": {
+            "main": [
+                [
+                    {
+                        "node": "Resolve Insights Identity",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Resolve Insights Identity": {
+            "main": [
+                [
+                    {
+                        "node": "Insights Agent",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Insights Agent": {
+            "main": [
+                [
+                    {
+                        "node": "Parse Blocks",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Anthropic Chat Model": {
+            "ai_languageModel": [
+                [
+                    {
+                        "node": "Insights Agent",
+                        "type": "ai_languageModel",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "People.ai MCP": {
+            "ai_tool": [
+                [
+                    {
+                        "node": "Insights Agent",
+                        "type": "ai_tool",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Parse Blocks": {
+            "main": [
+                [
+                    {
+                        "node": "Send Insights",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        }
+    },
+    "settings": {
+        "executionOrder": "v1",
+        "callerPolicy": "workflowsFromSameOwner",
+        "availableInMCP": false
+    },
+    "staticData": null,
+    "meta": null,
+    "pinData": {},
+    "versionId": "e7652d4c-9f8d-4116-9d7f-4aea4a6e1061",
+    "activeVersionId": "e7652d4c-9f8d-4116-9d7f-4aea4a6e1061",
+    "versionCounter": 43,
+    "triggerCount": 0,
+    "tags": [
+        {
+            "updatedAt": "2025-11-27T01:23:49.753Z",
+            "createdAt": "2025-11-27T01:23:49.753Z",
+            "id": "NmFHq9FBYnCDcOiu",
+            "name": "Production"
+        }
+    ],
+    "activeVersion": {
+        "updatedAt": "2026-03-25T19:06:16.590Z",
+        "createdAt": "2026-03-25T19:06:16.590Z",
+        "versionId": "e7652d4c-9f8d-4116-9d7f-4aea4a6e1061",
+        "workflowId": "cV5GDdW5MiukdJdN",
+        "nodes": [
+            {
+                "parameters": {
+                    "inputSource": "passthrough"
+                },
+                "id": "e1cd24a4-7342-40ee-b076-c831e9c76164",
+                "name": "Workflow Input Trigger",
+                "type": "n8n-nodes-base.executeWorkflowTrigger",
+                "typeVersion": 1.1,
+                "position": [
+                    208,
+                    208
+                ]
+            },
+            {
+                "parameters": {
+                    "method": "POST",
+                    "url": "https://api.people.ai/v3/auth/tokens",
+                    "sendHeaders": true,
+                    "headerParameters": {
+                        "parameters": [
+                            {
+                                "name": "Content-Type",
+                                "value": "application/x-www-form-urlencoded"
+                            }
+                        ]
+                    },
+                    "sendBody": true,
+                    "specifyBody": "string",
+                    "body": "client_id=YOUR_CLIENT_ID&client_secret=YOUR_CLIENT_SECRET&grant_type=client_credentials",
+                    "options": {}
+                },
+                "id": "db7ae533-0068-4553-bce7-83a46677a0e5",
+                "name": "Get Auth Token",
+                "type": "n8n-nodes-base.httpRequest",
+                "typeVersion": 4.2,
+                "position": [
+                    432,
+                    208
+                ]
+            },
+            {
+                "parameters": {
+                    "method": "POST",
+                    "url": "https://api.people.ai/v3/beta/insights/export",
+                    "sendHeaders": true,
+                    "headerParameters": {
+                        "parameters": [
+                            {
+                                "name": "Content-Type",
+                                "value": "application/json"
+                            },
+                            {
+                                "name": "Authorization",
+                                "value": "=Bearer {{ $('Get Auth Token').first().json.access_token }}"
+                            }
+                        ]
+                    },
+                    "sendBody": true,
+                    "specifyBody": "json",
+                    "jsonBody": "{\"object\": \"user\", \"columns\": [{\"slug\": \"ootb_user_name\"}, {\"slug\": \"ootb_user_email\"}, {\"slug\": \"ootb_user_manager\"}]}",
+                    "options": {}
+                },
+                "id": "13d135e8-d1ee-4236-92f5-40de023669dc",
+                "name": "Fetch User Hierarchy",
+                "type": "n8n-nodes-base.httpRequest",
+                "typeVersion": 4.2,
+                "position": [
+                    656,
+                    208
+                ]
+            },
+            {
+                "parameters": {
+                    "jsCode": "// Parse CSV from People.ai User hierarchy export\nconst csvData = $('Fetch User Hierarchy').first().json.data;\n\nif (!csvData) {\n  return [{ json: { hierarchy: {}, managerToReports: {}, userCount: 0, error: 'No hierarchy data returned' } }];\n}\n\nconst lines = csvData.split('\\n').filter(l => l.trim());\nif (lines.length < 2) {\n  return [{ json: { hierarchy: {}, managerToReports: {}, userCount: 0, error: 'Hierarchy CSV has no data rows' } }];\n}\n\nfunction parseCsvLine(line) {\n  const result = [];\n  let current = '';\n  let inQuotes = false;\n  for (let i = 0; i < line.length; i++) {\n    const ch = line[i];\n    if (ch === '\"') {\n      if (inQuotes && i + 1 < line.length && line[i + 1] === '\"') {\n        current += '\"';\n        i++;\n      } else {\n        inQuotes = !inQuotes;\n      }\n    } else if (ch === ',' && !inQuotes) {\n      result.push(current.trim());\n      current = '';\n    } else {\n      current += ch;\n    }\n  }\n  result.push(current.trim());\n  return result;\n}\n\nconst headers = parseCsvLine(lines[0]);\nconst headerMap = {};\nheaders.forEach((h, i) => { headerMap[h] = i; });\n\nfunction getField(row, ...names) {\n  for (const name of names) {\n    if (headerMap[name] !== undefined && row[headerMap[name]]) {\n      return row[headerMap[name]];\n    }\n  }\n  return '';\n}\n\nconst hierarchy = {};\nconst managerToReports = {};\n\nfor (let i = 1; i < lines.length; i++) {\n  const row = parseCsvLine(lines[i]);\n  if (row.length < headers.length) continue;\n\n  const name = getField(row, 'ootb_user_name', 'User Name', 'Name');\n  const email = getField(row, 'ootb_user_email', 'User Email', 'Email').toLowerCase();\n  const manager = getField(row, 'ootb_user_manager', 'Manager', 'User Manager');\n\n  if (email) {\n    hierarchy[email] = { name, email, manager };\n  }\n\n  if (manager) {\n    const mgrLower = manager.toLowerCase();\n    if (!managerToReports[mgrLower]) {\n      managerToReports[mgrLower] = [];\n    }\n    managerToReports[mgrLower].push({ name, email });\n  }\n}\n\nreturn [{ json: { hierarchy, managerToReports, userCount: Object.keys(hierarchy).length } }];\n"
+                },
+                "id": "c7ee348e-fb8e-40e1-96b0-43c4b55f7bd8",
+                "name": "Parse Hierarchy",
+                "type": "n8n-nodes-base.code",
+                "typeVersion": 2,
+                "position": [
+                    880,
+                    208
+                ]
+            },
+            {
+                "parameters": {
+                    "method": "POST",
+                    "url": "https://api.people.ai/v3/beta/insights/export",
+                    "sendHeaders": true,
+                    "headerParameters": {
+                        "parameters": [
+                            {
+                                "name": "Content-Type",
+                                "value": "application/json"
+                            },
+                            {
+                                "name": "Authorization",
+                                "value": "=Bearer {{ $('Get Auth Token').first().json.access_token }}"
+                            }
+                        ]
+                    },
+                    "sendBody": true,
+                    "specifyBody": "json",
+                    "jsonBody": "{\"object\": \"opportunity\", \"filter\": {\"$and\": [{\"attribute\": {\"slug\": \"ootb_opportunity_is_closed\"}, \"clause\": {\"$eq\": false}}, {\"attribute\": {\"slug\": \"ootb_opportunity_close_date\", \"variation_id\": \"ootb_opportunity_close_date_0\"}, \"clause\": {\"$within\": {\"$ref\": \"time_ranges.this_fyear\"}}}]}, \"columns\": [{\"slug\": \"ootb_opportunity_owners\"}, {\"slug\": \"ootb_opportunity_name\"}, {\"slug\": \"ootb_opportunity_account_name\"}, {\"slug\": \"ootb_opportunity_close_date\"}, {\"slug\": \"ootb_opportunity_current_stage\"}, {\"slug\": \"ootb_opportunity_converted_amount\"}, {\"slug\": \"ootb_opportunity_crm_id\"}, {\"slug\": \"ootb_opportunity_engagement_level\"}, {\"slug\": \"ootb_opportunity_days_in_stage\"}, {\"slug\": \"ootb_opportunity_count_of_meetings_standard\"}, {\"slug\": \"ootb_opportunity_upcoming_meetings_standard\"}, {\"slug\": \"ootb_opportunity_count_of_emails_received\"}, {\"slug\": \"ootb_opportunity_count_of_emails_sent\"}, {\"slug\": \"ootb_opportunity_executive_activities\"}, {\"slug\": \"ootb_opportunity_meetings_with_director_vp_exec\"}, {\"slug\": \"ootb_opportunity_people_engaged\"}, {\"slug\": \"ootb_opportunity_total_activities_count\"}], \"sort\": [{\"attribute\": {\"slug\": \"ootb_opportunity_owners\"}, \"direction\": \"asc\"}]}",
+                    "options": {}
+                },
+                "id": "27e1b569-9e36-486a-b7e8-ec159e6e3514",
+                "name": "Fetch Insights Opps",
+                "type": "n8n-nodes-base.httpRequest",
+                "typeVersion": 4.2,
+                "position": [
+                    1104,
+                    208
+                ]
+            },
+            {
+                "parameters": {
+                    "jsCode": "const csvData = $('Fetch Insights Opps').first().json.data;\n\nif (!csvData) {\n  return [{ json: { opps: [], oppCount: 0, error: 'No opportunity data returned' } }];\n}\n\nconst lines = csvData.split('\\n').filter(l => l.trim());\nif (lines.length < 2) {\n  return [{ json: { opps: [], oppCount: 0 } }];\n}\n\nfunction parseCsvLine(line) {\n  const result = [];\n  let current = '';\n  let inQuotes = false;\n  for (let i = 0; i < line.length; i++) {\n    const ch = line[i];\n    if (ch === '\"') {\n      if (inQuotes && i + 1 < line.length && line[i + 1] === '\"') {\n        current += '\"';\n        i++;\n      } else {\n        inQuotes = !inQuotes;\n      }\n    } else if (ch === ',' && !inQuotes) {\n      result.push(current.trim());\n      current = '';\n    } else {\n      current += ch;\n    }\n  }\n  result.push(current.trim());\n  return result;\n}\n\nconst headers = parseCsvLine(lines[0]);\nconst headerMap = {};\nheaders.forEach((h, i) => { headerMap[h.toLowerCase()] = i; });\n\nfunction get(row, ...names) {\n  for (const name of names) {\n    const idx = headerMap[name.toLowerCase()];\n    if (idx !== undefined && row[idx] !== undefined && row[idx] !== '') return row[idx];\n  }\n  return '';\n}\n\nconst opps = [];\nfor (let i = 1; i < lines.length; i++) {\n  const row = parseCsvLine(lines[i]);\n  if (row.length < 2) continue;\n\n  opps.push({\n    owners: get(row, 'Opportunity Owner (name)', 'Opportunity Owners', 'Owners', 'Owner'),\n    name: get(row, 'Opportunity Name', 'Name'),\n    account: get(row, 'Account Name', 'Account'),\n    closeDate: get(row, 'Close Date'),\n    stage: get(row, 'Stage', 'Current Stage'),\n    amount: get(row, 'Amount (Converted)', 'Converted Amount', 'Amount'),\n    crmId: get(row, 'Record ID', 'CRM ID', 'Opportunity CRM ID', 'CRM Id'),\n    engagement: get(row, 'Opportunity Engagement Level', 'Engagement Level', 'Engagement'),\n    daysInStage: get(row, 'Days in Stage', 'Days In Stage'),\n    meetings30d: get(row, 'Meetings (Last 30 Days)', 'Count Of Meetings Standard', 'Meetings', 'Count of Meetings'),\n    upcomingMeetings: get(row, 'Upcoming Meetings', 'Upcoming Meetings Standard'),\n    emailsReceived: get(row, 'Emails Received (Last 30 Days)', 'Count Of Emails Received', 'Emails Received'),\n    emailsSent: get(row, 'Emails Sent (Last 30 Days)', 'Count Of Emails Sent', 'Emails Sent'),\n    execActivities: get(row, 'Executive Activities', 'Exec Activities'),\n    execMeetings: get(row, 'Meetings with Director/VP/Exec', 'Meetings With Director VP Exec', 'Executive Meetings'),\n    peopleEngaged: get(row, 'People Engaged', 'Contacts Engaged'),\n    totalActivities: get(row, 'Total Activities', 'Total Activities Count')\n  });\n}\n\nreturn [{ json: { opps, oppCount: opps.length, headers: headers } }];\n"
+                },
+                "id": "d9d8b84f-b148-4db5-8b73-4ae9ff952a5a",
+                "name": "Parse Insights CSV",
+                "type": "n8n-nodes-base.code",
+                "typeVersion": 2,
+                "position": [
+                    1328,
+                    208
+                ]
+            },
+            {
+                "parameters": {
+                    "method": "POST",
+                    "url": "https://api.people.ai/v3/beta/insights/export",
+                    "sendHeaders": true,
+                    "headerParameters": {
+                        "parameters": [
+                            {
+                                "name": "Content-Type",
+                                "value": "application/json"
+                            },
+                            {
+                                "name": "Authorization",
+                                "value": "=Bearer {{ $('Get Auth Token').first().json.access_token }}"
+                            }
+                        ]
+                    },
+                    "sendBody": true,
+                    "specifyBody": "json",
+                    "jsonBody": "{\"object\": \"account\", \"columns\": [{\"slug\": \"ootb_account_name\"}, {\"slug\": \"ootb_account_original_owner\"}, {\"slug\": \"ootb_account_engagement_level\"}, {\"slug\": \"ootb_account_open_opportunities\"}, {\"slug\": \"ootb_account_count_of_meetings_standard\"}, {\"slug\": \"ootb_account_people_engaged\"}, {\"slug\": \"ootb_account_executive_engaged\"}, {\"slug\": \"ootb_account_executive_activities\"}, {\"slug\": \"ootb_account_crm_id\"}]}",
+                    "options": {}
+                },
+                "id": "63a66fb4-0555-4198-a9d8-0bd20f5efe96",
+                "name": "Fetch Account Data",
+                "type": "n8n-nodes-base.httpRequest",
+                "typeVersion": 4.2,
+                "position": [
+                    1552,
+                    208
+                ],
+                "continueOnFail": true
+            },
+            {
+                "parameters": {
+                    "jsCode": "// Parse account data for Hidden Opp classification\n// Handles cases where API query might fail or return no data\nconst input = $('Fetch Account Data').first().json;\nconst csvData = input.data;\n\nif (!csvData) {\n  return [{ json: { accounts: [], accountCount: 0, error: input.error || 'No account data returned' } }];\n}\n\nconst lines = csvData.split('\\n').filter(l => l.trim());\nif (lines.length < 2) {\n  return [{ json: { accounts: [], accountCount: 0 } }];\n}\n\nfunction parseCsvLine(line) {\n  const result = [];\n  let current = '';\n  let inQuotes = false;\n  for (let i = 0; i < line.length; i++) {\n    const ch = line[i];\n    if (ch === '\"') {\n      if (inQuotes && i + 1 < line.length && line[i + 1] === '\"') {\n        current += '\"';\n        i++;\n      } else {\n        inQuotes = !inQuotes;\n      }\n    } else if (ch === ',' && !inQuotes) {\n      result.push(current.trim());\n      current = '';\n    } else {\n      current += ch;\n    }\n  }\n  result.push(current.trim());\n  return result;\n}\n\nconst headers = parseCsvLine(lines[0]);\nconst headerMap = {};\nheaders.forEach((h, i) => { headerMap[h.toLowerCase()] = i; });\n\nfunction get(row, ...names) {\n  for (const name of names) {\n    const idx = headerMap[name.toLowerCase()];\n    if (idx !== undefined && row[idx] !== undefined && row[idx] !== '') return row[idx];\n  }\n  return '';\n}\n\nconst allAccounts = [];\nfor (let i = 1; i < lines.length; i++) {\n  const row = parseCsvLine(lines[i]);\n  if (row.length < 2) continue;\n\n  allAccounts.push({\n    name: get(row, 'Account Name', 'Name', 'Account'),\n    owner: get(row, 'Original Owner', 'Owner'),\n    engagement: get(row, 'Engagement Level', 'Engagement'),\n    openOpps: get(row, 'Open Opportunities', 'Open Opps'),\n    meetings: get(row, 'Count Of Meetings Standard', 'Meetings', 'Count of Meetings'),\n    peopleEngaged: get(row, 'People Engaged', 'Contacts Engaged'),\n    execEngaged: get(row, 'Executive Engaged', 'Exec Engaged'),\n    execActivities: get(row, 'Executive Activities', 'Exec Activities'),\n    crmId: get(row, 'CRM ID', 'Account CRM ID', 'CRM Id')\n  });\n}\n\n// Filter to accounts with zero open opportunities\nconst hiddenCandidates = allAccounts.filter(a => {\n  const openOpps = parseInt(a.openOpps) || 0;\n  return openOpps === 0;\n});\n\nreturn [{ json: { accounts: hiddenCandidates, accountCount: hiddenCandidates.length, totalAccounts: allAccounts.length } }];\n"
+                },
+                "id": "a8022d35-ae7e-464c-9c06-2616e3c6a913",
+                "name": "Parse Account CSV",
+                "type": "n8n-nodes-base.code",
+                "typeVersion": 2,
+                "position": [
+                    1776,
+                    208
+                ]
+            },
+            {
+                "parameters": {
+                    "jsCode": "// Apply classification formulas from Opportunity Insights spec\n// Merges data from Parse Insights CSV and Parse Account CSV\nconst oppsData = $('Parse Insights CSV').first().json;\nconst accountsData = $('Parse Account CSV').first().json;\n\nconst opps = oppsData.opps || [];\nconst accounts = accountsData.accounts || [];\n\n// Null-safe numeric helper\nfunction num(val) {\n  if (val === null || val === undefined || val === '') return null;\n  const n = parseFloat(String(val).replace(/[^0-9.\\-]/g, ''));\n  return isNaN(n) ? null : n;\n}\nfunction n(val) { return num(val) || 0; }\n\n// Days in Stage comes as HH:MM:SS duration from the API\nfunction parseDays(val) {\n  if (val === null || val === undefined || val === '') return 0;\n  const s = String(val);\n  const match = s.match(/(\\d+):(\\d+):(\\d+)/);\n  if (match) return Math.round(parseInt(match[1]) / 24);\n  return n(val);\n}\n\n// Classify each opportunity\nconst classifiedOpps = opps.map(opp => {\n  const engagement = n(opp.engagement);\n  const daysInStage = parseDays(opp.daysInStage);\n  const meetings30d = n(opp.meetings30d);\n  const upcomingMeetings = n(opp.upcomingMeetings);\n  const emailsReceived = n(opp.emailsReceived);\n  const emailsSent = n(opp.emailsSent);\n  const execActivities = n(opp.execActivities);\n  const execMeetings = n(opp.execMeetings);\n  const peopleEngaged = n(opp.peopleEngaged);\n  const totalActivities = n(opp.totalActivities);\n\n  // Derived metrics\n  const emailResponsiveness = emailsSent > 0 ? emailsReceived / emailsSent : 0;\n  const totalMeetings = meetings30d + (n(opp.execMeetings) || 0);\n  const execCoverage = totalMeetings > 0 ? 100 * execMeetings / totalMeetings : 0;\n  const stakeholderBreadth = daysInStage > 7 ? peopleEngaged / (daysInStage / 7) : peopleEngaged;\n\n  let classification = 'healthy';\n  let flags = [];\n\n  // === STALLED check ===\n  const isStalled = engagement < 25 ||\n    (engagement < 50 && daysInStage > 45 && meetings30d === 0);\n\n  if (isStalled) {\n    classification = 'stalled';\n    if (engagement < 25) flags.push('Very low engagement (' + engagement + ')');\n    if (daysInStage > 45) flags.push('Stuck in stage ' + daysInStage + ' days');\n    if (meetings30d === 0) flags.push('No meetings in 30 days');\n  }\n\n  // === RISK check (only if not stalled) ===\n  if (classification === 'healthy') {\n    let riskSignals = 0;\n    let riskFlags = [];\n    if (execActivities === 0) { riskSignals++; riskFlags.push('No exec engagement'); }\n    if (emailResponsiveness < 0.3 && emailsSent > 0) { riskSignals++; riskFlags.push('Low email response (' + emailResponsiveness.toFixed(2) + ')'); }\n    if (peopleEngaged < 3) { riskSignals++; riskFlags.push('Single-threaded (' + peopleEngaged + ' contacts)'); }\n    if (execCoverage < 10 && totalMeetings > 0) { riskSignals++; riskFlags.push('Below power line (' + execCoverage.toFixed(0) + '% exec)'); }\n\n    if (riskSignals >= 2) {\n      classification = 'risk';\n      flags = riskFlags;\n    }\n  }\n\n  // === ACCELERATING check (only if still healthy) ===\n  if (classification === 'healthy') {\n    let accelSignals = 0;\n    let accelFlags = [];\n    if (upcomingMeetings >= 2) { accelSignals++; accelFlags.push(upcomingMeetings + ' upcoming meetings'); }\n    if (execActivities >= 3) { accelSignals++; accelFlags.push(execActivities + ' exec activities'); }\n    if (meetings30d >= 4) { accelSignals++; accelFlags.push(meetings30d + ' meetings in 30d'); }\n\n    if (engagement >= 70 && accelSignals >= 2) {\n      classification = 'accelerating';\n      flags = accelFlags;\n    }\n  }\n\n  return {\n    ...opp,\n    classification,\n    flags,\n    derivedMetrics: {\n      engagement, daysInStage, meetings30d, upcomingMeetings,\n      emailResponsiveness: emailResponsiveness.toFixed(2),\n      execCoverage: execCoverage.toFixed(1),\n      stakeholderBreadth: stakeholderBreadth.toFixed(2),\n      execActivities, peopleEngaged, totalActivities\n    }\n  };\n});\n\n// Classify accounts for Hidden Opps\nconst hiddenAccounts = accounts.filter(acct => {\n  const engagement = n(acct.engagement);\n  const meetings = n(acct.meetings);\n  return engagement >= 50 && meetings > 0;\n}).map(acct => ({\n  ...acct,\n  classification: 'hidden',\n  flags: ['High engagement (' + n(acct.engagement) + ') with ' + n(acct.meetings) + ' meetings but no open opportunity']\n}));\n\nconst counts = {\n  stalled: classifiedOpps.filter(o => o.classification === 'stalled').length,\n  risk: classifiedOpps.filter(o => o.classification === 'risk').length,\n  healthy: classifiedOpps.filter(o => o.classification === 'healthy').length,\n  accelerating: classifiedOpps.filter(o => o.classification === 'accelerating').length,\n  hidden: hiddenAccounts.length,\n  total: classifiedOpps.length\n};\n\nreturn [{ json: { classifiedOpps, hiddenAccounts, counts } }];\n"
+                },
+                "id": "8a19b2bf-d50b-4bb1-a71c-8beea36ff337",
+                "name": "Classify Deals",
+                "type": "n8n-nodes-base.code",
+                "typeVersion": 2,
+                "position": [
+                    2000,
+                    208
+                ]
+            },
+            {
+                "parameters": {
+                    "jsCode": "const data = $('Classify Deals').first().json;\nconst input = $('Workflow Input Trigger').first().json;\nconst hierarchyData = $('Parse Hierarchy').first().json;\n\nconst classifiedOpps = data.classifiedOpps || [];\nconst hiddenAccounts = data.hiddenAccounts || [];\n\n// Support both passthrough (camelCase/nested) and explicit inputData (snake_case/flat)\nconst ur = input.userRecord || {};\nconst userEmail = (ur.email || input.email || '').toLowerCase();\nconst repName = userEmail.split('@')[0]\n  .replace(/\\./g, ' ')\n  .replace(/\\b\\w/g, c => c.toUpperCase());\nconst repLower = repName.toLowerCase();\nconst digestScope = ur.digest_scope || input.digest_scope || 'my_deals';\nconst insightType = input.insightType || 'all';\n\nlet filteredOpps = classifiedOpps;\nlet filteredAccounts = hiddenAccounts;\nlet scopeLabel = '';\n\n// === Scope-based filtering ===\nif (digestScope === 'my_deals') {\n  filteredOpps = classifiedOpps.filter(opp => {\n    const owners = (opp.owners || '').toLowerCase();\n    return owners.includes(repLower);\n  });\n  filteredAccounts = hiddenAccounts.filter(acct => {\n    const owner = (acct.owner || '').toLowerCase();\n    return owner.includes(repLower);\n  });\n  scopeLabel = repName + \"'s deals\";\n\n} else if (digestScope === 'team_deals') {\n  const managerToReports = hierarchyData.managerToReports || {};\n  let reportNames = [repLower];\n\n  for (const [mgrKey, reports] of Object.entries(managerToReports)) {\n    if (mgrKey.includes(repLower) || repLower.includes(mgrKey)) {\n      for (const report of reports) {\n        const rName = (report.name || '').toLowerCase();\n        if (rName && !reportNames.includes(rName)) reportNames.push(rName);\n      }\n    }\n  }\n  if (managerToReports[userEmail]) {\n    for (const report of managerToReports[userEmail]) {\n      const rName = (report.name || '').toLowerCase();\n      if (rName && !reportNames.includes(rName)) reportNames.push(rName);\n    }\n  }\n\n  filteredOpps = classifiedOpps.filter(opp => {\n    const owners = (opp.owners || '').toLowerCase();\n    return reportNames.some(name => owners.includes(name));\n  });\n  filteredAccounts = hiddenAccounts.filter(acct => {\n    const owner = (acct.owner || '').toLowerCase();\n    return reportNames.some(name => owner.includes(name));\n  });\n  scopeLabel = repName + \"'s team (\" + reportNames.length + \" reps)\";\n\n} else {\n  scopeLabel = \"Full pipeline\";\n}\n\n// === Build tables per classification ===\nfunction buildOppTable(opps, includeFlags) {\n  if (opps.length === 0) return '(none)';\n  let table = '| Opportunity | Account | Owner | Stage | Engagement | CRM ID |' + (includeFlags ? ' Flags |' : '') + '\\n';\n  table += '|---|---|---|---|---|---|' + (includeFlags ? '---|' : '') + '\\n';\n  for (const opp of opps) {\n    table += '| ' + (opp.name || '') + ' | ' + (opp.account || '') + ' | ' + (opp.owners || '') +\n      ' | ' + (opp.stage || '') + ' | ' + (opp.engagement || '') + ' | ' + (opp.crmId || '') +\n      (includeFlags ? ' | ' + (opp.flags || []).join('; ') : '') + ' |\\n';\n  }\n  return table;\n}\n\nfunction buildAccountTable(accounts) {\n  if (accounts.length === 0) return '(none)';\n  let table = '| Account | Owner | Engagement | Meetings | People Engaged | CRM ID | Flags |\\n';\n  table += '|---|---|---|---|---|---|---|\\n';\n  for (const acct of accounts) {\n    table += '| ' + (acct.name || '') + ' | ' + (acct.owner || '') + ' | ' + (acct.engagement || '') +\n      ' | ' + (acct.meetings || '') + ' | ' + (acct.peopleEngaged || '') + ' | ' + (acct.crmId || '') +\n      ' | ' + (acct.flags || []).join('; ') + ' |\\n';\n  }\n  return table;\n}\n\nconst stalledDeals = filteredOpps.filter(o => o.classification === 'stalled');\nconst riskDeals = filteredOpps.filter(o => o.classification === 'risk');\nconst acceleratingDeals = filteredOpps.filter(o => o.classification === 'accelerating');\nconst healthyDeals = filteredOpps.filter(o => o.classification === 'healthy');\n\nconst stalledTable = buildOppTable(stalledDeals, true);\nconst riskTable = buildOppTable(riskDeals, true);\nconst acceleratingTable = buildOppTable(acceleratingDeals, true);\nconst hiddenTable = buildAccountTable(filteredAccounts);\n\nconst scopedCounts = {\n  stalled: stalledDeals.length,\n  risk: riskDeals.length,\n  healthy: healthyDeals.length,\n  accelerating: acceleratingDeals.length,\n  hidden: filteredAccounts.length,\n  total: filteredOpps.length\n};\n\nconst summaryLine = 'Pipeline: ' + scopedCounts.total + ' deals (' +\n  scopedCounts.stalled + ' stalled, ' +\n  scopedCounts.risk + ' at risk, ' +\n  scopedCounts.healthy + ' healthy, ' +\n  scopedCounts.accelerating + ' accelerating) + ' +\n  scopedCounts.hidden + ' hidden opportunity accounts';\n\nreturn [{ json: {\n  insightType,\n  repName,\n  scopeLabel,\n  digestScope,\n  stalledTable, stalledCount: stalledDeals.length,\n  riskTable, riskCount: riskDeals.length,\n  acceleratingTable, acceleratingCount: acceleratingDeals.length,\n  hiddenTable, hiddenCount: filteredAccounts.length,\n  healthyCount: healthyDeals.length,\n  totalOppCount: filteredOpps.length,\n  summaryLine,\n  // Pass top deals for MCP investigation hints\n  topStalled: stalledDeals.slice(0, 5).map(d => d.name),\n  topRisk: riskDeals.slice(0, 5).map(d => d.name),\n  topAccel: acceleratingDeals.slice(0, 5).map(d => d.name),\n  topHidden: filteredAccounts.slice(0, 5).map(d => d.name)\n}}];\n"
+                },
+                "id": "d259bd5a-1cdf-4fd0-91c2-249cc1920fc2",
+                "name": "Filter by Scope",
+                "type": "n8n-nodes-base.code",
+                "typeVersion": 2,
+                "position": [
+                    2224,
+                    208
+                ]
+            },
+            {
+                "parameters": {
+                    "jsCode": "const data = $('Filter by Scope').first().json;\nconst input = $('Workflow Input Trigger').first().json;\n\n// Support both passthrough (camelCase/nested) and explicit inputData (snake_case/flat)\nconst ur = input.userRecord || {};\nconst assistantName = input.assistantName || ur.assistant_name || input.assistant_name || 'Aria';\nconst assistantEmoji = input.assistantEmoji || ur.assistant_emoji || input.assistant_emoji || ':robot_face:';\nconst assistantPersona = ur.assistant_persona || input.assistant_persona || 'direct, action-oriented, and conversational';\nconst repName = data.repName || 'Rep';\nconst timezone = ur.timezone || input.timezone || 'America/Los_Angeles';\nconst currentDate = new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });\nconst timeStr = new Date().toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', timeZone: timezone });\nconst emojiClean = assistantEmoji.replace(/:/g, '');\n\nconst insightType = data.insightType || 'all';\nconst scopeLabel = data.scopeLabel || '';\nconst digestScope = data.digestScope || 'my_deals';\nconst summaryLine = data.summaryLine || '';\n\n// === Block Kit formatting rules ===\nconst blockKitRules = `OUTPUT FORMAT \u2014 CRITICAL:\nRespond with ONLY a valid JSON object. No prose. No explanation. No markdown code fences (no backticks).\n\nYour response must have exactly this shape:\n{\n  \"notification_text\": \"string \u2014 one sentence, shown in push notifications\",\n  \"blocks\": [ array of valid Slack Block Kit blocks ]\n}\n\nBLOCK KIT STRUCTURE RULES:\n- Use a \"header\" block for the message title (plain_text only, emoji: true)\n- Use \"section\" blocks with \"mrkdwn\" text for all body content\n- Use \"divider\" blocks between major sections (maximum 3 per message)\n- Use \"section\" with \"fields\" for two-column data\n  - MAXIMUM 10 fields per section block (Slack API hard limit)\n  - If you have more than 10 data points, split into multiple section blocks\n- Use \"context\" block at the bottom for timestamp and data source\n- Maximum 50 blocks per message\n\nMRKDWN RULES (inside all text fields):\n- Bold: *text* \u2014 single asterisks only\n- Line break: \\n\n- Blank line: \\n\\n\n- Bullet points: use the \\u2022 character on its own line\n- NO ## headers \u2014 use *bold text* on its own line instead\n- NO **double asterisks**\n- NO standard markdown links [text](url) \u2014 use <https://url|text>\n- NO dash bullets (-)\n\nDEEP LINKS \u2014 make the deal or account NAME itself a clickable link. Do NOT add a separate \"View in People.ai\" line.\n- For opportunities: <https://app.people.ai/opportunity/CRMID|Deal Name Here> (replace CRMID with the CRM ID from the data table, and \"Deal Name Here\" with the actual opportunity name)\n- For accounts: <https://app.people.ai/accounts/CRMID|Account Name Here>\n- Example: *<https://app.people.ai/opportunity/006abc123|PwC - ClosePlan Pilot>* | Closes May 31\n\nTOOL CALL BUDGET \u2014 CRITICAL:\nYou have a STRICT limit of 8-10 tool calls total. Plan carefully:\n- Make at most 2-3 MCP calls per deal category (stalled, risk, accelerating)\n- After 8 tool calls, STOP researching and produce your final output immediately\n- The pipeline data is already classified in your context \u2014 MCP is only for qualitative color on top deals\n- If a tool call fails, move on \u2014 do NOT retry\n- NEVER exceed 10 tool calls. Produce output with what you have.\n\nEMOJI STATUS INDICATORS \u2014 use these consistently:\n\\ud83d\\ude80 Acceleration / strong momentum\n\\u26a0\\ufe0f Risk pattern detected\n\\ud83d\\udc8e Hidden upside opportunity\n\\ud83d\\udd34 Stalled / critical risk\n\\u2705 Healthy / on track\n\\ud83d\\udcc8 Engagement rising\n\\ud83d\\udcc9 Engagement falling`;\n\n// === Scope-aware role intro ===\nfunction buildRoleIntro() {\n  if (digestScope === 'my_deals') {\n    return `You are ${assistantName}, a personal sales intelligence analyst for ${repName}. You help them see what's really happening in their pipeline using quantitative signals.\n\nYour personality: ${assistantPersona}\n\nToday is ${currentDate}. ${repName} is in ${timezone}.\nScope: ${scopeLabel}`;\n  } else if (digestScope === 'team_deals') {\n    return `You are ${assistantName}, a sales management intelligence analyst for ${repName}. You help them lead their team by surfacing pipeline risks and opportunities using quantitative signals.\n\nYour personality: ${assistantPersona}\n\nToday is ${currentDate}. ${repName} is in ${timezone}.\nScope: ${scopeLabel}`;\n  } else {\n    return `You are ${assistantName}, an executive pipeline intelligence analyst for ${repName}. You provide strategic pipeline visibility using quantitative classification signals.\n\nYour personality: ${assistantPersona}\n\nToday is ${currentDate}. ${repName} is in ${timezone}.\nScope: ${scopeLabel}`;\n  }\n}\n\nconst footer = digestScope === 'team_deals'\n  ? `People.ai team intelligence \\u2022 ${currentDate} \\u2022 ${timeStr} PT`\n  : digestScope === 'top_pipeline'\n    ? `People.ai executive intelligence \\u2022 ${currentDate} \\u2022 ${timeStr} PT`\n    : `People.ai pipeline intelligence \\u2022 ${currentDate} \\u2022 ${timeStr} PT`;\n\n// === Build type-specific prompts ===\nfunction buildPrompts(type) {\n  const roleIntro = buildRoleIntro();\n\n  if (type === 'stalled') {\n    const systemPrompt = roleIntro + `\n\n\\u2501\\u2501\\u2501 CLASSIFICATION SUMMARY \\u2501\\u2501\\u2501\n${summaryLine}\n\n\\u2501\\u2501\\u2501 STALLED DEALS (${data.stalledCount}) \\u2501\\u2501\\u2501\nClassification: engagement < 25, OR (engagement < 50 AND days_in_stage > 45 AND no meetings in 30d)\n${data.stalledTable}\n\nYou have access to People.ai MCP tools. Use them ONLY for qualitative context on the top 3-5 stalled deals:\n- Recent activity timeline (when did engagement drop?)\n- Stakeholder analysis (who is/isn't engaged?)\n- Historical patterns (has this account gone cold before?)\n\nDo NOT use MCP to list or search for opportunities \\u2014 they are already classified above.\n\nWrite a pipeline intelligence briefing as a recovery specialist:\n\n1. Header \\u2014 \"${emojiClean} Stalled Deals \\u2014 ${assistantName}\"\n2. Stall Summary (2-3 sentences) \\u2014 how many deals are stalled, total value at risk, common patterns\n3. Recovery Priority (top 3-5 deals) \\u2014 for each: what stalled, how long, recommended recovery action. Make the deal name a clickable People.ai link. Use \\ud83d\\udd34 \\u26a0\\ufe0f indicators.\n4. Patterns \\u2014 common stall signals across deals (single-threaded, no exec, dark accounts)\n5. Recovery Playbook \\u2014 2-3 concrete actions to revive the highest-value stalled deals this week\n6. Context footer \\u2014 \"${footer}\"\n\n${blockKitRules}`;\n\n    const agentPrompt = `Generate a stalled deals intelligence report for ${repName}. ${data.stalledCount} stalled deals are loaded in your system prompt.\n\nUse People.ai MCP tools to investigate the top ${Math.min(data.stalledCount, 5)} stalled deals: look for when engagement dropped, who the last contacts were, and any signals of life.\n\nOutput ONLY the Block Kit JSON object, nothing else.`;\n\n    return { systemPrompt, agentPrompt };\n  }\n\n  if (type === 'risk') {\n    const systemPrompt = roleIntro + `\n\n\\u2501\\u2501\\u2501 CLASSIFICATION SUMMARY \\u2501\\u2501\\u2501\n${summaryLine}\n\n\\u2501\\u2501\\u2501 AT-RISK DEALS (${data.riskCount}) \\u2501\\u2501\\u2501\nClassification: 2+ risk signals from (no exec engagement, email responsiveness < 0.3, < 3 people engaged, exec coverage < 10%)\n${data.riskTable}\n\nYou have access to People.ai MCP tools. Use them ONLY for qualitative context on the top 3-5 at-risk deals:\n- Risk signal validation (confirm the quantitative flags with activity data)\n- Stakeholder map (who should be engaged but isn't?)\n- Competitive signals or deal blockers\n\nDo NOT use MCP to list or search for opportunities.\n\nWrite a pipeline intelligence briefing as a risk analyst:\n\n1. Header \\u2014 \"${emojiClean} At-Risk Deals \\u2014 ${assistantName}\"\n2. Risk Summary (2-3 sentences) \\u2014 how many deals at risk, total value exposed, most common risk signals\n3. Critical Risks (top 3-5 deals) \\u2014 for each: specific risk signals, severity, recommended mitigation. Make the deal name a clickable People.ai link. Use \\u26a0\\ufe0f \\ud83d\\udd34 indicators.\n4. Risk Patterns \\u2014 systemic issues across at-risk deals (e.g., exec engagement gap, single-threading)\n5. Mitigation Plan \\u2014 2-3 prioritized actions to address the biggest risks this week\n6. Context footer \\u2014 \"${footer}\"\n\n${blockKitRules}`;\n\n    const agentPrompt = `Generate an at-risk deals intelligence report for ${repName}. ${data.riskCount} at-risk deals are loaded.\n\nUse People.ai MCP tools to validate risk signals on the top ${Math.min(data.riskCount, 5)} at-risk deals: check activity gaps, stakeholder coverage, and engagement trends.\n\nOutput ONLY the Block Kit JSON object, nothing else.`;\n\n    return { systemPrompt, agentPrompt };\n  }\n\n  if (type === 'hidden') {\n    const systemPrompt = roleIntro + `\n\n\\u2501\\u2501\\u2501 CLASSIFICATION SUMMARY \\u2501\\u2501\\u2501\n${summaryLine}\n\n\\u2501\\u2501\\u2501 HIDDEN OPPORTUNITY ACCOUNTS (${data.hiddenCount}) \\u2501\\u2501\\u2501\nClassification: engagement >= 50 AND meetings > 0 AND zero open opportunities\nThese are accounts showing buying signals but with no opportunity created in CRM.\n${data.hiddenTable}\n\nYou have access to People.ai MCP tools. Use them ONLY for qualitative context on the top 3-5 hidden opportunity accounts:\n- Recent activity details (who is meeting with whom?)\n- Account history (any past opportunities, closed-lost deals?)\n- Engagement trajectory (rising or stable?)\n\nDo NOT use MCP to list or search for opportunities.\n\nWrite a pipeline intelligence briefing as a pipeline advisor:\n\n1. Header \\u2014 \"${emojiClean} Hidden Opportunities \\u2014 ${assistantName}\"\n2. Discovery Summary (2-3 sentences) \\u2014 how many hidden opp accounts found, what engagement signals suggest\n3. Top Discoveries (top 3-5 accounts) \\u2014 for each: engagement level, who is active, what suggests an opportunity. Make the deal name a clickable People.ai link. Use \\ud83d\\udc8e \\ud83d\\udcc8 indicators.\n4. Why These Matter \\u2014 what the engagement data tells us about buying intent\n5. Next Steps \\u2014 2-3 actions to qualify and convert the highest-potential hidden opportunities\n6. Context footer \\u2014 \"${footer}\"\n\n${blockKitRules}`;\n\n    const agentPrompt = `Generate a hidden opportunities intelligence report for ${repName}. ${data.hiddenCount} accounts with high engagement but no open opportunities are loaded.\n\nUse People.ai MCP tools to investigate the top ${Math.min(data.hiddenCount, 5)} accounts: look for recent meeting activity, past deal history, and engagement patterns that suggest buying intent.\n\nOutput ONLY the Block Kit JSON object, nothing else.`;\n\n    return { systemPrompt, agentPrompt };\n  }\n\n  if (type === 'accelerating') {\n    const systemPrompt = roleIntro + `\n\n\\u2501\\u2501\\u2501 CLASSIFICATION SUMMARY \\u2501\\u2501\\u2501\n${summaryLine}\n\n\\u2501\\u2501\\u2501 ACCELERATING DEALS (${data.acceleratingCount}) \\u2501\\u2501\\u2501\nClassification: engagement >= 70 AND 2+ acceleration signals (upcoming meetings >= 2, exec activities >= 3, meetings in 30d >= 4)\n${data.acceleratingTable}\n\nYou have access to People.ai MCP tools. Use them ONLY for qualitative context on the top 3-5 accelerating deals:\n- Momentum validation (confirm velocity with activity data)\n- Stakeholder engagement depth (multithreaded? exec sponsor?)\n- Close readiness signals (what needs to happen to close?)\n\nDo NOT use MCP to list or search for opportunities.\n\nWrite a pipeline intelligence briefing as a close specialist:\n\n1. Header \\u2014 \"${emojiClean} Accelerating Deals \\u2014 ${assistantName}\"\n2. Momentum Summary (2-3 sentences) \\u2014 how many deals accelerating, total value in motion, key drivers\n3. Top Movers (top 3-5 deals) \\u2014 for each: acceleration signals, engagement strength, what to do to maintain momentum. Make the deal name a clickable People.ai link. Use \\ud83d\\ude80 \\ud83d\\udd25 \\u2705 indicators.\n4. Acceleration Patterns \\u2014 what's working across these deals (exec engagement, meeting cadence, multithreading)\n5. Close Playbook \\u2014 2-3 actions to keep momentum and accelerate toward close\n6. Context footer \\u2014 \"${footer}\"\n\n${blockKitRules}`;\n\n    const agentPrompt = `Generate an accelerating deals intelligence report for ${repName}. ${data.acceleratingCount} accelerating deals are loaded.\n\nUse People.ai MCP tools to validate momentum on the top ${Math.min(data.acceleratingCount, 5)} deals: check recent activity cadence, stakeholder depth, and close readiness.\n\nOutput ONLY the Block Kit JSON object, nothing else.`;\n\n    return { systemPrompt, agentPrompt };\n  }\n\n  // === ALL \u2014 comprehensive intelligence report ===\n  const systemPrompt = roleIntro + `\n\n\\u2501\\u2501\\u2501 PIPELINE CLASSIFICATION \\u2501\\u2501\\u2501\n${summaryLine}\n\n\\u2501\\u2501\\u2501 STALLED (${data.stalledCount}) \\u2501\\u2501\\u2501\n${data.stalledTable}\n\n\\u2501\\u2501\\u2501 AT RISK (${data.riskCount}) \\u2501\\u2501\\u2501\n${data.riskTable}\n\n\\u2501\\u2501\\u2501 ACCELERATING (${data.acceleratingCount}) \\u2501\\u2501\\u2501\n${data.acceleratingTable}\n\n\\u2501\\u2501\\u2501 HIDDEN OPPORTUNITIES (${data.hiddenCount}) \\u2501\\u2501\\u2501\n${data.hiddenTable}\n\nHealthy deals: ${data.healthyCount} (not shown \\u2014 no action needed)\n\nYou have access to People.ai MCP tools. Use them to investigate the top 2-3 deals in each category for qualitative context.\nDo NOT use MCP to list or search for opportunities \\u2014 they are already classified above.\n\nWrite a comprehensive pipeline intelligence briefing:\n\n1. Header \\u2014 \"${emojiClean} Pipeline Intelligence \\u2014 ${assistantName}\"\n2. Pipeline Pulse (2-3 sentences) \\u2014 overall health, biggest risks, biggest opportunities\n3. \\ud83d\\udd34 Stalled Deals \\u2014 top 2-3 stalled deals with recovery recommendations. Make deal names clickable People.ai links.\n4. \\u26a0\\ufe0f At-Risk Deals \\u2014 top 2-3 at-risk deals with mitigation steps. Make deal names clickable People.ai links.\n5. \\ud83d\\ude80 Accelerating Deals \\u2014 top 2-3 deals with momentum. What to do to close. Make deal names clickable People.ai links.\n6. \\ud83d\\udc8e Hidden Opportunities \\u2014 top 2-3 accounts with no opp but high engagement. Make deal names clickable People.ai links.\n7. This Week's Actions \\u2014 3-5 prioritized actions across all categories\n8. Context footer \\u2014 \"${footer}\"\n\n${blockKitRules}`;\n\n  const agentPrompt = `Generate a comprehensive pipeline intelligence report for ${repName}. All deals are classified and loaded above across 4 categories.\n\nUse People.ai MCP tools to investigate the top 2-3 deals in each category: validate signals, get recent activity context, and assess deal/account health.\n\nOutput ONLY the Block Kit JSON object, nothing else.`;\n\n  return { systemPrompt, agentPrompt };\n}\n\nconst { systemPrompt, agentPrompt } = buildPrompts(insightType);\n\nreturn [{ json: {\n  userId: input.dbUserId || input.id,\n  slackUserId: input.userId || input.slack_user_id,\n  channelId: input.channelId,\n  assistantName,\n  assistantEmoji,\n  repName,\n  insightType,\n  systemPrompt,\n  agentPrompt\n}}];\n"
+                },
+                "id": "5ee3ade5-299b-4c35-a04e-722b596f203f",
+                "name": "Resolve Insights Identity",
+                "type": "n8n-nodes-base.code",
+                "typeVersion": 2,
+                "position": [
+                    2448,
+                    208
+                ]
+            },
+            {
+                "parameters": {
+                    "promptType": "define",
+                    "text": "={{ $('Resolve Insights Identity').first().json.agentPrompt }}",
+                    "options": {
+                        "systemMessage": "={{ $('Resolve Insights Identity').first().json.systemPrompt }}",
+                        "maxIterations": 15
+                    }
+                },
+                "id": "eac33ddd-01eb-4487-bbae-c84c36b8d219",
+                "name": "Insights Agent",
+                "type": "@n8n/n8n-nodes-langchain.agent",
+                "typeVersion": 1.7,
+                "position": [
+                    2672,
+                    208
+                ],
+                "continueOnFail": true
+            },
+            {
+                "parameters": {
+                    "model": {
+                        "__rl": true,
+                        "value": "claude-sonnet-4-6",
+                        "mode": "list",
+                        "cachedResultName": "Claude Sonnet 4.6"
+                    },
+                    "options": {}
+                },
+                "id": "19b726f4-283c-4735-a8ac-8dd36a5a6a57",
+                "name": "Anthropic Chat Model",
+                "type": "@n8n/n8n-nodes-langchain.lmChatAnthropic",
+                "typeVersion": 1.3,
+                "position": [
+                    2688,
+                    432
+                ],
+                "credentials": {
+                    "anthropicApi": {
+                        "id": "rlAz7ZSl4y6AwRUq",
+                        "name": "Anthropic account 2"
+                    }
+                }
+            },
+            {
+                "parameters": {
+                    "endpointUrl": "https://mcp-canary.people.ai/mcp",
+                    "authentication": "multipleHeadersAuth",
+                    "options": {}
+                },
+                "id": "c2fc3bdd-ca85-4f44-a65f-d74771fa7456",
+                "name": "People.ai MCP",
+                "type": "@n8n/n8n-nodes-langchain.mcpClientTool",
+                "typeVersion": 1.2,
+                "position": [
+                    2816,
+                    432
+                ],
+                "credentials": {
+                    "httpMultipleHeadersAuth": {
+                        "id": "wvV5pwBeIL7f2vLG",
+                        "name": "People.ai MCP Multi-Header"
+                    }
+                }
+            },
+            {
+                "parameters": {
+                    "jsCode": "// Parse the agent's Block Kit JSON output\nconst agentOutput = $('Insights Agent').first().json.output;\n\nlet parsed;\ntry {\n  // Try to extract JSON from the output \u2014 Claude sometimes wraps it in prose or code fences\n  let cleaned = agentOutput;\n\n  // Remove code fences\n  cleaned = cleaned.replace(/^```json\\s*/i, '').replace(/^```\\s*/i, '').replace(/```\\s*$/i, '').trim();\n\n  // If it doesn't start with {, try to find JSON object in the text\n  if (!cleaned.startsWith('{')) {\n    const jsonMatch = cleaned.match(/\\{[\\s\\S]*\"blocks\"[\\s\\S]*\\}/);\n    if (jsonMatch) {\n      cleaned = jsonMatch[0];\n    }\n  }\n\n  parsed = JSON.parse(cleaned);\n} catch (e) {\n  // Fallback: split raw output into chunks that fit Slack's 3000 char limit per block\n  const maxLen = 2900;\n  const text = agentOutput || 'Briefing generation failed.';\n  const chunks = [];\n  for (let i = 0; i < text.length; i += maxLen) {\n    chunks.push(text.slice(i, i + maxLen));\n  }\n\n  const blocks = chunks.map((chunk, idx) => ({\n    type: \"section\",\n    text: { type: \"mrkdwn\", text: idx === 0 ? chunk : '...' + chunk }\n  }));\n\n  parsed = {\n    notification_text: \"Your briefing is ready\",\n    blocks\n  };\n}\n\n// Enforce Slack limits\nif (parsed.blocks) {\n  parsed.blocks = parsed.blocks.map(block => {\n    // Max 10 fields per section\n    if (block.fields && block.fields.length > 10) {\n      block.fields = block.fields.slice(0, 10);\n    }\n    // Max 3000 chars per text field in section blocks\n    if (block.text && block.text.text && block.text.text.length > 3000) {\n      block.text.text = block.text.text.slice(0, 2997) + '...';\n    }\n    // Max 3000 chars per field text\n    if (block.fields) {\n      block.fields = block.fields.map(f => {\n        if (f.text && f.text.length > 2000) {\n          f.text = f.text.slice(0, 1997) + '...';\n        }\n        return f;\n      });\n    }\n    return block;\n  });\n  // Max 50 blocks\n  if (parsed.blocks.length > 50) {\n    parsed.blocks = parsed.blocks.slice(0, 50);\n  }\n}\n\nreturn [{\n  json: {\n    notificationText: parsed.notification_text || \"Your briefing\",\n    blocks: JSON.stringify(parsed.blocks),\n    rawContent: agentOutput\n  }\n}];"
+                },
+                "id": "1262d1c1-e1ab-4389-8afc-99ceb224124a",
+                "name": "Parse Blocks",
+                "type": "n8n-nodes-base.code",
+                "typeVersion": 2,
+                "position": [
+                    3024,
+                    208
+                ]
+            },
+            {
+                "parameters": {
+                    "method": "POST",
+                    "url": "https://slack.com/api/chat.postMessage",
+                    "authentication": "genericCredentialType",
+                    "genericAuthType": "httpHeaderAuth",
+                    "sendHeaders": true,
+                    "headerParameters": {
+                        "parameters": [
+                            {
+                                "name": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ]
+                    },
+                    "sendBody": true,
+                    "specifyBody": "json",
+                    "jsonBody": "={{ JSON.stringify({ channel: $('Workflow Input Trigger').first().json.channelId, text: $('Parse Blocks').first().json.notificationText, username: $('Resolve Insights Identity').first().json.assistantName, icon_emoji: $('Resolve Insights Identity').first().json.assistantEmoji, blocks: JSON.parse($('Parse Blocks').first().json.blocks), unfurl_links: false, unfurl_media: false }) }}",
+                    "options": {}
+                },
+                "id": "ec7527df-00a7-4fa7-b991-518a66fc1f33",
+                "name": "Send Insights",
+                "type": "n8n-nodes-base.httpRequest",
+                "typeVersion": 4.2,
+                "position": [
+                    3248,
+                    208
+                ],
+                "credentials": {
+                    "httpHeaderAuth": {
+                        "id": "LluVuiMJ8NUbAiG7",
+                        "name": "Slackbot Auth Token"
+                    }
+                },
+                "continueOnFail": true
+            }
+        ],
+        "connections": {
+            "Workflow Input Trigger": {
+                "main": [
+                    [
+                        {
+                            "node": "Get Auth Token",
+                            "type": "main",
+                            "index": 0
+                        }
+                    ]
+                ]
+            },
+            "Get Auth Token": {
+                "main": [
+                    [
+                        {
+                            "node": "Fetch User Hierarchy",
+                            "type": "main",
+                            "index": 0
+                        }
+                    ]
+                ]
+            },
+            "Fetch User Hierarchy": {
+                "main": [
+                    [
+                        {
+                            "node": "Parse Hierarchy",
+                            "type": "main",
+                            "index": 0
+                        }
+                    ]
+                ]
+            },
+            "Parse Hierarchy": {
+                "main": [
+                    [
+                        {
+                            "node": "Fetch Insights Opps",
+                            "type": "main",
+                            "index": 0
+                        }
+                    ]
+                ]
+            },
+            "Fetch Insights Opps": {
+                "main": [
+                    [
+                        {
+                            "node": "Parse Insights CSV",
+                            "type": "main",
+                            "index": 0
+                        }
+                    ]
+                ]
+            },
+            "Parse Insights CSV": {
+                "main": [
+                    [
+                        {
+                            "node": "Fetch Account Data",
+                            "type": "main",
+                            "index": 0
+                        }
+                    ]
+                ]
+            },
+            "Fetch Account Data": {
+                "main": [
+                    [
+                        {
+                            "node": "Parse Account CSV",
+                            "type": "main",
+                            "index": 0
+                        }
+                    ]
+                ]
+            },
+            "Parse Account CSV": {
+                "main": [
+                    [
+                        {
+                            "node": "Classify Deals",
+                            "type": "main",
+                            "index": 0
+                        }
+                    ]
+                ]
+            },
+            "Classify Deals": {
+                "main": [
+                    [
+                        {
+                            "node": "Filter by Scope",
+                            "type": "main",
+                            "index": 0
+                        }
+                    ]
+                ]
+            },
+            "Filter by Scope": {
+                "main": [
+                    [
+                        {
+                            "node": "Resolve Insights Identity",
+                            "type": "main",
+                            "index": 0
+                        }
+                    ]
+                ]
+            },
+            "Resolve Insights Identity": {
+                "main": [
+                    [
+                        {
+                            "node": "Insights Agent",
+                            "type": "main",
+                            "index": 0
+                        }
+                    ]
+                ]
+            },
+            "Insights Agent": {
+                "main": [
+                    [
+                        {
+                            "node": "Parse Blocks",
+                            "type": "main",
+                            "index": 0
+                        }
+                    ]
+                ]
+            },
+            "Anthropic Chat Model": {
+                "ai_languageModel": [
+                    [
+                        {
+                            "node": "Insights Agent",
+                            "type": "ai_languageModel",
+                            "index": 0
+                        }
+                    ]
+                ]
+            },
+            "People.ai MCP": {
+                "ai_tool": [
+                    [
+                        {
+                            "node": "Insights Agent",
+                            "type": "ai_tool",
+                            "index": 0
+                        }
+                    ]
+                ]
+            },
+            "Parse Blocks": {
+                "main": [
+                    [
+                        {
+                            "node": "Send Insights",
+                            "type": "main",
+                            "index": 0
+                        }
+                    ]
+                ]
+            }
+        },
+        "authors": "Scott Metcalf",
+        "name": null,
+        "description": null,
+        "autosaved": false
+    }
+}

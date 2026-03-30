@@ -1,0 +1,681 @@
+{
+    "updatedAt": "2026-03-30T00:57:56.589Z",
+    "createdAt": "2026-03-28T17:40:24.642Z",
+    "id": "q26UwKsj67DlBpYt",
+    "name": "Task Callback Handler",
+    "description": null,
+    "active": true,
+    "isArchived": false,
+    "nodes": [
+        {
+            "parameters": {
+                "httpMethod": "POST",
+                "path": "sf-read-callback",
+                "options": {}
+            },
+            "id": "3f4f0b94-8196-40c3-8817-0cd22875c059",
+            "name": "Callback Webhook",
+            "type": "n8n-nodes-base.webhook",
+            "typeVersion": 2,
+            "position": [
+                272,
+                208
+            ],
+            "webhookId": "ddb9f0c5-af14-4788-a7d7-25c454c1fd4d"
+        },
+        {
+            "parameters": {
+                "jsCode": "const body = $input.first().json.body || $input.first().json;\nconst requestId = body.request_id || '';\nconst accountName = body.account_name || '';\nconst isDone = (body.done === 'true' || body.done === true);\n\nif (!isDone) {\n  // Individual task received \u2014 store it\n  return [{ json: {\n    isDone: false,\n    requestId,\n    accountName,\n    task: {\n      Id: body.task_id || '',\n      Subject: body.task_subject || '',\n      Status: body.task_status || '',\n      Priority: body.task_priority || '',\n      ActivityDate: body.task_due_date || '',\n      Description: body.task_description || '',\n      Owner_Name: body.task_owner_name || '',\n      Owner_Email: body.task_owner_email || '',\n      Category: body.task_category || '',\n      Duration: body.task_duration || '',\n      Account_Name: body.task_account_name || '',\n    }\n  }}];\n} else {\n  // Done signal \u2014 time to render\n  return [{ json: {\n    isDone: true,\n    requestId,\n    accountName,\n  }}];\n}"
+            },
+            "id": "b6e8774e-a0ee-4a45-8d70-e11fd2f6658a",
+            "name": "Parse Callback",
+            "type": "n8n-nodes-base.code",
+            "typeVersion": 2,
+            "position": [
+                496,
+                208
+            ]
+        },
+        {
+            "parameters": {
+                "url": "=https://rhrlnkbphxntxxxcrgvv.supabase.co/rest/v1/pending_actions?opportunity_id=eq.{{ $json.requestId }}&action_type=eq.get_tasks&select=*&limit=1",
+                "authentication": "predefinedCredentialType",
+                "nodeCredentialType": "supabaseApi",
+                "options": {}
+            },
+            "id": "6c09a16c-bd1a-4d22-8e3c-7c0af5ab62d3",
+            "name": "Fetch Request Context",
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4.2,
+            "position": [
+                944,
+                112
+            ],
+            "credentials": {
+                "supabaseApi": {
+                    "id": "ASRWWkQ0RSMOpNF1",
+                    "name": "Supabase account"
+                }
+            }
+        },
+        {
+            "parameters": {
+                "jsCode": "const callbackData = $('Parse Callback').first().json;\nconst contextArr = $('Fetch Request Context').all().map(i => i.json);\nconst context = Array.isArray(contextArr[0]) ? contextArr[0][0] : contextArr[0];\nconst taskRows = $('Fetch All Tasks').all().map(i => i.json);\nconst allTaskRows = Array.isArray(taskRows[0]) ? taskRows[0] : taskRows;\n\nlet meta = context.context || {};\nif (typeof meta === 'string') try { meta = JSON.parse(meta); } catch(e) { meta = {}; }\n\nconst tasks = allTaskRows.map(row => {\n  try { return JSON.parse(row.draft_content || '{}'); } catch(e) { return {}; }\n}).filter(t => t.Id);\n\nconst accountName = callbackData.accountName || meta.account_name || 'Account';\nconst isMyTasks = (accountName === 'My Tasks');\nconst channelId = meta.channel_id || '';\nconst messageTs = meta.message_ts || '';\nconst assistantName = meta.assistant_name || 'Aria';\nconst assistantEmoji = meta.assistant_emoji || ':robot_face:';\n\nconst openTasks = tasks.filter(t => t.Status !== 'Completed');\nconst completedTasks = tasks.filter(t => t.Status === 'Completed');\n\n// Date helpers\nconst now = new Date();\nconst ptNow = new Date(now.toLocaleString('en-US', { timeZone: 'America/Los_Angeles' }));\nconst todayStr = ptNow.toISOString().split('T')[0];\n\nfunction formatDate(dateStr) {\n  if (!dateStr) return '';\n  const d = new Date(dateStr + 'T12:00:00');\n  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });\n}\n\nfunction daysUntil(dateStr) {\n  if (!dateStr) return null;\n  const due = new Date(dateStr + 'T00:00:00');\n  const today = new Date(todayStr + 'T00:00:00');\n  return Math.round((due - today) / 86400000);\n}\n\nfunction statusIndicator(dateStr) {\n  const days = daysUntil(dateStr);\n  if (days === null) return '';\n  if (days < 0) return ':red_circle: ';\n  if (days <= 7) return ':warning: ';\n  return ':white_check_mark: ';\n}\n\nfunction dueLabel(dateStr) {\n  const days = daysUntil(dateStr);\n  const formatted = formatDate(dateStr);\n  if (days === null) return '';\n  if (days < -1) return `*Overdue* (${Math.abs(days)} days) \\u2014 was ${formatted}`;\n  if (days === -1) return `*Overdue* (yesterday)`;\n  if (days === 0) return `*Due today*`;\n  if (days === 1) return `Due tomorrow`;\n  if (days <= 7) return `Due ${formatted} (this week)`;\n  return `Due ${formatted}`;\n}\n\n// Categorize by urgency\nconst overdueTasks = openTasks.filter(t => daysUntil(t.ActivityDate) < 0);\nconst thisWeekTasks = openTasks.filter(t => { const d = daysUntil(t.ActivityDate); return d !== null && d >= 0 && d <= 7; });\nconst futureTasks = openTasks.filter(t => { const d = daysUntil(t.ActivityDate); return d === null || d > 7; });\n\nconst blocks = [];\n\n// Header\nblocks.push({\n  type: \"header\",\n  text: { type: \"plain_text\", text: isMyTasks ? \"My Tasks\" : (accountName + \" \\u2014 Tasks\"), emoji: true }\n});\n\n// Summary line\nconst summaryParts = [];\nsummaryParts.push(`${openTasks.length} open`);\nif (overdueTasks.length > 0) summaryParts.push(`:red_circle: ${overdueTasks.length} overdue`);\nif (thisWeekTasks.length > 0) summaryParts.push(`:warning: ${thisWeekTasks.length} due this week`);\nif (completedTasks.length > 0) summaryParts.push(`${completedTasks.length} completed`);\n\nblocks.push({\n  type: \"context\",\n  elements: [{ type: \"mrkdwn\", text: summaryParts.join(' \\u00b7 ') }]\n});\n\n// Helper to render a task section\nfunction renderTasks(taskList, sectionLabel, maxItems) {\n  if (taskList.length === 0) return;\n  \n  blocks.push({ type: \"divider\" });\n  blocks.push({\n    type: \"section\",\n    text: { type: \"mrkdwn\", text: `*${sectionLabel} (${taskList.length})*` }\n  });\n\n  // Sort by due date\n  taskList.sort((a, b) => {\n    const dA = daysUntil(a.ActivityDate);\n    const dB = daysUntil(b.ActivityDate);\n    return (dA === null ? 999 : dA) - (dB === null ? 999 : dB);\n  });\n\n  for (const t of taskList.slice(0, maxItems)) {\n    const indicator = statusIndicator(t.ActivityDate);\n    const due = dueLabel(t.ActivityDate);\n    const owner = t.Owner_Name ? ` \\u2014 _${t.Owner_Name}_` : '';\n    const status = t.Status ? ` \\u00b7 _${t.Status}_` : '';\n    const acctTag = (isMyTasks && t.Account_Name) ? ` \\u00b7 ${t.Account_Name}` : '';\n    const category = t.Category ? ` \\u00b7 ${t.Category}` : '';\n    \n    const taskLine = `${indicator}*${(t.Subject || 'Task').substring(0, 100)}*${owner}\\n${due}${status}${acctTag}${category}`;\n\n    const completePayload = JSON.stringify({\n      action: 'complete_task',\n      task_id: t.Id,\n      task_subject: (t.Subject || '').substring(0, 100),\n      account_name: isMyTasks ? (t.Account_Name || '') : accountName,\n    });\n\n    blocks.push({\n      type: \"section\",\n      text: { type: \"mrkdwn\", text: taskLine },\n      accessory: {\n        type: \"button\",\n        text: { type: \"plain_text\", text: \"\\u2705 Complete\", emoji: true },\n        action_id: \"task_complete_\" + (t.Id || '').substring(0, 15),\n        value: completePayload\n      }\n    });\n  }\n\n  if (taskList.length > maxItems) {\n    blocks.push({\n      type: \"context\",\n      elements: [{ type: \"mrkdwn\", text: `_and ${taskList.length - maxItems} more..._` }]\n    });\n  }\n}\n\nif (openTasks.length > 0) {\n  if (isMyTasks) {\n    // Group by urgency for My Tasks view\n    renderTasks(overdueTasks, ':red_circle: Overdue', 5);\n    renderTasks(thisWeekTasks, ':warning: Due This Week', 5);\n    renderTasks(futureTasks, 'Upcoming', 5);\n  } else {\n    // Single list for account view\n    openTasks.sort((a, b) => {\n      const dA = daysUntil(a.ActivityDate);\n      const dB = daysUntil(b.ActivityDate);\n      return (dA === null ? 999 : dA) - (dB === null ? 999 : dB);\n    });\n    \n    blocks.push({ type: \"divider\" });\n    \n    for (const t of openTasks.slice(0, 10)) {\n      const indicator = statusIndicator(t.ActivityDate);\n      const due = dueLabel(t.ActivityDate);\n      const owner = t.Owner_Name ? ` \\u2014 _${t.Owner_Name}_` : '';\n      const category = t.Category ? ` \\u00b7 ${t.Category}` : '';\n      const status = t.Status ? ` \\u00b7 _${t.Status}_` : '';\n      \n      const taskLine = `${indicator}*${(t.Subject || 'Task').substring(0, 100)}*${owner}\\n${due}${status}${category}`;\n\n      const completePayload = JSON.stringify({\n        action: 'complete_task',\n        task_id: t.Id,\n        task_subject: (t.Subject || '').substring(0, 100),\n        account_name: accountName,\n      });\n\n      blocks.push({\n        type: \"section\",\n        text: { type: \"mrkdwn\", text: taskLine },\n        accessory: {\n          type: \"button\",\n          text: { type: \"plain_text\", text: \"\\u2705 Complete\", emoji: true },\n          action_id: \"task_complete_\" + (t.Id || '').substring(0, 15),\n          value: completePayload\n        }\n      });\n    }\n    \n    if (openTasks.length > 10) {\n      blocks.push({\n        type: \"context\",\n        elements: [{ type: \"mrkdwn\", text: `_and ${openTasks.length - 10} more..._` }]\n      });\n    }\n  }\n} else {\n  blocks.push({ type: \"divider\" });\n  blocks.push({\n    type: \"section\",\n    text: { type: \"mrkdwn\", text: isMyTasks ? \"All caught up! :tada: No open tasks.\" : \"All caught up! :tada: No open tasks for \" + accountName }\n  });\n}\n\n// Completed tasks\nif (completedTasks.length > 0) {\n  blocks.push({ type: \"divider\" });\n  const completedLines = completedTasks.slice(0, 5).map(t => {\n    const owner = t.Owner_Name ? ` \\u2014 ${t.Owner_Name}` : '';\n    const acct = (isMyTasks && t.Account_Name) ? ` \\u00b7 ${t.Account_Name}` : '';\n    return `\\u2022 ~${(t.Subject || 'Task').substring(0, 80)}~${owner}${acct}`;\n  }).join('\\n');\n  blocks.push({\n    type: \"section\",\n    text: { type: \"mrkdwn\", text: `*Recently Completed (${completedTasks.length})*\\n${completedLines}` }\n  });\n}\n\n// Footer\nblocks.push({ type: \"divider\" });\n\nconst createPayload = JSON.stringify({\n  action: 'create_task',\n  account_name: isMyTasks ? '' : accountName,\n  task_description: '',\n  task_owner: '',\n  task_owner_email: '',\n  assignee_role: '',\n  duration_minutes: 30,\n  task_due_hint: '',\n  task_category: '',\n  assistant_name: assistantName,\n  assistant_emoji: assistantEmoji,\n});\n\nblocks.push({\n  type: \"section\",\n  text: { type: \"mrkdwn\", text: \"<https://glass.people.ai/sheet/514ff6d1-7e51-4bab-872e-b1f35ce13f5b|My Open Tasks> \\u00b7 <https://glass.people.ai/sheet/3be9132b-cf08-4f94-9164-651bb5804e51|My Completed> \\u00b7 <https://glass.people.ai/sheet/40ce97c4-0237-4afb-8d47-b10cf4792253|Last 30 Days>\" },\n  accessory: {\n    type: \"button\",\n    text: { type: \"plain_text\", text: \"+ New Task\", emoji: true },\n    action_id: \"recap_create_task_new\",\n    value: createPayload.substring(0, 1999)\n  }\n});\n\nblocks.push({\n  type: \"context\",\n  elements: [{ type: \"mrkdwn\", text: isMyTasks ? \"Type `tasks` to refresh \\u00b7 `tasks <account>` for account-specific view\" : \"Type `tasks \" + accountName.toLowerCase() + \"` to refresh\" }]\n});\n\nconst overdueText = overdueTasks.length > 0 ? ', ' + overdueTasks.length + ' overdue' : '';\nconst notificationText = isMyTasks\n  ? 'My Tasks \\u2014 ' + openTasks.length + ' open' + overdueText\n  : accountName + ' \\u2014 ' + openTasks.length + ' open task' + (openTasks.length !== 1 ? 's' : '') + overdueText;\n\nreturn [{ json: {\n  blocks: JSON.stringify(blocks),\n  notificationText,\n  channelId,\n  messageTs,\n  assistantName,\n  assistantEmoji,\n  requestId: callbackData.requestId,\n}}];"
+            },
+            "id": "ec08bf7a-ea91-4990-8d81-c843f14e6c62",
+            "name": "Build Task List",
+            "type": "n8n-nodes-base.code",
+            "typeVersion": 2,
+            "position": [
+                1392,
+                112
+            ]
+        },
+        {
+            "parameters": {
+                "method": "POST",
+                "url": "https://slack.com/api/chat.update",
+                "authentication": "genericCredentialType",
+                "genericAuthType": "httpHeaderAuth",
+                "sendHeaders": true,
+                "headerParameters": {
+                    "parameters": [
+                        {
+                            "name": "Content-Type",
+                            "value": "application/json"
+                        }
+                    ]
+                },
+                "sendBody": true,
+                "specifyBody": "json",
+                "jsonBody": "={{ JSON.stringify({ channel: $json.channelId, ts: $json.messageTs, text: $json.notificationText, blocks: JSON.parse($json.blocks), username: $json.assistantName, icon_emoji: $json.assistantEmoji }) }}",
+                "options": {}
+            },
+            "id": "bba5eed0-f091-4beb-9819-3b0e0191ca64",
+            "name": "Update Thinking Message",
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4.2,
+            "position": [
+                1616,
+                112
+            ],
+            "credentials": {
+                "httpHeaderAuth": {
+                    "id": "LluVuiMJ8NUbAiG7",
+                    "name": "Slackbot Auth Token"
+                }
+            }
+        },
+        {
+            "parameters": {
+                "method": "DELETE",
+                "url": "=https://rhrlnkbphxntxxxcrgvv.supabase.co/rest/v1/pending_actions?opportunity_id=eq.{{ $('Parse Callback').first().json.requestId }}&action_type=in.(task_callback,get_tasks)",
+                "authentication": "predefinedCredentialType",
+                "nodeCredentialType": "supabaseApi",
+                "sendHeaders": true,
+                "headerParameters": {
+                    "parameters": [
+                        {
+                            "name": "Content-Type",
+                            "value": "application/json"
+                        },
+                        {
+                            "name": "Prefer",
+                            "value": "return=representation"
+                        }
+                    ]
+                },
+                "sendBody": true,
+                "specifyBody": "json",
+                "jsonBody": "={{ JSON.stringify({ status: \"resolved\", resolved_at: new Date().toISOString() }) }}",
+                "options": {}
+            },
+            "id": "1e47f404-1988-4cb9-95ba-4ca629352506",
+            "name": "Mark Request Done",
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4.2,
+            "position": [
+                1840,
+                112
+            ],
+            "credentials": {
+                "supabaseApi": {
+                    "id": "ASRWWkQ0RSMOpNF1",
+                    "name": "Supabase account"
+                }
+            }
+        },
+        {
+            "parameters": {
+                "conditions": {
+                    "options": {
+                        "version": 2,
+                        "caseSensitive": true,
+                        "typeValidation": "loose"
+                    },
+                    "combinator": "and",
+                    "conditions": [
+                        {
+                            "id": "c4d49b1f-63a1-436c-9638-7d8ba5e5f5e3",
+                            "leftValue": "={{ $json.isDone }}",
+                            "rightValue": true,
+                            "operator": {
+                                "type": "boolean",
+                                "operation": "true"
+                            }
+                        }
+                    ]
+                },
+                "options": {}
+            },
+            "id": "1312e4a9-849f-4546-bfb5-13cc0627f429",
+            "name": "Is Done?",
+            "type": "n8n-nodes-base.if",
+            "typeVersion": 2.2,
+            "position": [
+                720,
+                208
+            ]
+        },
+        {
+            "parameters": {
+                "method": "POST",
+                "url": "https://rhrlnkbphxntxxxcrgvv.supabase.co/rest/v1/pending_actions",
+                "authentication": "predefinedCredentialType",
+                "nodeCredentialType": "supabaseApi",
+                "sendHeaders": true,
+                "headerParameters": {
+                    "parameters": [
+                        {
+                            "name": "Prefer",
+                            "value": "return=representation"
+                        },
+                        {
+                            "name": "Content-Type",
+                            "value": "application/json"
+                        }
+                    ]
+                },
+                "sendBody": true,
+                "specifyBody": "json",
+                "jsonBody": "={{ JSON.stringify({ user_id: null, action_type: 'task_callback', opportunity_id: $json.requestId, draft_content: JSON.stringify($json.task), context: JSON.stringify({ account_name: $json.accountName }), status: 'pending' }) }}",
+                "options": {}
+            },
+            "id": "7b04e320-b202-4129-bbb0-f0a32177bb05",
+            "name": "Store Task",
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4.2,
+            "position": [
+                944,
+                304
+            ],
+            "credentials": {
+                "supabaseApi": {
+                    "id": "ASRWWkQ0RSMOpNF1",
+                    "name": "Supabase account"
+                }
+            }
+        },
+        {
+            "parameters": {
+                "url": "=https://rhrlnkbphxntxxxcrgvv.supabase.co/rest/v1/pending_actions?opportunity_id=eq.{{ $('Parse Callback').first().json.requestId }}&action_type=eq.task_callback&select=draft_content",
+                "authentication": "predefinedCredentialType",
+                "nodeCredentialType": "supabaseApi",
+                "options": {}
+            },
+            "id": "7a13959c-780c-441f-9493-f96843701e61",
+            "name": "Fetch All Tasks",
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4.2,
+            "position": [
+                1168,
+                112
+            ],
+            "credentials": {
+                "supabaseApi": {
+                    "id": "ASRWWkQ0RSMOpNF1",
+                    "name": "Supabase account"
+                }
+            }
+        }
+    ],
+    "connections": {
+        "Callback Webhook": {
+            "main": [
+                [
+                    {
+                        "node": "Parse Callback",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Parse Callback": {
+            "main": [
+                [
+                    {
+                        "node": "Is Done?",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Fetch Request Context": {
+            "main": [
+                [
+                    {
+                        "node": "Fetch All Tasks",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Build Task List": {
+            "main": [
+                [
+                    {
+                        "node": "Update Thinking Message",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Update Thinking Message": {
+            "main": [
+                [
+                    {
+                        "node": "Mark Request Done",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Is Done?": {
+            "main": [
+                [
+                    {
+                        "node": "Fetch Request Context",
+                        "type": "main",
+                        "index": 0
+                    }
+                ],
+                [
+                    {
+                        "node": "Store Task",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Fetch All Tasks": {
+            "main": [
+                [
+                    {
+                        "node": "Build Task List",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Store Task": {
+            "main": [
+                []
+            ]
+        }
+    },
+    "settings": {
+        "executionOrder": "v1",
+        "saveManualExecutions": true,
+        "callerPolicy": "workflowsFromSameOwner",
+        "availableInMCP": false
+    },
+    "staticData": null,
+    "meta": null,
+    "pinData": {},
+    "versionId": "f1c10160-2e3b-4beb-871e-01bd0207c87b",
+    "activeVersionId": "f1c10160-2e3b-4beb-871e-01bd0207c87b",
+    "versionCounter": 50,
+    "triggerCount": 1,
+    "tags": [],
+    "activeVersion": {
+        "updatedAt": "2026-03-30T00:57:56.590Z",
+        "createdAt": "2026-03-30T00:57:56.590Z",
+        "versionId": "f1c10160-2e3b-4beb-871e-01bd0207c87b",
+        "workflowId": "q26UwKsj67DlBpYt",
+        "nodes": [
+            {
+                "parameters": {
+                    "httpMethod": "POST",
+                    "path": "sf-read-callback",
+                    "options": {}
+                },
+                "id": "3f4f0b94-8196-40c3-8817-0cd22875c059",
+                "name": "Callback Webhook",
+                "type": "n8n-nodes-base.webhook",
+                "typeVersion": 2,
+                "position": [
+                    272,
+                    208
+                ],
+                "webhookId": "ddb9f0c5-af14-4788-a7d7-25c454c1fd4d"
+            },
+            {
+                "parameters": {
+                    "jsCode": "const body = $input.first().json.body || $input.first().json;\nconst requestId = body.request_id || '';\nconst accountName = body.account_name || '';\nconst isDone = (body.done === 'true' || body.done === true);\n\nif (!isDone) {\n  // Individual task received \u2014 store it\n  return [{ json: {\n    isDone: false,\n    requestId,\n    accountName,\n    task: {\n      Id: body.task_id || '',\n      Subject: body.task_subject || '',\n      Status: body.task_status || '',\n      Priority: body.task_priority || '',\n      ActivityDate: body.task_due_date || '',\n      Description: body.task_description || '',\n      Owner_Name: body.task_owner_name || '',\n      Owner_Email: body.task_owner_email || '',\n      Category: body.task_category || '',\n      Duration: body.task_duration || '',\n      Account_Name: body.task_account_name || '',\n    }\n  }}];\n} else {\n  // Done signal \u2014 time to render\n  return [{ json: {\n    isDone: true,\n    requestId,\n    accountName,\n  }}];\n}"
+                },
+                "id": "b6e8774e-a0ee-4a45-8d70-e11fd2f6658a",
+                "name": "Parse Callback",
+                "type": "n8n-nodes-base.code",
+                "typeVersion": 2,
+                "position": [
+                    496,
+                    208
+                ]
+            },
+            {
+                "parameters": {
+                    "url": "=https://rhrlnkbphxntxxxcrgvv.supabase.co/rest/v1/pending_actions?opportunity_id=eq.{{ $json.requestId }}&action_type=eq.get_tasks&select=*&limit=1",
+                    "authentication": "predefinedCredentialType",
+                    "nodeCredentialType": "supabaseApi",
+                    "options": {}
+                },
+                "id": "6c09a16c-bd1a-4d22-8e3c-7c0af5ab62d3",
+                "name": "Fetch Request Context",
+                "type": "n8n-nodes-base.httpRequest",
+                "typeVersion": 4.2,
+                "position": [
+                    944,
+                    112
+                ],
+                "credentials": {
+                    "supabaseApi": {
+                        "id": "ASRWWkQ0RSMOpNF1",
+                        "name": "Supabase account"
+                    }
+                }
+            },
+            {
+                "parameters": {
+                    "jsCode": "const callbackData = $('Parse Callback').first().json;\nconst contextArr = $('Fetch Request Context').all().map(i => i.json);\nconst context = Array.isArray(contextArr[0]) ? contextArr[0][0] : contextArr[0];\nconst taskRows = $('Fetch All Tasks').all().map(i => i.json);\nconst allTaskRows = Array.isArray(taskRows[0]) ? taskRows[0] : taskRows;\n\nlet meta = context.context || {};\nif (typeof meta === 'string') try { meta = JSON.parse(meta); } catch(e) { meta = {}; }\n\nconst tasks = allTaskRows.map(row => {\n  try { return JSON.parse(row.draft_content || '{}'); } catch(e) { return {}; }\n}).filter(t => t.Id);\n\nconst accountName = callbackData.accountName || meta.account_name || 'Account';\nconst isMyTasks = (accountName === 'My Tasks');\nconst channelId = meta.channel_id || '';\nconst messageTs = meta.message_ts || '';\nconst assistantName = meta.assistant_name || 'Aria';\nconst assistantEmoji = meta.assistant_emoji || ':robot_face:';\n\nconst openTasks = tasks.filter(t => t.Status !== 'Completed');\nconst completedTasks = tasks.filter(t => t.Status === 'Completed');\n\n// Date helpers\nconst now = new Date();\nconst ptNow = new Date(now.toLocaleString('en-US', { timeZone: 'America/Los_Angeles' }));\nconst todayStr = ptNow.toISOString().split('T')[0];\n\nfunction formatDate(dateStr) {\n  if (!dateStr) return '';\n  const d = new Date(dateStr + 'T12:00:00');\n  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });\n}\n\nfunction daysUntil(dateStr) {\n  if (!dateStr) return null;\n  const due = new Date(dateStr + 'T00:00:00');\n  const today = new Date(todayStr + 'T00:00:00');\n  return Math.round((due - today) / 86400000);\n}\n\nfunction statusIndicator(dateStr) {\n  const days = daysUntil(dateStr);\n  if (days === null) return '';\n  if (days < 0) return ':red_circle: ';\n  if (days <= 7) return ':warning: ';\n  return ':white_check_mark: ';\n}\n\nfunction dueLabel(dateStr) {\n  const days = daysUntil(dateStr);\n  const formatted = formatDate(dateStr);\n  if (days === null) return '';\n  if (days < -1) return `*Overdue* (${Math.abs(days)} days) \\u2014 was ${formatted}`;\n  if (days === -1) return `*Overdue* (yesterday)`;\n  if (days === 0) return `*Due today*`;\n  if (days === 1) return `Due tomorrow`;\n  if (days <= 7) return `Due ${formatted} (this week)`;\n  return `Due ${formatted}`;\n}\n\n// Categorize by urgency\nconst overdueTasks = openTasks.filter(t => daysUntil(t.ActivityDate) < 0);\nconst thisWeekTasks = openTasks.filter(t => { const d = daysUntil(t.ActivityDate); return d !== null && d >= 0 && d <= 7; });\nconst futureTasks = openTasks.filter(t => { const d = daysUntil(t.ActivityDate); return d === null || d > 7; });\n\nconst blocks = [];\n\n// Header\nblocks.push({\n  type: \"header\",\n  text: { type: \"plain_text\", text: isMyTasks ? \"My Tasks\" : (accountName + \" \\u2014 Tasks\"), emoji: true }\n});\n\n// Summary line\nconst summaryParts = [];\nsummaryParts.push(`${openTasks.length} open`);\nif (overdueTasks.length > 0) summaryParts.push(`:red_circle: ${overdueTasks.length} overdue`);\nif (thisWeekTasks.length > 0) summaryParts.push(`:warning: ${thisWeekTasks.length} due this week`);\nif (completedTasks.length > 0) summaryParts.push(`${completedTasks.length} completed`);\n\nblocks.push({\n  type: \"context\",\n  elements: [{ type: \"mrkdwn\", text: summaryParts.join(' \\u00b7 ') }]\n});\n\n// Helper to render a task section\nfunction renderTasks(taskList, sectionLabel, maxItems) {\n  if (taskList.length === 0) return;\n  \n  blocks.push({ type: \"divider\" });\n  blocks.push({\n    type: \"section\",\n    text: { type: \"mrkdwn\", text: `*${sectionLabel} (${taskList.length})*` }\n  });\n\n  // Sort by due date\n  taskList.sort((a, b) => {\n    const dA = daysUntil(a.ActivityDate);\n    const dB = daysUntil(b.ActivityDate);\n    return (dA === null ? 999 : dA) - (dB === null ? 999 : dB);\n  });\n\n  for (const t of taskList.slice(0, maxItems)) {\n    const indicator = statusIndicator(t.ActivityDate);\n    const due = dueLabel(t.ActivityDate);\n    const owner = t.Owner_Name ? ` \\u2014 _${t.Owner_Name}_` : '';\n    const status = t.Status ? ` \\u00b7 _${t.Status}_` : '';\n    const acctTag = (isMyTasks && t.Account_Name) ? ` \\u00b7 ${t.Account_Name}` : '';\n    const category = t.Category ? ` \\u00b7 ${t.Category}` : '';\n    \n    const taskLine = `${indicator}*${(t.Subject || 'Task').substring(0, 100)}*${owner}\\n${due}${status}${acctTag}${category}`;\n\n    const completePayload = JSON.stringify({\n      action: 'complete_task',\n      task_id: t.Id,\n      task_subject: (t.Subject || '').substring(0, 100),\n      account_name: isMyTasks ? (t.Account_Name || '') : accountName,\n    });\n\n    blocks.push({\n      type: \"section\",\n      text: { type: \"mrkdwn\", text: taskLine },\n      accessory: {\n        type: \"button\",\n        text: { type: \"plain_text\", text: \"\\u2705 Complete\", emoji: true },\n        action_id: \"task_complete_\" + (t.Id || '').substring(0, 15),\n        value: completePayload\n      }\n    });\n  }\n\n  if (taskList.length > maxItems) {\n    blocks.push({\n      type: \"context\",\n      elements: [{ type: \"mrkdwn\", text: `_and ${taskList.length - maxItems} more..._` }]\n    });\n  }\n}\n\nif (openTasks.length > 0) {\n  if (isMyTasks) {\n    // Group by urgency for My Tasks view\n    renderTasks(overdueTasks, ':red_circle: Overdue', 5);\n    renderTasks(thisWeekTasks, ':warning: Due This Week', 5);\n    renderTasks(futureTasks, 'Upcoming', 5);\n  } else {\n    // Single list for account view\n    openTasks.sort((a, b) => {\n      const dA = daysUntil(a.ActivityDate);\n      const dB = daysUntil(b.ActivityDate);\n      return (dA === null ? 999 : dA) - (dB === null ? 999 : dB);\n    });\n    \n    blocks.push({ type: \"divider\" });\n    \n    for (const t of openTasks.slice(0, 10)) {\n      const indicator = statusIndicator(t.ActivityDate);\n      const due = dueLabel(t.ActivityDate);\n      const owner = t.Owner_Name ? ` \\u2014 _${t.Owner_Name}_` : '';\n      const category = t.Category ? ` \\u00b7 ${t.Category}` : '';\n      const status = t.Status ? ` \\u00b7 _${t.Status}_` : '';\n      \n      const taskLine = `${indicator}*${(t.Subject || 'Task').substring(0, 100)}*${owner}\\n${due}${status}${category}`;\n\n      const completePayload = JSON.stringify({\n        action: 'complete_task',\n        task_id: t.Id,\n        task_subject: (t.Subject || '').substring(0, 100),\n        account_name: accountName,\n      });\n\n      blocks.push({\n        type: \"section\",\n        text: { type: \"mrkdwn\", text: taskLine },\n        accessory: {\n          type: \"button\",\n          text: { type: \"plain_text\", text: \"\\u2705 Complete\", emoji: true },\n          action_id: \"task_complete_\" + (t.Id || '').substring(0, 15),\n          value: completePayload\n        }\n      });\n    }\n    \n    if (openTasks.length > 10) {\n      blocks.push({\n        type: \"context\",\n        elements: [{ type: \"mrkdwn\", text: `_and ${openTasks.length - 10} more..._` }]\n      });\n    }\n  }\n} else {\n  blocks.push({ type: \"divider\" });\n  blocks.push({\n    type: \"section\",\n    text: { type: \"mrkdwn\", text: isMyTasks ? \"All caught up! :tada: No open tasks.\" : \"All caught up! :tada: No open tasks for \" + accountName }\n  });\n}\n\n// Completed tasks\nif (completedTasks.length > 0) {\n  blocks.push({ type: \"divider\" });\n  const completedLines = completedTasks.slice(0, 5).map(t => {\n    const owner = t.Owner_Name ? ` \\u2014 ${t.Owner_Name}` : '';\n    const acct = (isMyTasks && t.Account_Name) ? ` \\u00b7 ${t.Account_Name}` : '';\n    return `\\u2022 ~${(t.Subject || 'Task').substring(0, 80)}~${owner}${acct}`;\n  }).join('\\n');\n  blocks.push({\n    type: \"section\",\n    text: { type: \"mrkdwn\", text: `*Recently Completed (${completedTasks.length})*\\n${completedLines}` }\n  });\n}\n\n// Footer\nblocks.push({ type: \"divider\" });\n\nconst createPayload = JSON.stringify({\n  action: 'create_task',\n  account_name: isMyTasks ? '' : accountName,\n  task_description: '',\n  task_owner: '',\n  task_owner_email: '',\n  assignee_role: '',\n  duration_minutes: 30,\n  task_due_hint: '',\n  task_category: '',\n  assistant_name: assistantName,\n  assistant_emoji: assistantEmoji,\n});\n\nblocks.push({\n  type: \"section\",\n  text: { type: \"mrkdwn\", text: \"<https://glass.people.ai/sheet/514ff6d1-7e51-4bab-872e-b1f35ce13f5b|My Open Tasks> \\u00b7 <https://glass.people.ai/sheet/3be9132b-cf08-4f94-9164-651bb5804e51|My Completed> \\u00b7 <https://glass.people.ai/sheet/40ce97c4-0237-4afb-8d47-b10cf4792253|Last 30 Days>\" },\n  accessory: {\n    type: \"button\",\n    text: { type: \"plain_text\", text: \"+ New Task\", emoji: true },\n    action_id: \"recap_create_task_new\",\n    value: createPayload.substring(0, 1999)\n  }\n});\n\nblocks.push({\n  type: \"context\",\n  elements: [{ type: \"mrkdwn\", text: isMyTasks ? \"Type `tasks` to refresh \\u00b7 `tasks <account>` for account-specific view\" : \"Type `tasks \" + accountName.toLowerCase() + \"` to refresh\" }]\n});\n\nconst overdueText = overdueTasks.length > 0 ? ', ' + overdueTasks.length + ' overdue' : '';\nconst notificationText = isMyTasks\n  ? 'My Tasks \\u2014 ' + openTasks.length + ' open' + overdueText\n  : accountName + ' \\u2014 ' + openTasks.length + ' open task' + (openTasks.length !== 1 ? 's' : '') + overdueText;\n\nreturn [{ json: {\n  blocks: JSON.stringify(blocks),\n  notificationText,\n  channelId,\n  messageTs,\n  assistantName,\n  assistantEmoji,\n  requestId: callbackData.requestId,\n}}];"
+                },
+                "id": "ec08bf7a-ea91-4990-8d81-c843f14e6c62",
+                "name": "Build Task List",
+                "type": "n8n-nodes-base.code",
+                "typeVersion": 2,
+                "position": [
+                    1392,
+                    112
+                ]
+            },
+            {
+                "parameters": {
+                    "method": "POST",
+                    "url": "https://slack.com/api/chat.update",
+                    "authentication": "genericCredentialType",
+                    "genericAuthType": "httpHeaderAuth",
+                    "sendHeaders": true,
+                    "headerParameters": {
+                        "parameters": [
+                            {
+                                "name": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ]
+                    },
+                    "sendBody": true,
+                    "specifyBody": "json",
+                    "jsonBody": "={{ JSON.stringify({ channel: $json.channelId, ts: $json.messageTs, text: $json.notificationText, blocks: JSON.parse($json.blocks), username: $json.assistantName, icon_emoji: $json.assistantEmoji }) }}",
+                    "options": {}
+                },
+                "id": "bba5eed0-f091-4beb-9819-3b0e0191ca64",
+                "name": "Update Thinking Message",
+                "type": "n8n-nodes-base.httpRequest",
+                "typeVersion": 4.2,
+                "position": [
+                    1616,
+                    112
+                ],
+                "credentials": {
+                    "httpHeaderAuth": {
+                        "id": "LluVuiMJ8NUbAiG7",
+                        "name": "Slackbot Auth Token"
+                    }
+                }
+            },
+            {
+                "parameters": {
+                    "method": "DELETE",
+                    "url": "=https://rhrlnkbphxntxxxcrgvv.supabase.co/rest/v1/pending_actions?opportunity_id=eq.{{ $('Parse Callback').first().json.requestId }}&action_type=in.(task_callback,get_tasks)",
+                    "authentication": "predefinedCredentialType",
+                    "nodeCredentialType": "supabaseApi",
+                    "sendHeaders": true,
+                    "headerParameters": {
+                        "parameters": [
+                            {
+                                "name": "Content-Type",
+                                "value": "application/json"
+                            },
+                            {
+                                "name": "Prefer",
+                                "value": "return=representation"
+                            }
+                        ]
+                    },
+                    "sendBody": true,
+                    "specifyBody": "json",
+                    "jsonBody": "={{ JSON.stringify({ status: \"resolved\", resolved_at: new Date().toISOString() }) }}",
+                    "options": {}
+                },
+                "id": "1e47f404-1988-4cb9-95ba-4ca629352506",
+                "name": "Mark Request Done",
+                "type": "n8n-nodes-base.httpRequest",
+                "typeVersion": 4.2,
+                "position": [
+                    1840,
+                    112
+                ],
+                "credentials": {
+                    "supabaseApi": {
+                        "id": "ASRWWkQ0RSMOpNF1",
+                        "name": "Supabase account"
+                    }
+                }
+            },
+            {
+                "parameters": {
+                    "conditions": {
+                        "options": {
+                            "version": 2,
+                            "caseSensitive": true,
+                            "typeValidation": "loose"
+                        },
+                        "combinator": "and",
+                        "conditions": [
+                            {
+                                "id": "c4d49b1f-63a1-436c-9638-7d8ba5e5f5e3",
+                                "leftValue": "={{ $json.isDone }}",
+                                "rightValue": true,
+                                "operator": {
+                                    "type": "boolean",
+                                    "operation": "true"
+                                }
+                            }
+                        ]
+                    },
+                    "options": {}
+                },
+                "id": "1312e4a9-849f-4546-bfb5-13cc0627f429",
+                "name": "Is Done?",
+                "type": "n8n-nodes-base.if",
+                "typeVersion": 2.2,
+                "position": [
+                    720,
+                    208
+                ]
+            },
+            {
+                "parameters": {
+                    "method": "POST",
+                    "url": "https://rhrlnkbphxntxxxcrgvv.supabase.co/rest/v1/pending_actions",
+                    "authentication": "predefinedCredentialType",
+                    "nodeCredentialType": "supabaseApi",
+                    "sendHeaders": true,
+                    "headerParameters": {
+                        "parameters": [
+                            {
+                                "name": "Prefer",
+                                "value": "return=representation"
+                            },
+                            {
+                                "name": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ]
+                    },
+                    "sendBody": true,
+                    "specifyBody": "json",
+                    "jsonBody": "={{ JSON.stringify({ user_id: null, action_type: 'task_callback', opportunity_id: $json.requestId, draft_content: JSON.stringify($json.task), context: JSON.stringify({ account_name: $json.accountName }), status: 'pending' }) }}",
+                    "options": {}
+                },
+                "id": "7b04e320-b202-4129-bbb0-f0a32177bb05",
+                "name": "Store Task",
+                "type": "n8n-nodes-base.httpRequest",
+                "typeVersion": 4.2,
+                "position": [
+                    944,
+                    304
+                ],
+                "credentials": {
+                    "supabaseApi": {
+                        "id": "ASRWWkQ0RSMOpNF1",
+                        "name": "Supabase account"
+                    }
+                }
+            },
+            {
+                "parameters": {
+                    "url": "=https://rhrlnkbphxntxxxcrgvv.supabase.co/rest/v1/pending_actions?opportunity_id=eq.{{ $('Parse Callback').first().json.requestId }}&action_type=eq.task_callback&select=draft_content",
+                    "authentication": "predefinedCredentialType",
+                    "nodeCredentialType": "supabaseApi",
+                    "options": {}
+                },
+                "id": "7a13959c-780c-441f-9493-f96843701e61",
+                "name": "Fetch All Tasks",
+                "type": "n8n-nodes-base.httpRequest",
+                "typeVersion": 4.2,
+                "position": [
+                    1168,
+                    112
+                ],
+                "credentials": {
+                    "supabaseApi": {
+                        "id": "ASRWWkQ0RSMOpNF1",
+                        "name": "Supabase account"
+                    }
+                }
+            }
+        ],
+        "connections": {
+            "Callback Webhook": {
+                "main": [
+                    [
+                        {
+                            "node": "Parse Callback",
+                            "type": "main",
+                            "index": 0
+                        }
+                    ]
+                ]
+            },
+            "Parse Callback": {
+                "main": [
+                    [
+                        {
+                            "node": "Is Done?",
+                            "type": "main",
+                            "index": 0
+                        }
+                    ]
+                ]
+            },
+            "Fetch Request Context": {
+                "main": [
+                    [
+                        {
+                            "node": "Fetch All Tasks",
+                            "type": "main",
+                            "index": 0
+                        }
+                    ]
+                ]
+            },
+            "Build Task List": {
+                "main": [
+                    [
+                        {
+                            "node": "Update Thinking Message",
+                            "type": "main",
+                            "index": 0
+                        }
+                    ]
+                ]
+            },
+            "Update Thinking Message": {
+                "main": [
+                    [
+                        {
+                            "node": "Mark Request Done",
+                            "type": "main",
+                            "index": 0
+                        }
+                    ]
+                ]
+            },
+            "Is Done?": {
+                "main": [
+                    [
+                        {
+                            "node": "Fetch Request Context",
+                            "type": "main",
+                            "index": 0
+                        }
+                    ],
+                    [
+                        {
+                            "node": "Store Task",
+                            "type": "main",
+                            "index": 0
+                        }
+                    ]
+                ]
+            },
+            "Fetch All Tasks": {
+                "main": [
+                    [
+                        {
+                            "node": "Build Task List",
+                            "type": "main",
+                            "index": 0
+                        }
+                    ]
+                ]
+            },
+            "Store Task": {
+                "main": [
+                    []
+                ]
+            }
+        },
+        "authors": "Scott Metcalf",
+        "name": null,
+        "description": null,
+        "autosaved": false
+    }
+}

@@ -1,0 +1,690 @@
+{
+    "updatedAt": "2026-03-27T15:40:58.782Z",
+    "createdAt": "2026-03-27T15:21:51.425Z",
+    "id": "FenVqPUBnLl7DZjC",
+    "name": "Weekly Usage Report",
+    "description": null,
+    "active": true,
+    "isArchived": false,
+    "nodes": [
+        {
+            "parameters": {
+                "rule": {
+                    "interval": [
+                        {
+                            "field": "cronExpression",
+                            "expression": "0 23 * * 5"
+                        }
+                    ]
+                }
+            },
+            "id": "f53e4023-afa5-401b-8674-204271700115",
+            "name": "Friday 4pm PT",
+            "type": "n8n-nodes-base.scheduleTrigger",
+            "typeVersion": 1.2,
+            "position": [
+                0,
+                0
+            ]
+        },
+        {
+            "parameters": {
+                "jsCode": "const now = new Date();\nconst opts = { timeZone: 'America/Los_Angeles' };\n\n// Get today's date parts in PT\nconst ptParts = now.toLocaleDateString('en-CA', opts).split('-').map(Number);\nconst ptYear = ptParts[0], ptMonth = ptParts[1] - 1, ptDay = ptParts[2];\nconst ptDow = new Date(ptYear, ptMonth, ptDay).getDay(); // 0=Sun..6=Sat\n\n// This week Monday\nconst monDay = ptDay - (ptDow === 0 ? 6 : ptDow - 1);\nconst mondayDate = new Date(ptYear, ptMonth, monDay);\nconst mondayStr = mondayDate.toLocaleDateString('en-CA');\n\n// Tomorrow (upper bound for this week)\nconst tomorrowDate = new Date(ptYear, ptMonth, ptDay + 1);\nconst tomorrowStr = tomorrowDate.toLocaleDateString('en-CA');\n\n// Today string (for header)\nconst todayStr = new Date(ptYear, ptMonth, ptDay).toLocaleDateString('en-CA');\n\n// Prior week Monday and Saturday\nconst prevMondayDate = new Date(ptYear, ptMonth, monDay - 7);\nconst prevMondayStr = prevMondayDate.toLocaleDateString('en-CA');\nconst prevSaturdayDate = new Date(ptYear, ptMonth, monDay - 2);\nconst prevSaturdayStr = prevSaturdayDate.toLocaleDateString('en-CA');\n\nconst base = 'https://rhrlnkbphxntxxxcrgvv.supabase.co/rest/v1';\n\nreturn [{ json: {\n  thisWeekUrl: base + '/messages?select=id,user_id,message_type,direction,content,sent_at,metadata&sent_at=gte.' + mondayStr + 'T00:00:00&sent_at=lt.' + tomorrowStr + 'T00:00:00&order=sent_at.desc&limit=10000',\n  lastWeekUrl: base + '/messages?select=id,user_id,message_type,direction,content,sent_at,metadata&sent_at=gte.' + prevMondayStr + 'T00:00:00&sent_at=lt.' + prevSaturdayStr + 'T00:00:00&order=sent_at.desc&limit=10000',\n  usersUrl: base + '/users?select=id,email,assistant_name,onboarding_state&onboarding_state=eq.complete',\n  mondayStr,\n  todayStr,\n  tomorrowStr,\n  prevMondayStr,\n  prevSaturdayStr,\n}}];"
+            },
+            "id": "d250d77c-6ad7-4b54-b9a6-c8ee4d6d5565",
+            "name": "Build Query",
+            "type": "n8n-nodes-base.code",
+            "typeVersion": 2,
+            "position": [
+                224,
+                0
+            ]
+        },
+        {
+            "parameters": {
+                "url": "={{ $('Build Query').first().json.usersUrl }}",
+                "authentication": "predefinedCredentialType",
+                "nodeCredentialType": "supabaseApi",
+                "options": {}
+            },
+            "id": "2401a57a-ccda-446d-a29c-4f375c0fe864",
+            "name": "Fetch Users",
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4.2,
+            "position": [
+                448,
+                0
+            ],
+            "credentials": {
+                "supabaseApi": {
+                    "id": "ASRWWkQ0RSMOpNF1",
+                    "name": "Supabase account"
+                }
+            },
+            "onError": "continueRegularOutput"
+        },
+        {
+            "parameters": {
+                "url": "={{ $('Build Query').first().json.thisWeekUrl }}",
+                "authentication": "predefinedCredentialType",
+                "nodeCredentialType": "supabaseApi",
+                "options": {}
+            },
+            "id": "d3dd62ed-f2c6-4faa-8090-87442e989de3",
+            "name": "Fetch This Week",
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4.2,
+            "position": [
+                896,
+                0
+            ],
+            "credentials": {
+                "supabaseApi": {
+                    "id": "ASRWWkQ0RSMOpNF1",
+                    "name": "Supabase account"
+                }
+            },
+            "onError": "continueRegularOutput"
+        },
+        {
+            "parameters": {
+                "url": "={{ $('Build Query').first().json.lastWeekUrl }}",
+                "authentication": "predefinedCredentialType",
+                "nodeCredentialType": "supabaseApi",
+                "options": {}
+            },
+            "id": "2d975237-2e65-4fc3-af44-8872f6343f46",
+            "name": "Fetch Last Week",
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4.2,
+            "position": [
+                1344,
+                0
+            ],
+            "credentials": {
+                "supabaseApi": {
+                    "id": "ASRWWkQ0RSMOpNF1",
+                    "name": "Supabase account"
+                }
+            },
+            "onError": "continueRegularOutput"
+        },
+        {
+            "parameters": {
+                "jsCode": "\n// \u2500\u2500 Gather raw data \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\nconst thisWeekRaw = $('Fetch This Week').all().map(i => i.json);\nconst thisWeekMessages = Array.isArray(thisWeekRaw[0]) ? thisWeekRaw[0] : thisWeekRaw;\nconst lastWeekRaw = $('Fetch Last Week').all().map(i => i.json);\nconst lastWeekMessages = Array.isArray(lastWeekRaw[0]) ? lastWeekRaw[0] : lastWeekRaw;\nconst usersRaw = $('Fetch Users').all().map(i => i.json);\nconst allUsers = Array.isArray(usersRaw[0]) ? usersRaw[0] : usersRaw;\nconst q = $('Build Query').first().json;\n\n// \u2500\u2500 Deduplication (10-min window) \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\nfunction getWindowKey(m) {\n  const ts = new Date(m.sent_at || 0);\n  const window = new Date(Math.floor(ts.getTime() / 600000) * 600000);\n  return m.user_id + ':' + m.message_type + ':' + window.toISOString();\n}\n\nfunction dedup(msgs) {\n  const outbound = msgs.filter(m => m.direction === 'outbound');\n  const seen = new Set();\n  const unique = [];\n  for (const m of outbound) {\n    const key = getWindowKey(m);\n    if (!seen.has(key)) { seen.add(key); unique.push(m); }\n  }\n  return unique;\n}\n\nfunction dedupInbound(msgs) {\n  const inbound = msgs.filter(m => m.direction === 'inbound');\n  const seen = new Set();\n  const unique = [];\n  for (const m of inbound) {\n    const key = getWindowKey(m);\n    if (!seen.has(key)) { seen.add(key); unique.push(m); }\n  }\n  return unique;\n}\n\nconst twInteractions = dedup(thisWeekMessages);\nconst lwInteractions = dedup(lastWeekMessages);\nconst twInbound = dedupInbound(thisWeekMessages);\nconst lwInbound = dedupInbound(lastWeekMessages);\n\n// \u2500\u2500 Trend helpers \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\nfunction trend(curr, prev) {\n  if (prev === 0 && curr === 0) return { pct: 0, icon: '\\u27a1\\ufe0f' };\n  if (prev === 0) return { pct: 100, icon: '\\ud83d\\udcc8' };\n  const pct = Math.round(((curr - prev) / prev) * 100);\n  const icon = pct >= 10 ? '\\ud83d\\udcc8' : pct <= -10 ? '\\ud83d\\udcc9' : '\\u27a1\\ufe0f';\n  return { pct, icon };\n}\n\nfunction fmtTrend(curr, prev, suffix) {\n  const t = trend(curr, prev);\n  const sign = t.pct >= 0 ? '+' : '';\n  if (suffix === undefined) suffix = '';\n  return `${t.icon} ${sign}${t.pct}%${suffix ? ' ' + suffix : ''}`;\n}\n\n// \u2500\u2500 By-type counts \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\nfunction countByType(interactions) {\n  const m = {};\n  for (const i of interactions) { const t = i.message_type || 'unknown'; m[t] = (m[t] || 0) + 1; }\n  return m;\n}\n\nconst twByType = countByType(twInteractions);\nconst lwByType = countByType(lwInteractions);\n\n// \u2500\u2500 Active users \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\nconst twActiveIds = new Set(twInteractions.map(m => m.user_id).filter(Boolean));\nconst lwActiveIds = new Set(lwInteractions.map(m => m.user_id).filter(Boolean));\nconst twActiveCount = twActiveIds.size;\nconst lwActiveCount = lwActiveIds.size;\nconst totalUsers = allUsers.length;\nconst adoptionRate = totalUsers > 0 ? Math.round((twActiveCount / totalUsers) * 100) : 0;\nconst lwAdoptionRate = totalUsers > 0 ? Math.round((lwActiveCount / totalUsers) * 100) : 0;\n\n// \u2500\u2500 CRM actions \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\nfunction countCRM(msgs) {\n  let saveCRM = 0, createTask = 0, draftFollowup = 0;\n  for (const m of msgs) {\n    const mtype = m.message_type || '';\n    const content = (m.content || '').toLowerCase();\n    if (mtype === 'save_to_crm' || content.includes('recap saved to salesforce') || content.includes('save_recap')) saveCRM++;\n    if (mtype === 'create_task' || content.includes('task created in salesforce') || content.includes('create_task')) createTask++;\n    if (mtype === 'followup_draft' || content.includes('draft follow-up') || content.includes('followup_draft')) draftFollowup++;\n  }\n  return { saveCRM, createTask, draftFollowup, total: saveCRM + createTask + draftFollowup };\n}\n\nconst twCRM = countCRM(thisWeekMessages);\nconst lwCRM = countCRM(lastWeekMessages);\n\n// \u2500\u2500 Skill usage from inbound commands \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\nconst skillPatterns = {\n  'recap': /^(recap|followup|follow-up|follow up)\\b/i,\n  'brief': /^brief\\b/i,\n  'meet': /^(meet|prep|meeting brief|meeting prep)\\b/i,\n  'insights': /^insights?\\b/i,\n  'presentation': /^(presentation|slide|slides|deck)\\b/i,\n  'stakeholders': /^stakeholders?\\b/i,\n  'silence': /^silence\\b/i,\n};\n\nfunction countSkills(inboundMsgs) {\n  const counts = {};\n  for (const m of inboundMsgs) {\n    const text = (m.content || '').trim();\n    for (const [skill, pattern] of Object.entries(skillPatterns)) {\n      if (pattern.test(text)) { counts[skill] = (counts[skill] || 0) + 1; break; }\n    }\n  }\n  return counts;\n}\n\nconst twSkills = countSkills(twInbound);\nconst lwSkills = countSkills(lwInbound);\n\nconst skillLabels = {\n  'recap': ':clipboard: Recap',\n  'brief': ':sunrise: Brief',\n  'meet': ':calendar: Meeting Prep',\n  'insights': ':mag: Insights',\n  'presentation': ':bar_chart: Presentation',\n  'stakeholders': ':busts_in_silhouette: Stakeholders',\n  'silence': ':no_bell: Silence',\n};\n\n// \u2500\u2500 Daily breakdown (this week Mon-Fri) \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\nconst dayNames = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'];\nconst dailyCounts = [0, 0, 0, 0, 0];\nfor (const m of twInteractions) {\n  const d = new Date(m.sent_at);\n  const ptStr = d.toLocaleString('en-US', { timeZone: 'America/Los_Angeles', weekday: 'short' });\n  const idx = dayNames.indexOf(ptStr);\n  if (idx >= 0) dailyCounts[idx]++;\n}\n\nconst maxDaily = Math.max(...dailyCounts, 1);\nfunction makeBar(count) {\n  const len = Math.round((count / maxDaily) * 12);\n  return '\\u2588'.repeat(len);\n}\n\nconst dailyLines = dayNames.map((name, i) => {\n  return `${name}: ${makeBar(dailyCounts[i])} ${dailyCounts[i]}`;\n}).join('\\n');\n\n// \u2500\u2500 Most active assistants \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\nconst userCounts = {};\nfor (const m of twInteractions) {\n  if (m.user_id) userCounts[m.user_id] = (userCounts[m.user_id] || 0) + 1;\n}\nconst topUsers = Object.entries(userCounts)\n  .sort((a, b) => b[1] - a[1])\n  .slice(0, 5)\n  .map(([uid, count]) => {\n    const user = allUsers.find(u => u.id === uid);\n    const name = user ? (user.assistant_name || user.email.split('@')[0]) : uid.substring(0, 8);\n    return `${name}: ${count} interactions`;\n  });\n\n// \u2500\u2500 Inactive / drop-off users \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\nconst inactiveAll = allUsers.filter(u => !twActiveIds.has(u.id));\nconst droppedOff = allUsers.filter(u => lwActiveIds.has(u.id) && !twActiveIds.has(u.id));\n\n// \u2500\u2500 Date display \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\nconst monDate = new Date(q.mondayStr + 'T12:00:00');\nconst friDate = new Date(monDate);\nfriDate.setDate(friDate.getDate() + 4);\nconst fmtDate = (d) => d.toLocaleDateString('en-US', { month: 'long', day: 'numeric' });\nconst weekNum = Math.ceil((monDate - new Date(monDate.getFullYear(), 0, 1)) / (7 * 86400000)) + 1;\nconst dateDisplay = `Week of ${fmtDate(monDate)}\\u2013${fmtDate(friDate)}, ${monDate.getFullYear()}`;\n\n// \u2500\u2500 Build Block Kit \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\nconst twTotal = twInteractions.length;\nconst lwTotal = lwInteractions.length;\n\nconst blocks = [];\n\n// Header\nblocks.push({\n  type: \"header\",\n  text: { type: \"plain_text\", text: \"\\ud83d\\udcca Weekly Assistant Report\", emoji: true }\n});\nblocks.push({\n  type: \"context\",\n  elements: [{ type: \"mrkdwn\", text: dateDisplay }]\n});\n\n// Summary stats\nblocks.push({ type: \"divider\" });\nconst intTrend = trend(twTotal, lwTotal);\nconst actTrend = trend(twActiveCount, lwActiveCount);\nconst crmTrend = trend(twCRM.total, lwCRM.total);\nconst adoptTrend = trend(adoptionRate, lwAdoptionRate);\n\nblocks.push({\n  type: \"section\",\n  fields: [\n    { type: \"mrkdwn\", text: `*Interactions*\\n${twTotal.toLocaleString()} ${intTrend.icon} ${intTrend.pct >= 0 ? '+' : ''}${intTrend.pct}% vs last week` },\n    { type: \"mrkdwn\", text: `*Active Users*\\n${twActiveCount} of ${totalUsers} (${adoptionRate}%) ${actTrend.icon} ${twActiveCount - lwActiveCount >= 0 ? '+' : ''}${twActiveCount - lwActiveCount}` },\n    { type: \"mrkdwn\", text: `*CRM Actions*\\n${twCRM.total} ${crmTrend.icon} ${crmTrend.pct >= 0 ? '+' : ''}${crmTrend.pct}%` },\n    { type: \"mrkdwn\", text: `*Adoption Rate*\\n${adoptionRate}% ${adoptTrend.icon} ${adoptTrend.pct >= 0 ? '+' : ''}${adoptTrend.pct}%` },\n  ]\n});\n\n// Daily Activity\nblocks.push({ type: \"divider\" });\nblocks.push({\n  type: \"section\",\n  text: { type: \"mrkdwn\", text: `*Daily Activity*\\n\\`\\`\\`\\n${dailyLines}\\n\\`\\`\\`` }\n});\n\n// Skills Used\nconst sortedSkills = Object.entries(twSkills).sort((a, b) => b[1] - a[1]);\nif (sortedSkills.length > 0) {\n  const skillLines = sortedSkills.map(([skill, count]) => {\n    const label = skillLabels[skill] || skill;\n    const lwCount = lwSkills[skill] || 0;\n    return `${label}: *${count}* ${fmtTrend(count, lwCount)}`;\n  }).join('\\n');\n  blocks.push({ type: \"divider\" });\n  blocks.push({\n    type: \"section\",\n    text: { type: \"mrkdwn\", text: `*Skills Used (this week)*\\n${skillLines}` }\n  });\n}\n\n// CRM Impact\nif (twCRM.total > 0 || lwCRM.total > 0) {\n  const crmLines = [];\n  if (twCRM.saveCRM > 0 || lwCRM.saveCRM > 0) crmLines.push(`:salesforce: Save to CRM: *${twCRM.saveCRM}* ${fmtTrend(twCRM.saveCRM, lwCRM.saveCRM)}`);\n  if (twCRM.createTask > 0 || lwCRM.createTask > 0) crmLines.push(`:memo: Create Task: *${twCRM.createTask}* ${fmtTrend(twCRM.createTask, lwCRM.createTask)}`);\n  if (twCRM.draftFollowup > 0 || lwCRM.draftFollowup > 0) crmLines.push(`:email: Draft Follow-up: *${twCRM.draftFollowup}* ${fmtTrend(twCRM.draftFollowup, lwCRM.draftFollowup)}`);\n  if (crmLines.length > 0) {\n    blocks.push({ type: \"divider\" });\n    blocks.push({\n      type: \"section\",\n      text: { type: \"mrkdwn\", text: `*CRM Impact*\\n${crmLines.join('\\n')}` }\n    });\n  }\n}\n\n// Most Active Assistants\nif (topUsers.length > 0) {\n  blocks.push({ type: \"divider\" });\n  blocks.push({\n    type: \"section\",\n    text: { type: \"mrkdwn\", text: `*Most Active Assistants*\\n${topUsers.join('\\n')}` }\n  });\n}\n\n// Needs Attention\nblocks.push({ type: \"divider\" });\nconst attentionLines = [];\nattentionLines.push(`${inactiveAll.length} user${inactiveAll.length !== 1 ? 's' : ''} inactive all week`);\nif (droppedOff.length > 0) {\n  attentionLines.push(`${droppedOff.length} user${droppedOff.length !== 1 ? 's' : ''} dropped off (active last week, inactive this week)`);\n}\nblocks.push({\n  type: \"section\",\n  text: { type: \"mrkdwn\", text: `*Needs Attention*\\n${attentionLines.join('\\n')}` }\n});\n\n// Footer\nblocks.push({\n  type: \"context\",\n  elements: [{ type: \"mrkdwn\", text: `People.ai Assistant Analytics \\u2022 Week ${weekNum} ${monDate.getFullYear()}` }]\n});\n\nconst notificationText = `Weekly Report: ${twTotal} interactions, ${twActiveCount} active users (${adoptionRate}%) ${intTrend.icon} ${intTrend.pct >= 0 ? '+' : ''}${intTrend.pct}% WoW`;\n\nreturn [{ json: { blocks: JSON.stringify(blocks), notificationText } }];\n"
+            },
+            "id": "d49f1f9a-5ccc-4955-ae69-3b56bbdb789b",
+            "name": "Build Weekly Report",
+            "type": "n8n-nodes-base.code",
+            "typeVersion": 2,
+            "position": [
+                1792,
+                0
+            ]
+        },
+        {
+            "parameters": {
+                "method": "POST",
+                "url": "https://slack.com/api/conversations.open",
+                "authentication": "genericCredentialType",
+                "genericAuthType": "httpHeaderAuth",
+                "sendHeaders": true,
+                "headerParameters": {
+                    "parameters": [
+                        {
+                            "name": "Content-Type",
+                            "value": "application/json"
+                        }
+                    ]
+                },
+                "sendBody": true,
+                "specifyBody": "json",
+                "jsonBody": "={{ JSON.stringify({ \"users\": \"U061WJ6RMJS\" }) }}",
+                "options": {}
+            },
+            "id": "ba38284e-3e2a-4d1e-9778-4c40ca6265bf",
+            "name": "Open DM",
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4.2,
+            "position": [
+                2016,
+                0
+            ],
+            "credentials": {
+                "httpHeaderAuth": {
+                    "id": "LluVuiMJ8NUbAiG7",
+                    "name": "Slackbot Auth Token"
+                }
+            }
+        },
+        {
+            "parameters": {
+                "method": "POST",
+                "url": "https://slack.com/api/chat.postMessage",
+                "authentication": "genericCredentialType",
+                "genericAuthType": "httpHeaderAuth",
+                "sendHeaders": true,
+                "headerParameters": {
+                    "parameters": [
+                        {
+                            "name": "Content-Type",
+                            "value": "application/json"
+                        }
+                    ]
+                },
+                "sendBody": true,
+                "specifyBody": "json",
+                "jsonBody": "={{ JSON.stringify({ channel: 'C0ALJCTP4MV', text: $json.notificationText, blocks: JSON.parse($json.blocks), username: 'Assistant Analytics', icon_emoji: ':bar_chart:', unfurl_links: false, unfurl_media: false }) }}",
+                "options": {}
+            },
+            "id": "5026f34d-5634-41cc-ad12-60ec81ec1a93",
+            "name": "Send Report",
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4.2,
+            "position": [
+                2240,
+                0
+            ],
+            "credentials": {
+                "httpHeaderAuth": {
+                    "id": "LluVuiMJ8NUbAiG7",
+                    "name": "Slackbot Auth Token"
+                }
+            }
+        },
+        {
+            "parameters": {
+                "jsCode": "return [{ json: { users: $input.all().map(i => i.json) } }];"
+            },
+            "id": "479ec0af-2473-43fc-81f1-b07e42a9f948",
+            "name": "Collapse Users",
+            "type": "n8n-nodes-base.code",
+            "typeVersion": 2,
+            "position": [
+                672,
+                0
+            ]
+        },
+        {
+            "parameters": {
+                "jsCode": "return [{ json: { thisWeek: $('Fetch This Week').all().map(i => i.json), users: $('Collapse Users').first().json.users } }];"
+            },
+            "id": "bdc97d2c-db10-45c8-8426-2176cd6292f5",
+            "name": "Collapse This Week",
+            "type": "n8n-nodes-base.code",
+            "typeVersion": 2,
+            "position": [
+                1120,
+                0
+            ]
+        },
+        {
+            "parameters": {
+                "jsCode": "return [{ json: { lastWeek: $('Fetch Last Week').all().map(i => i.json), thisWeek: $('Collapse This Week').first().json.thisWeek, users: $('Collapse This Week').first().json.users } }];"
+            },
+            "id": "231b30aa-0615-4197-a4e0-6f07bb4f7dd9",
+            "name": "Collapse Last Week",
+            "type": "n8n-nodes-base.code",
+            "typeVersion": 2,
+            "position": [
+                1568,
+                0
+            ]
+        }
+    ],
+    "connections": {
+        "Friday 4pm PT": {
+            "main": [
+                [
+                    {
+                        "node": "Build Query",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Build Query": {
+            "main": [
+                [
+                    {
+                        "node": "Fetch Users",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Fetch Users": {
+            "main": [
+                [
+                    {
+                        "node": "Collapse Users",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Fetch This Week": {
+            "main": [
+                [
+                    {
+                        "node": "Collapse This Week",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Fetch Last Week": {
+            "main": [
+                [
+                    {
+                        "node": "Collapse Last Week",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Build Weekly Report": {
+            "main": [
+                [
+                    {
+                        "node": "Send Report",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Collapse Users": {
+            "main": [
+                [
+                    {
+                        "node": "Fetch This Week",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Collapse This Week": {
+            "main": [
+                [
+                    {
+                        "node": "Fetch Last Week",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Collapse Last Week": {
+            "main": [
+                [
+                    {
+                        "node": "Build Weekly Report",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        }
+    },
+    "settings": {
+        "executionOrder": "v1",
+        "callerPolicy": "workflowsFromSameOwner",
+        "availableInMCP": false
+    },
+    "staticData": {
+        "node:Friday 4pm PT": {
+            "recurrenceRules": []
+        }
+    },
+    "meta": null,
+    "pinData": {},
+    "versionId": "79496984-edaa-4640-9fde-abddd6d7bc77",
+    "activeVersionId": "79496984-edaa-4640-9fde-abddd6d7bc77",
+    "versionCounter": 15,
+    "triggerCount": 1,
+    "tags": [],
+    "activeVersion": {
+        "updatedAt": "2026-03-27T15:40:58.783Z",
+        "createdAt": "2026-03-27T15:40:58.783Z",
+        "versionId": "79496984-edaa-4640-9fde-abddd6d7bc77",
+        "workflowId": "FenVqPUBnLl7DZjC",
+        "nodes": [
+            {
+                "parameters": {
+                    "rule": {
+                        "interval": [
+                            {
+                                "field": "cronExpression",
+                                "expression": "0 23 * * 5"
+                            }
+                        ]
+                    }
+                },
+                "id": "f53e4023-afa5-401b-8674-204271700115",
+                "name": "Friday 4pm PT",
+                "type": "n8n-nodes-base.scheduleTrigger",
+                "typeVersion": 1.2,
+                "position": [
+                    0,
+                    0
+                ]
+            },
+            {
+                "parameters": {
+                    "jsCode": "const now = new Date();\nconst opts = { timeZone: 'America/Los_Angeles' };\n\n// Get today's date parts in PT\nconst ptParts = now.toLocaleDateString('en-CA', opts).split('-').map(Number);\nconst ptYear = ptParts[0], ptMonth = ptParts[1] - 1, ptDay = ptParts[2];\nconst ptDow = new Date(ptYear, ptMonth, ptDay).getDay(); // 0=Sun..6=Sat\n\n// This week Monday\nconst monDay = ptDay - (ptDow === 0 ? 6 : ptDow - 1);\nconst mondayDate = new Date(ptYear, ptMonth, monDay);\nconst mondayStr = mondayDate.toLocaleDateString('en-CA');\n\n// Tomorrow (upper bound for this week)\nconst tomorrowDate = new Date(ptYear, ptMonth, ptDay + 1);\nconst tomorrowStr = tomorrowDate.toLocaleDateString('en-CA');\n\n// Today string (for header)\nconst todayStr = new Date(ptYear, ptMonth, ptDay).toLocaleDateString('en-CA');\n\n// Prior week Monday and Saturday\nconst prevMondayDate = new Date(ptYear, ptMonth, monDay - 7);\nconst prevMondayStr = prevMondayDate.toLocaleDateString('en-CA');\nconst prevSaturdayDate = new Date(ptYear, ptMonth, monDay - 2);\nconst prevSaturdayStr = prevSaturdayDate.toLocaleDateString('en-CA');\n\nconst base = 'https://rhrlnkbphxntxxxcrgvv.supabase.co/rest/v1';\n\nreturn [{ json: {\n  thisWeekUrl: base + '/messages?select=id,user_id,message_type,direction,content,sent_at,metadata&sent_at=gte.' + mondayStr + 'T00:00:00&sent_at=lt.' + tomorrowStr + 'T00:00:00&order=sent_at.desc&limit=10000',\n  lastWeekUrl: base + '/messages?select=id,user_id,message_type,direction,content,sent_at,metadata&sent_at=gte.' + prevMondayStr + 'T00:00:00&sent_at=lt.' + prevSaturdayStr + 'T00:00:00&order=sent_at.desc&limit=10000',\n  usersUrl: base + '/users?select=id,email,assistant_name,onboarding_state&onboarding_state=eq.complete',\n  mondayStr,\n  todayStr,\n  tomorrowStr,\n  prevMondayStr,\n  prevSaturdayStr,\n}}];"
+                },
+                "id": "d250d77c-6ad7-4b54-b9a6-c8ee4d6d5565",
+                "name": "Build Query",
+                "type": "n8n-nodes-base.code",
+                "typeVersion": 2,
+                "position": [
+                    224,
+                    0
+                ]
+            },
+            {
+                "parameters": {
+                    "url": "={{ $('Build Query').first().json.usersUrl }}",
+                    "authentication": "predefinedCredentialType",
+                    "nodeCredentialType": "supabaseApi",
+                    "options": {}
+                },
+                "id": "2401a57a-ccda-446d-a29c-4f375c0fe864",
+                "name": "Fetch Users",
+                "type": "n8n-nodes-base.httpRequest",
+                "typeVersion": 4.2,
+                "position": [
+                    448,
+                    0
+                ],
+                "credentials": {
+                    "supabaseApi": {
+                        "id": "ASRWWkQ0RSMOpNF1",
+                        "name": "Supabase account"
+                    }
+                },
+                "onError": "continueRegularOutput"
+            },
+            {
+                "parameters": {
+                    "url": "={{ $('Build Query').first().json.thisWeekUrl }}",
+                    "authentication": "predefinedCredentialType",
+                    "nodeCredentialType": "supabaseApi",
+                    "options": {}
+                },
+                "id": "d3dd62ed-f2c6-4faa-8090-87442e989de3",
+                "name": "Fetch This Week",
+                "type": "n8n-nodes-base.httpRequest",
+                "typeVersion": 4.2,
+                "position": [
+                    896,
+                    0
+                ],
+                "credentials": {
+                    "supabaseApi": {
+                        "id": "ASRWWkQ0RSMOpNF1",
+                        "name": "Supabase account"
+                    }
+                },
+                "onError": "continueRegularOutput"
+            },
+            {
+                "parameters": {
+                    "url": "={{ $('Build Query').first().json.lastWeekUrl }}",
+                    "authentication": "predefinedCredentialType",
+                    "nodeCredentialType": "supabaseApi",
+                    "options": {}
+                },
+                "id": "2d975237-2e65-4fc3-af44-8872f6343f46",
+                "name": "Fetch Last Week",
+                "type": "n8n-nodes-base.httpRequest",
+                "typeVersion": 4.2,
+                "position": [
+                    1344,
+                    0
+                ],
+                "credentials": {
+                    "supabaseApi": {
+                        "id": "ASRWWkQ0RSMOpNF1",
+                        "name": "Supabase account"
+                    }
+                },
+                "onError": "continueRegularOutput"
+            },
+            {
+                "parameters": {
+                    "jsCode": "\n// \u2500\u2500 Gather raw data \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\nconst thisWeekRaw = $('Fetch This Week').all().map(i => i.json);\nconst thisWeekMessages = Array.isArray(thisWeekRaw[0]) ? thisWeekRaw[0] : thisWeekRaw;\nconst lastWeekRaw = $('Fetch Last Week').all().map(i => i.json);\nconst lastWeekMessages = Array.isArray(lastWeekRaw[0]) ? lastWeekRaw[0] : lastWeekRaw;\nconst usersRaw = $('Fetch Users').all().map(i => i.json);\nconst allUsers = Array.isArray(usersRaw[0]) ? usersRaw[0] : usersRaw;\nconst q = $('Build Query').first().json;\n\n// \u2500\u2500 Deduplication (10-min window) \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\nfunction getWindowKey(m) {\n  const ts = new Date(m.sent_at || 0);\n  const window = new Date(Math.floor(ts.getTime() / 600000) * 600000);\n  return m.user_id + ':' + m.message_type + ':' + window.toISOString();\n}\n\nfunction dedup(msgs) {\n  const outbound = msgs.filter(m => m.direction === 'outbound');\n  const seen = new Set();\n  const unique = [];\n  for (const m of outbound) {\n    const key = getWindowKey(m);\n    if (!seen.has(key)) { seen.add(key); unique.push(m); }\n  }\n  return unique;\n}\n\nfunction dedupInbound(msgs) {\n  const inbound = msgs.filter(m => m.direction === 'inbound');\n  const seen = new Set();\n  const unique = [];\n  for (const m of inbound) {\n    const key = getWindowKey(m);\n    if (!seen.has(key)) { seen.add(key); unique.push(m); }\n  }\n  return unique;\n}\n\nconst twInteractions = dedup(thisWeekMessages);\nconst lwInteractions = dedup(lastWeekMessages);\nconst twInbound = dedupInbound(thisWeekMessages);\nconst lwInbound = dedupInbound(lastWeekMessages);\n\n// \u2500\u2500 Trend helpers \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\nfunction trend(curr, prev) {\n  if (prev === 0 && curr === 0) return { pct: 0, icon: '\\u27a1\\ufe0f' };\n  if (prev === 0) return { pct: 100, icon: '\\ud83d\\udcc8' };\n  const pct = Math.round(((curr - prev) / prev) * 100);\n  const icon = pct >= 10 ? '\\ud83d\\udcc8' : pct <= -10 ? '\\ud83d\\udcc9' : '\\u27a1\\ufe0f';\n  return { pct, icon };\n}\n\nfunction fmtTrend(curr, prev, suffix) {\n  const t = trend(curr, prev);\n  const sign = t.pct >= 0 ? '+' : '';\n  if (suffix === undefined) suffix = '';\n  return `${t.icon} ${sign}${t.pct}%${suffix ? ' ' + suffix : ''}`;\n}\n\n// \u2500\u2500 By-type counts \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\nfunction countByType(interactions) {\n  const m = {};\n  for (const i of interactions) { const t = i.message_type || 'unknown'; m[t] = (m[t] || 0) + 1; }\n  return m;\n}\n\nconst twByType = countByType(twInteractions);\nconst lwByType = countByType(lwInteractions);\n\n// \u2500\u2500 Active users \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\nconst twActiveIds = new Set(twInteractions.map(m => m.user_id).filter(Boolean));\nconst lwActiveIds = new Set(lwInteractions.map(m => m.user_id).filter(Boolean));\nconst twActiveCount = twActiveIds.size;\nconst lwActiveCount = lwActiveIds.size;\nconst totalUsers = allUsers.length;\nconst adoptionRate = totalUsers > 0 ? Math.round((twActiveCount / totalUsers) * 100) : 0;\nconst lwAdoptionRate = totalUsers > 0 ? Math.round((lwActiveCount / totalUsers) * 100) : 0;\n\n// \u2500\u2500 CRM actions \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\nfunction countCRM(msgs) {\n  let saveCRM = 0, createTask = 0, draftFollowup = 0;\n  for (const m of msgs) {\n    const mtype = m.message_type || '';\n    const content = (m.content || '').toLowerCase();\n    if (mtype === 'save_to_crm' || content.includes('recap saved to salesforce') || content.includes('save_recap')) saveCRM++;\n    if (mtype === 'create_task' || content.includes('task created in salesforce') || content.includes('create_task')) createTask++;\n    if (mtype === 'followup_draft' || content.includes('draft follow-up') || content.includes('followup_draft')) draftFollowup++;\n  }\n  return { saveCRM, createTask, draftFollowup, total: saveCRM + createTask + draftFollowup };\n}\n\nconst twCRM = countCRM(thisWeekMessages);\nconst lwCRM = countCRM(lastWeekMessages);\n\n// \u2500\u2500 Skill usage from inbound commands \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\nconst skillPatterns = {\n  'recap': /^(recap|followup|follow-up|follow up)\\b/i,\n  'brief': /^brief\\b/i,\n  'meet': /^(meet|prep|meeting brief|meeting prep)\\b/i,\n  'insights': /^insights?\\b/i,\n  'presentation': /^(presentation|slide|slides|deck)\\b/i,\n  'stakeholders': /^stakeholders?\\b/i,\n  'silence': /^silence\\b/i,\n};\n\nfunction countSkills(inboundMsgs) {\n  const counts = {};\n  for (const m of inboundMsgs) {\n    const text = (m.content || '').trim();\n    for (const [skill, pattern] of Object.entries(skillPatterns)) {\n      if (pattern.test(text)) { counts[skill] = (counts[skill] || 0) + 1; break; }\n    }\n  }\n  return counts;\n}\n\nconst twSkills = countSkills(twInbound);\nconst lwSkills = countSkills(lwInbound);\n\nconst skillLabels = {\n  'recap': ':clipboard: Recap',\n  'brief': ':sunrise: Brief',\n  'meet': ':calendar: Meeting Prep',\n  'insights': ':mag: Insights',\n  'presentation': ':bar_chart: Presentation',\n  'stakeholders': ':busts_in_silhouette: Stakeholders',\n  'silence': ':no_bell: Silence',\n};\n\n// \u2500\u2500 Daily breakdown (this week Mon-Fri) \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\nconst dayNames = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'];\nconst dailyCounts = [0, 0, 0, 0, 0];\nfor (const m of twInteractions) {\n  const d = new Date(m.sent_at);\n  const ptStr = d.toLocaleString('en-US', { timeZone: 'America/Los_Angeles', weekday: 'short' });\n  const idx = dayNames.indexOf(ptStr);\n  if (idx >= 0) dailyCounts[idx]++;\n}\n\nconst maxDaily = Math.max(...dailyCounts, 1);\nfunction makeBar(count) {\n  const len = Math.round((count / maxDaily) * 12);\n  return '\\u2588'.repeat(len);\n}\n\nconst dailyLines = dayNames.map((name, i) => {\n  return `${name}: ${makeBar(dailyCounts[i])} ${dailyCounts[i]}`;\n}).join('\\n');\n\n// \u2500\u2500 Most active assistants \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\nconst userCounts = {};\nfor (const m of twInteractions) {\n  if (m.user_id) userCounts[m.user_id] = (userCounts[m.user_id] || 0) + 1;\n}\nconst topUsers = Object.entries(userCounts)\n  .sort((a, b) => b[1] - a[1])\n  .slice(0, 5)\n  .map(([uid, count]) => {\n    const user = allUsers.find(u => u.id === uid);\n    const name = user ? (user.assistant_name || user.email.split('@')[0]) : uid.substring(0, 8);\n    return `${name}: ${count} interactions`;\n  });\n\n// \u2500\u2500 Inactive / drop-off users \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\nconst inactiveAll = allUsers.filter(u => !twActiveIds.has(u.id));\nconst droppedOff = allUsers.filter(u => lwActiveIds.has(u.id) && !twActiveIds.has(u.id));\n\n// \u2500\u2500 Date display \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\nconst monDate = new Date(q.mondayStr + 'T12:00:00');\nconst friDate = new Date(monDate);\nfriDate.setDate(friDate.getDate() + 4);\nconst fmtDate = (d) => d.toLocaleDateString('en-US', { month: 'long', day: 'numeric' });\nconst weekNum = Math.ceil((monDate - new Date(monDate.getFullYear(), 0, 1)) / (7 * 86400000)) + 1;\nconst dateDisplay = `Week of ${fmtDate(monDate)}\\u2013${fmtDate(friDate)}, ${monDate.getFullYear()}`;\n\n// \u2500\u2500 Build Block Kit \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\nconst twTotal = twInteractions.length;\nconst lwTotal = lwInteractions.length;\n\nconst blocks = [];\n\n// Header\nblocks.push({\n  type: \"header\",\n  text: { type: \"plain_text\", text: \"\\ud83d\\udcca Weekly Assistant Report\", emoji: true }\n});\nblocks.push({\n  type: \"context\",\n  elements: [{ type: \"mrkdwn\", text: dateDisplay }]\n});\n\n// Summary stats\nblocks.push({ type: \"divider\" });\nconst intTrend = trend(twTotal, lwTotal);\nconst actTrend = trend(twActiveCount, lwActiveCount);\nconst crmTrend = trend(twCRM.total, lwCRM.total);\nconst adoptTrend = trend(adoptionRate, lwAdoptionRate);\n\nblocks.push({\n  type: \"section\",\n  fields: [\n    { type: \"mrkdwn\", text: `*Interactions*\\n${twTotal.toLocaleString()} ${intTrend.icon} ${intTrend.pct >= 0 ? '+' : ''}${intTrend.pct}% vs last week` },\n    { type: \"mrkdwn\", text: `*Active Users*\\n${twActiveCount} of ${totalUsers} (${adoptionRate}%) ${actTrend.icon} ${twActiveCount - lwActiveCount >= 0 ? '+' : ''}${twActiveCount - lwActiveCount}` },\n    { type: \"mrkdwn\", text: `*CRM Actions*\\n${twCRM.total} ${crmTrend.icon} ${crmTrend.pct >= 0 ? '+' : ''}${crmTrend.pct}%` },\n    { type: \"mrkdwn\", text: `*Adoption Rate*\\n${adoptionRate}% ${adoptTrend.icon} ${adoptTrend.pct >= 0 ? '+' : ''}${adoptTrend.pct}%` },\n  ]\n});\n\n// Daily Activity\nblocks.push({ type: \"divider\" });\nblocks.push({\n  type: \"section\",\n  text: { type: \"mrkdwn\", text: `*Daily Activity*\\n\\`\\`\\`\\n${dailyLines}\\n\\`\\`\\`` }\n});\n\n// Skills Used\nconst sortedSkills = Object.entries(twSkills).sort((a, b) => b[1] - a[1]);\nif (sortedSkills.length > 0) {\n  const skillLines = sortedSkills.map(([skill, count]) => {\n    const label = skillLabels[skill] || skill;\n    const lwCount = lwSkills[skill] || 0;\n    return `${label}: *${count}* ${fmtTrend(count, lwCount)}`;\n  }).join('\\n');\n  blocks.push({ type: \"divider\" });\n  blocks.push({\n    type: \"section\",\n    text: { type: \"mrkdwn\", text: `*Skills Used (this week)*\\n${skillLines}` }\n  });\n}\n\n// CRM Impact\nif (twCRM.total > 0 || lwCRM.total > 0) {\n  const crmLines = [];\n  if (twCRM.saveCRM > 0 || lwCRM.saveCRM > 0) crmLines.push(`:salesforce: Save to CRM: *${twCRM.saveCRM}* ${fmtTrend(twCRM.saveCRM, lwCRM.saveCRM)}`);\n  if (twCRM.createTask > 0 || lwCRM.createTask > 0) crmLines.push(`:memo: Create Task: *${twCRM.createTask}* ${fmtTrend(twCRM.createTask, lwCRM.createTask)}`);\n  if (twCRM.draftFollowup > 0 || lwCRM.draftFollowup > 0) crmLines.push(`:email: Draft Follow-up: *${twCRM.draftFollowup}* ${fmtTrend(twCRM.draftFollowup, lwCRM.draftFollowup)}`);\n  if (crmLines.length > 0) {\n    blocks.push({ type: \"divider\" });\n    blocks.push({\n      type: \"section\",\n      text: { type: \"mrkdwn\", text: `*CRM Impact*\\n${crmLines.join('\\n')}` }\n    });\n  }\n}\n\n// Most Active Assistants\nif (topUsers.length > 0) {\n  blocks.push({ type: \"divider\" });\n  blocks.push({\n    type: \"section\",\n    text: { type: \"mrkdwn\", text: `*Most Active Assistants*\\n${topUsers.join('\\n')}` }\n  });\n}\n\n// Needs Attention\nblocks.push({ type: \"divider\" });\nconst attentionLines = [];\nattentionLines.push(`${inactiveAll.length} user${inactiveAll.length !== 1 ? 's' : ''} inactive all week`);\nif (droppedOff.length > 0) {\n  attentionLines.push(`${droppedOff.length} user${droppedOff.length !== 1 ? 's' : ''} dropped off (active last week, inactive this week)`);\n}\nblocks.push({\n  type: \"section\",\n  text: { type: \"mrkdwn\", text: `*Needs Attention*\\n${attentionLines.join('\\n')}` }\n});\n\n// Footer\nblocks.push({\n  type: \"context\",\n  elements: [{ type: \"mrkdwn\", text: `People.ai Assistant Analytics \\u2022 Week ${weekNum} ${monDate.getFullYear()}` }]\n});\n\nconst notificationText = `Weekly Report: ${twTotal} interactions, ${twActiveCount} active users (${adoptionRate}%) ${intTrend.icon} ${intTrend.pct >= 0 ? '+' : ''}${intTrend.pct}% WoW`;\n\nreturn [{ json: { blocks: JSON.stringify(blocks), notificationText } }];\n"
+                },
+                "id": "d49f1f9a-5ccc-4955-ae69-3b56bbdb789b",
+                "name": "Build Weekly Report",
+                "type": "n8n-nodes-base.code",
+                "typeVersion": 2,
+                "position": [
+                    1792,
+                    0
+                ]
+            },
+            {
+                "parameters": {
+                    "method": "POST",
+                    "url": "https://slack.com/api/conversations.open",
+                    "authentication": "genericCredentialType",
+                    "genericAuthType": "httpHeaderAuth",
+                    "sendHeaders": true,
+                    "headerParameters": {
+                        "parameters": [
+                            {
+                                "name": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ]
+                    },
+                    "sendBody": true,
+                    "specifyBody": "json",
+                    "jsonBody": "={{ JSON.stringify({ \"users\": \"U061WJ6RMJS\" }) }}",
+                    "options": {}
+                },
+                "id": "ba38284e-3e2a-4d1e-9778-4c40ca6265bf",
+                "name": "Open DM",
+                "type": "n8n-nodes-base.httpRequest",
+                "typeVersion": 4.2,
+                "position": [
+                    2016,
+                    0
+                ],
+                "credentials": {
+                    "httpHeaderAuth": {
+                        "id": "LluVuiMJ8NUbAiG7",
+                        "name": "Slackbot Auth Token"
+                    }
+                }
+            },
+            {
+                "parameters": {
+                    "method": "POST",
+                    "url": "https://slack.com/api/chat.postMessage",
+                    "authentication": "genericCredentialType",
+                    "genericAuthType": "httpHeaderAuth",
+                    "sendHeaders": true,
+                    "headerParameters": {
+                        "parameters": [
+                            {
+                                "name": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ]
+                    },
+                    "sendBody": true,
+                    "specifyBody": "json",
+                    "jsonBody": "={{ JSON.stringify({ channel: 'C0ALJCTP4MV', text: $json.notificationText, blocks: JSON.parse($json.blocks), username: 'Assistant Analytics', icon_emoji: ':bar_chart:', unfurl_links: false, unfurl_media: false }) }}",
+                    "options": {}
+                },
+                "id": "5026f34d-5634-41cc-ad12-60ec81ec1a93",
+                "name": "Send Report",
+                "type": "n8n-nodes-base.httpRequest",
+                "typeVersion": 4.2,
+                "position": [
+                    2240,
+                    0
+                ],
+                "credentials": {
+                    "httpHeaderAuth": {
+                        "id": "LluVuiMJ8NUbAiG7",
+                        "name": "Slackbot Auth Token"
+                    }
+                }
+            },
+            {
+                "parameters": {
+                    "jsCode": "return [{ json: { users: $input.all().map(i => i.json) } }];"
+                },
+                "id": "479ec0af-2473-43fc-81f1-b07e42a9f948",
+                "name": "Collapse Users",
+                "type": "n8n-nodes-base.code",
+                "typeVersion": 2,
+                "position": [
+                    672,
+                    0
+                ]
+            },
+            {
+                "parameters": {
+                    "jsCode": "return [{ json: { thisWeek: $('Fetch This Week').all().map(i => i.json), users: $('Collapse Users').first().json.users } }];"
+                },
+                "id": "bdc97d2c-db10-45c8-8426-2176cd6292f5",
+                "name": "Collapse This Week",
+                "type": "n8n-nodes-base.code",
+                "typeVersion": 2,
+                "position": [
+                    1120,
+                    0
+                ]
+            },
+            {
+                "parameters": {
+                    "jsCode": "return [{ json: { lastWeek: $('Fetch Last Week').all().map(i => i.json), thisWeek: $('Collapse This Week').first().json.thisWeek, users: $('Collapse This Week').first().json.users } }];"
+                },
+                "id": "231b30aa-0615-4197-a4e0-6f07bb4f7dd9",
+                "name": "Collapse Last Week",
+                "type": "n8n-nodes-base.code",
+                "typeVersion": 2,
+                "position": [
+                    1568,
+                    0
+                ]
+            }
+        ],
+        "connections": {
+            "Friday 4pm PT": {
+                "main": [
+                    [
+                        {
+                            "node": "Build Query",
+                            "type": "main",
+                            "index": 0
+                        }
+                    ]
+                ]
+            },
+            "Build Query": {
+                "main": [
+                    [
+                        {
+                            "node": "Fetch Users",
+                            "type": "main",
+                            "index": 0
+                        }
+                    ]
+                ]
+            },
+            "Fetch Users": {
+                "main": [
+                    [
+                        {
+                            "node": "Collapse Users",
+                            "type": "main",
+                            "index": 0
+                        }
+                    ]
+                ]
+            },
+            "Fetch This Week": {
+                "main": [
+                    [
+                        {
+                            "node": "Collapse This Week",
+                            "type": "main",
+                            "index": 0
+                        }
+                    ]
+                ]
+            },
+            "Fetch Last Week": {
+                "main": [
+                    [
+                        {
+                            "node": "Collapse Last Week",
+                            "type": "main",
+                            "index": 0
+                        }
+                    ]
+                ]
+            },
+            "Build Weekly Report": {
+                "main": [
+                    [
+                        {
+                            "node": "Send Report",
+                            "type": "main",
+                            "index": 0
+                        }
+                    ]
+                ]
+            },
+            "Collapse Users": {
+                "main": [
+                    [
+                        {
+                            "node": "Fetch This Week",
+                            "type": "main",
+                            "index": 0
+                        }
+                    ]
+                ]
+            },
+            "Collapse This Week": {
+                "main": [
+                    [
+                        {
+                            "node": "Fetch Last Week",
+                            "type": "main",
+                            "index": 0
+                        }
+                    ]
+                ]
+            },
+            "Collapse Last Week": {
+                "main": [
+                    [
+                        {
+                            "node": "Build Weekly Report",
+                            "type": "main",
+                            "index": 0
+                        }
+                    ]
+                ]
+            }
+        },
+        "authors": "Scott Metcalf",
+        "name": null,
+        "description": null,
+        "autosaved": false
+    }
+}
