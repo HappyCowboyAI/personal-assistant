@@ -1,0 +1,28 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(N8N_API_KEY=\"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJiZmExNjNjMS1iZDUzLTRjMGYtYjBiYS04ZGMzNjI2ZjdjNzkiLCJpc3MiOiJuOG4iLCJhdWQiOiJwdWJsaWMtYXBpIiwianRpIjoiMDI4ZTNkYWMtMmMyMy00MzIyLTk2NmEtZjk0MTY2Y2VmOGM0IiwiaWF0IjoxNzcyMDU5Njc0fQ.hZGE40qEM6XkC0yGB1vA88Gb-TSZDrQYbqCjZBmVsG8\" python3 -c \":*)",
+      "Bash(N8N_API_KEY=\"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJiZmExNjNjMS1iZDUzLTRjMGYtYjBiYS04ZGMzNjI2ZjdjNzkiLCJpc3MiOiJuOG4iLCJhdWQiOiJwdWJsaWMtYXBpIiwianRpIjoiMDI4ZTNkYWMtMmMyMy00MzIyLTk2NmEtZjk0MTY2Y2VmOGM0IiwiaWF0IjoxNzcyMDU5Njc0fQ.hZGE40qEM6XkC0yGB1vA88Gb-TSZDrQYbqCjZBmVsG8\" python3 fix_followup_prefetch.py)",
+      "Bash(N8N_API_KEY=\"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJiZmExNjNjMS1iZDUzLTRjMGYtYjBiYS04ZGMzNjI2ZjdjNzkiLCJpc3MiOiJuOG4iLCJhdWQiOiJwdWJsaWMtYXBpIiwianRpIjoiMDI4ZTNkYWMtMmMyMy00MzIyLTk2NmEtZjk0MTY2Y2VmOGM0IiwiaWF0IjoxNzcyMDU5Njc0fQ.hZGE40qEM6XkC0yGB1vA88Gb-TSZDrQYbqCjZBmVsG8\" python3 fix_followup_query_prefetch.py)",
+      "Bash(source .env)",
+      "Bash(ls .env*)",
+      "Bash(env)",
+      "Bash(done)",
+      "mcp__claude_ai_Atlassian__getConfluenceSpaces",
+      "WebFetch(domain:docs.n8n.io)",
+      "mcp__claude_ai_People_ai_MCP_Canary__find_account",
+      "Bash(python scripts/build_meeting_recap.py)",
+      "Bash(python scripts/split_recap_card_thread.py)",
+      "WebFetch(domain:peopleai.atlassian.net)",
+      "Bash(python scripts/create_daily_usage_report.py)",
+      "Bash(usage)",
+      "Bash(report)",
+      "Bash(jq \".nodes[] | select\\(.name | contains\\(\"\"cmd_tasks\"\"\\) or contains\\(\"\"Tasks\"\"\\) or contains\\(\"\"task\"\"\\)\\) | {name, id, type}\" /Users/scottmetcalf/projects/oppassistant/n8n/workflows/Slack Events Handler.json)",
+      "Bash(echo $N8N_API_KEY)",
+      "Bash(jq -r \".nodes[].parameters.conditions[]? | select\\(.condition | contains\\(\"\"cmd_tasks\"\"\\)\\) | .condition\" /Users/scottmetcalf/projects/oppassistant/n8n/workflows/Slack Events Handler.json)",
+      "Bash(jq -r \".nodes[] | select\\(.name | contains\\(\"\"cmd_tasks\"\"\\)\\) | .\" /Users/scottmetcalf/projects/oppassistant/n8n/workflows/Slack Events Handler.json)",
+      "mcp__claude_ai_Atlassian__searchConfluenceUsingCql",
+      "Bash(git rm:*)"
+    ]
+  }
+}
