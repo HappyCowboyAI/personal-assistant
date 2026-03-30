@@ -2,8 +2,8 @@
 
 > Complete reference for creating Backstory branded presentations in PPTX format using pptxgenjs.
 
-**Version:** 1.1
-**Last Updated:** February 2026 — Updated for new master template (revised color palette, building icon, 3 new slide templates)
+**Version:** 2.0
+**Last Updated:** March 2026 — Updated for v2.0 brand guidelines (revised color palette, new typography system with LL Kleisch / KMR Waldenburg / Chivo Mono, updated color tokens)
 
 ---
 
@@ -32,7 +32,7 @@ This skill creates professional presentations using **Backstory brand guidelines
 | Property | Value |
 |----------|-------|
 | Aspect Ratio | 16:9 |
-| Dimensions | 10" × 5.625" (pptxgenjs default) |
+| Dimensions | 10" Ã— 5.625" (pptxgenjs default) |
 | Layout | `LAYOUT_16x9` |
 
 ### Design Principles
@@ -40,14 +40,23 @@ This skill creates professional presentations using **Backstory brand guidelines
 - Clean, professional layouts with generous whitespace
 - Solid color or gradient backgrounds (no busy patterns)
 - Consistent use of brand colors for visual hierarchy
-- Headlines in serif font (Cardo), body in sans-serif (Roboto)
+- Headlines in serif font (LL Kleisch Light; fallback: Cardo), body in sans-serif (KMR Waldenburg; fallback: Roboto)
+- Data labels and stat values in monospaced font (Chivo Mono)
 - Single text blocks for bulleted lists (not individual text boxes)
 
 ---
 
 ## Brand Colors
 
-> **Updated January 2026** — The master template introduced revised hex values and two new colors. All values below reflect the current palette.
+> **Updated March 2026** — v2.0 brand guidelines. Color values sourced from Figma design token primitives. Key changes from v1.1: Horizon, Mint, and Indigo hex values updated; color names standardized.
+
+### Color Hierarchy
+
+| Weight | Colors | Usage |
+|--------|--------|-------|
+| **Neutral (dominant)** | Black, White | Primary visual language — always lead with these |
+| **Primary (supporting)** | Graphite, Surface Gray, Horizon | Structure, hierarchy, secondary surfaces |
+| **Secondary (accent only)** | Plum, Mint, Cinder, Indigo, Cobalt | Used sparingly; never competing with content |
 
 ### Primary Palette
 
@@ -55,85 +64,96 @@ This skill creates professional presentations using **Backstory brand guidelines
 |------|-----|-----|-------|
 | **Black** | `#000000` | 0/0/0 | Primary text on light backgrounds |
 | **Graphite** | `#171721` | 23/23/33 | Dark backgrounds, secondary text |
-| **Graphite 40** | `#55555E` | 85/85/94 | **NEW** — secondary/supporting text, mid-tone UI |
+| **Graphite 40** | `#55555E` | 85/85/94 | Secondary/supporting text, mid-tone UI |
 | **Surface Gray** | `#BBBCBC` | 187/188/188 | Neutral backgrounds, dividers |
-| **Horizon** | `#6397AD` | 99/151/173 | Accent color, positive indicators |
+| **Horizon** | `#6296AD` | 98/150/173 | Accent color, positive indicators |
 | **White** | `#FFFFFF` | 255/255/255 | Light backgrounds, text on dark |
 
 ### Secondary Palette
 
 | Name | HEX | RGB | Notes |
 |------|-----|-----|-------|
-| **Pale Plum** | `#B08FA2` | 176/143/162 | Updated (was Plum `#AA8FA0`) — slightly lighter |
-| **Minty** | `#5BA779` | 91/167/121 | Updated (was Mint `#CFFAD8`) — richer, more saturated |
-| **Cinder** | `#C05527` | 192/85/39 | Updated (was Ember `#D04911`) — cooler, darker orange |
-| **Navy** | `#012C48` | 1/44/72 | Dark backgrounds, emphasis |
-| **Cobalt** | `#21BFFF` | 33/191/255 | Updated (was Sky `#21B5FF`) — minimal shift |
-| **Salmon** | `#E8A090` | 232/160/144 | Soft accent |
-| **Indigo** | `#517AC1` | 81/122/193 | **NEW** — no prior equivalent; use for accent lines, highlights |
+| **Plum** | `#B08FA2` | 176/143/162 | Accent cards, tertiary data series |
+| **Mint** | `#8FCDA8` | 143/205/168 | Highlights, success indicators (v2.0: lighter, cooler than v1.1 `#5BA779`) |
+| **Cinder** | `#C05527` | 192/85/39 | Warnings, accent cards |
+| **Indigo** | `#275198` | 39/81/152 | Accent lines, highlights, dark emphasis (v2.0: significantly darker than v1.1 `#517AC1`) |
+| **Cobalt** | `#21B5FF` | 33/181/255 | Links, highlights |
+| **Salmon** | `#E8A090` | 232/160/144 | Color stripe accent |
+| **Navy** | `#012C48` | 1/44/72 | Dark backgrounds, stat values |
 
-### Color Code (pptxgenjs format - no # prefix)
+### Color Code (pptxgenjs format — no # prefix)
 
 ```javascript
 const COLORS = {
-    black: "000000",
-    graphite: "171721",
-    graphite40: "55555E",      // NEW: mid-tone graphite for secondary text
-    surfaceGray: "BBBCBC",
-    horizon: "6397AD",         // Updated: was 6296AD
-    white: "FFFFFF",
-    palePlum: "B08FA2",        // Updated: was AA8FA0 (Plum)
-    minty: "5BA779",           // Updated: was CFFAD8 (Mint) — now richer green
-    cinder: "C05527",          // Updated: was D04911 (Ember) — cooler/darker orange
-    navy: "012C48",
-    cobalt: "21BFFF",          // Updated: was 21B5FF (Sky)
-    salmon: "E8A090",
-    indigo: "517AC1"           // NEW: no prior equivalent
+    // Neutrals (dominant)
+    black:        "000000",
+    white:        "FFFFFF",
+
+    // Primary palette (supporting)
+    graphite:     "171721",
+    graphite40:   "55555E",   // Text/Secondary token
+    surfaceGray:  "BBBCBC",
+    horizon:      "6296AD",   // v2.0: was 6397AD in v1.1
+
+    // Secondary palette (accent only)
+    plum:         "B08FA2",
+    mint:         "8FCDA8",   // v2.0: was 5BA779 in v1.1 — lighter, cooler
+    cinder:       "C05527",
+    indigo:       "275198",   // v2.0: was 517AC1 in v1.1 — significantly darker
+    cobalt:       "21B5FF",
+    salmon:       "E8A090",   // Color stripe only
+    navy:         "012C48"    // Stat values
 };
 ```
 
 ### Approved Color Combinations
 
-| Background | Approved Text Colors |
-|------------|---------------------|
-| White | Black, Graphite, Graphite 40 |
-| Black | White, Pale Plum, Surface Gray, Minty |
-| Graphite | Pale Plum, White, Surface Gray |
-| Surface Gray | Black |
-| Horizon | Navy, White |
-| Navy | Horizon, Cobalt, Cinder, White, Indigo |
-| Pale Plum | Black, White |
-| Cinder | Black, White |
-| Indigo | White, Navy |
+| Background | Text / Foreground | Type |
+|------------|-------------------|------|
+| White | Black | Primary |
+| Black | White | Primary |
+| Graphite | White | Primary |
+| Horizon | Black | Accent |
+| Plum | Black | Secondary |
+| Cinder | White | Secondary |
+| Indigo | White | Secondary |
+| Cobalt | Black | Secondary |
+| Mint | Black | Secondary |
 
 ---
 
 ## Typography System
 
+> **v2.0 Change** — Type system updated. Three typefaces with distinct roles. PPTX uses fallback fonts unless brand fonts are embedded.
+
 ### Font Families
 
-| Element | Font | Notes |
-|---------|------|-------|
-| **Headlines** | Cardo | Serif, elegant, used for titles |
-| **Body Text** | Roboto | Sans-serif, clean, used for all other text |
+| Brand Typeface | Role | PPTX Fallback | Notes |
+|---------------|------|---------------|-------|
+| **LL Kleisch Light** | Headlines, display, pull quotes | `"Cardo"` | Embed LL Kleisch if licensed |
+| **KMR Waldenburg Regular** | Body, UI, labels, captions, buttons | `"Roboto"` | Embed KMR Waldenburg if licensed |
+| **Chivo Mono** | Data labels, stat values, figures, taglines | `"Chivo Mono"` | Available on Google Fonts — embed directly |
 
 ### Font Weights
 
 | Usage | Weight | pptxgenjs Property |
 |-------|--------|-------------------|
-| Headlines | Bold | `bold: true` |
+| Headlines | Light (LL Kleisch) / Bold (Cardo fallback) | `bold: true` |
 | Subtitles | Regular | `bold: false` |
 | Body Text | Regular | `bold: false` |
 | Emphasis | Bold | `bold: true` |
+| Data / Figures | Regular (Chivo Mono) | `bold: false` |
 
 ### Headline Sizes by Slide Type
 
 | Slide Type | Font Size | Font |
 |------------|-----------|------|
-| Title Slide | 48-72pt | Cardo Bold |
-| Section Divider | 40-64pt | Cardo Bold |
-| Content Slide Title | 32-44pt | Cardo Bold |
-| Subtitle | 18-28pt | Cardo Italic or Roboto |
+| Title Slide | 48-72pt | Cardo Bold (or LL Kleisch Light) |
+| Section Divider | 40-64pt | Cardo Bold (or LL Kleisch Light) |
+| Content Slide Title | 32-44pt | Cardo Bold (or LL Kleisch Light) |
+| Subtitle | 18-28pt | Cardo Italic or Roboto (or KMR Waldenburg) |
+| Stat Values | 36-60pt | **Chivo Mono Regular** |
+| Data Labels | 14-20pt | **Chivo Mono Regular** |
 
 ---
 
@@ -145,9 +165,9 @@ These are the canonical specifications for full-width content areas:
 
 | Tier | Font Size | Bullet | Unicode | Indent | Para Space Above | Para Space Below |
 |------|-----------|--------|---------|--------|------------------|------------------|
-| **1st** | 36pt | ● | U+25CF | 0 | 24pt | 12pt |
-| **2nd** | 34pt | – | U+2013 | 0.9" | 8pt | 8pt |
-| **3rd** | 32pt | ▪ | U+25AA | 1.35" | 8pt | 8pt |
+| **1st** | 36pt | â— | U+25CF | 0 | 24pt | 12pt |
+| **2nd** | 34pt | â€“ | U+2013 | 0.9" | 8pt | 8pt |
+| **3rd** | 32pt | â–ª | U+25AA | 1.35" | 8pt | 8pt |
 
 ### Scaled Sizes for Column Layouts
 
@@ -163,13 +183,13 @@ When content appears in columns, scale proportionally:
 ### Bullet Code Reference (pptxgenjs)
 
 ```javascript
-// Tier 1: Round bullet ●
+// Tier 1: Round bullet â—
 bullet: { code: "25CF" }
 
-// Tier 2: N-dash –
+// Tier 2: N-dash â€“
 bullet: { code: "2013" }
 
-// Tier 3: Small square ▪
+// Tier 3: Small square â–ª
 bullet: { code: "25AA" }
 ```
 
@@ -258,7 +278,7 @@ A horizontal multi-color stripe at the bottom of title and section slides.
 
 ```javascript
 function addColorStripe(slide, y = 5.1) {
-    const stripeColors = [COLORS.surfaceGray, COLORS.palePlum, COLORS.horizon, COLORS.salmon, COLORS.surfaceGray];
+    const stripeColors = [COLORS.surfaceGray, COLORS.plum, COLORS.horizon, COLORS.salmon, COLORS.surfaceGray];  // Surface Gray → Plum → Horizon → Salmon → Surface Gray
     stripeColors.forEach((color, i) => {
         slide.addShape("rect", {
             x: i * 2, y: y, w: 2, h: 0.525,
@@ -281,15 +301,15 @@ A vertical gradient stripe on the right edge, transitioning from Surface Gray to
 
 function addNavyStripe(slide) {
     // Add gradient stripe image
-    slide.addImage({
-        data: gradientStripeBase64,
-        x: 8.2, y: 0, w: 1.8, h: 5.625
+    slide.addImage({ 
+        data: gradientStripeBase64, 
+        x: 8.2, y: 0, w: 1.8, h: 5.625 
     });
-
+    
     // Add white books icon
-    slide.addImage({
-        data: booksIconWhiteBase64,
-        x: 8.55, y: 4.55, w: 0.7, h: 0.55
+    slide.addImage({ 
+        data: booksIconWhiteBase64, 
+        x: 8.55, y: 4.55, w: 0.7, h: 0.55 
     });
 }
 ```
@@ -324,25 +344,25 @@ function addFrame(slide) {
 |---------|----------|------|------|-------|
 | Title | x:0.5, y:1.4, w:9, h:1.2 | 48-72pt | Cardo Bold | Black |
 | Subtitle | x:0.5, y:2.6, w:9, h:0.6 | 18-28pt | Cardo Italic | Graphite |
-| Logo | x:3.5, y:3.4, w:3.0, h:0.5 | — | — | — |
-| Color Stripe | y:5.1, h:0.525 | — | — | Multi |
+| Logo | x:3.5, y:3.4, w:3.0, h:0.5 | â€” | â€” | â€” |
+| Color Stripe | y:5.1, h:0.525 | â€” | â€” | Multi |
 
 ### 2. Section Divider
 
 | Element | Position | Size | Font | Color |
 |---------|----------|------|------|-------|
 | Title | x:0.5, y:2.0, w:9, h:1.2 | 40-64pt | Cardo Bold | Black |
-| Logo | x:3.5, y:3.8, w:3.0, h:0.5 | — | — | — |
-| Color Stripe | y:5.1, h:0.525 | — | — | Multi |
+| Logo | x:3.5, y:3.8, w:3.0, h:0.5 | â€” | â€” | â€” |
+| Color Stripe | y:5.1, h:0.525 | â€” | â€” | Multi |
 
 ### 3. Content with Frame
 
 | Element | Position | Size | Font | Color |
 |---------|----------|------|------|-------|
-| Frame | x:0.2, y:0.2, w:9.6, h:5.2 | — | — | Graphite |
+| Frame | x:0.2, y:0.2, w:9.6, h:5.2 | â€” | â€” | Graphite |
 | Title | x:0.5, y:0.5, w:8, h:0.8 | 32-44pt | Cardo Bold | Black |
 | Body Area | x:0.5, y:1.5, w:8.5, h:3.5 | varies | Roboto | Graphite |
-| Books Icon | x:8.85, y:4.65, w:0.7, h:0.55 | — | — | — |
+| Books Icon | x:8.85, y:4.65, w:0.7, h:0.55 | â€” | â€” | â€” |
 
 ### 4. Two-Column Layout
 
@@ -351,21 +371,21 @@ function addFrame(slide) {
 | Title | x:0.5, y:0.4, w:8, h:0.8 | 32-44pt | Cardo Bold | Black |
 | Left Header | x:0.5, y:1.3, w:4.2, h:0.5 | 26pt | Roboto Bold | Horizon/Accent |
 | Left Content | x:0.5, y:1.85, w:4.2, h:3.5 | 16pt | Roboto | Graphite |
-| Right Header | x:5.2, y:1.3, w:4.2, h:0.5 | 26pt | Roboto Bold | Cinder/Accent |
+| Right Header | x:5.2, y:1.3, w:4.2, h:0.5 | 26pt | Roboto Bold | Ember/Accent |
 | Right Content | x:5.2, y:1.85, w:4.2, h:3.5 | 16pt | Roboto | Graphite |
-| Books Icon | x:8.85, y:4.65, w:0.7, h:0.55 | — | — | — |
+| Books Icon | x:8.85, y:4.65, w:0.7, h:0.55 | â€” | â€” | â€” |
 
 ### 5. Three-Column Cards (with Gradient Stripe)
 
 | Element | Position | Size | Font | Color |
 |---------|----------|------|------|-------|
 | Title | x:0.5, y:0.4, w:7, h:0.8 | 32-44pt | Cardo Bold | Black |
-| Card 1 | x:0.5, y:1.4, w:2.4, h:3.5 | — | — | Horizon |
-| Card 2 | x:3.0, y:1.4, w:2.4, h:3.5 | — | — | Pale Plum |
-| Card 3 | x:5.5, y:1.4, w:2.4, h:3.5 | — | — | Cinder |
+| Card 1 | x:0.5, y:1.4, w:2.4, h:3.5 | â€” | â€” | Horizon |
+| Card 2 | x:3.0, y:1.4, w:2.4, h:3.5 | â€” | â€” | Plum |
+| Card 3 | x:5.5, y:1.4, w:2.4, h:3.5 | â€” | â€” | Ember |
 | Card Title | +0.15 from card x | 18-28pt | Roboto Bold | White |
 | Card Items | +0.15 from card x | 12-16pt | Roboto | White |
-| Gradient Stripe | x:8.2, y:0, w:1.8, h:5.625 | — | — | Gradient |
+| Gradient Stripe | x:8.2, y:0, w:1.8, h:5.625 | â€” | â€” | Gradient |
 
 ### 6. Four-Column Timeline (with Gradient Stripe)
 
@@ -373,20 +393,20 @@ function addFrame(slide) {
 |---------|----------|------|------|-------|
 | Title | x:0.5, y:0.4, w:7, h:0.8 | 32-44pt | Cardo Bold | Black |
 | Q Labels | y:1.3, h:0.4 | 22pt | Roboto Bold | Black |
-| Cards | y:1.75, w:1.8, h:3.0 | — | — | Various |
+| Cards | y:1.75, w:1.8, h:3.0 | â€” | â€” | Various |
 | Card Focus | center aligned | 18-28pt | Cardo Bold | White |
 | Card Sub | center aligned | 14-22pt | Roboto | White |
-| Gradient Stripe | x:8.2, y:0, w:1.8, h:5.625 | — | — | Gradient |
+| Gradient Stripe | x:8.2, y:0, w:1.8, h:5.625 | â€” | â€” | Gradient |
 
 ### 7. Stats Dashboard
 
 | Element | Position | Size | Font | Color |
 |---------|----------|------|------|-------|
 | Title | x:0.5, y:0.5, w:8, h:0.8 | 32-44pt | Cardo Bold | Black |
-| Stat Value | w:2.5, h:1.0 | 36-60pt | Cardo Bold | Navy |
+| Stat Value | w:2.5, h:1.0 | 36-60pt | **Chivo Mono Regular** | Navy |
 | Stat Label | w:2.5, h:0.4 | 14-20pt | Roboto | Graphite |
 | Stat Change | w:2.5, h:0.4 | 16pt | Roboto Bold | Green (#2E7D32) |
-| Books Icon | x:8.85, y:4.65, w:0.7, h:0.55 | — | — | — |
+| Books Icon | x:8.85, y:4.65, w:0.7, h:0.55 | â€” | â€” | â€” |
 
 ### 8. Thank You Slide
 
@@ -394,8 +414,8 @@ function addFrame(slide) {
 |---------|----------|------|------|-------|
 | Title | x:0.5, y:1.8, w:9, h:1.5 | 48-80pt | Cardo Bold | Black |
 | Subtitle | x:0.5, y:3.3, w:9, h:0.6 | 18-24pt | Roboto | Graphite |
-| Logo | x:3.5, y:3.5, w:3.0, h:0.5 | — | — | — |
-| Color Stripe | y:5.1, h:0.525 | — | — | Multi |
+| Logo | x:3.5, y:3.5, w:3.0, h:0.5 | â€” | â€” | â€” |
+| Color Stripe | y:5.1, h:0.525 | â€” | â€” | Multi |
 
 ### 9. Dark Cover / Section Divider — NEW
 
@@ -441,129 +461,10 @@ Variant of the Stats Dashboard using Indigo accent bars above each stat and Grap
 | Frame | x:0.2, y:0.2, w:9.6, h:5.2 | — | — | Graphite |
 | Title | x:0.5, y:0.5, w:8, h:0.8 | 32-44pt | Cardo Bold | Black |
 | Indigo Accent Bar | above each stat, w:1.5, h:0.06 | — | — | **Indigo** |
-| Stat Value | w:2.5, h:1.0 | 36-60pt | Cardo Bold | Navy |
+| Stat Value | w:2.5, h:1.0 | 36-60pt | **Chivo Mono Regular** | Navy |
 | Stat Label | w:2.5, h:0.4 | 14-20pt | Roboto | **Graphite 40** |
 | Stat Change | w:2.5, h:0.4 | 14pt | Roboto Bold | Green (#2E7D32) or Indigo |
 
-### 12. Roadmap Placeholder (BBR-Specific)
-
-Use exclusively on the "Future Goals & Roadmap Alignment" slide in BBR decks. Signals the CSM to insert relevant roadmap slides before presenting — must be visually unmistakable as incomplete.
-
-| Element | Position | Size | Font | Color |
-|---------|----------|------|------|-------|
-| Warning Banner | x:0, y:0, w:10, h:0.65 | — | — | **Cinder** background |
-| Banner Text | x:0, y:0.1, w:10, h:0.45 | 13pt | Roboto Bold | White |
-| Title | x:0.5, y:0.85, w:9, h:0.75 | 36pt | Cardo Bold | Black |
-| Indigo Line | x:0.5, y:1.65, w:2.5, h:0.04 | — | — | Indigo |
-| Instructions | x:0.5, y:1.85, w:8.5, h:2.6 | 18pt | Roboto | Graphite |
-| Roadmap Link | inline in instructions | 18pt | Roboto | Indigo (underlined, hyperlinked) |
-| Books Icon | x:8.85, y:4.65, w:0.7, h:0.55 | — | — | dark |
-
-**Warning banner text:** `⚠  COMPLETE BEFORE PRESENTING — INSERT ROADMAP SLIDES HERE  ⚠`
-
-**Canonical roadmap URL:** `https://docs.google.com/presentation/d/1pw5YAQkmw3Xqey9bA-UYa6lyDGl5behoAbHOu9Zi7ag/edit`
-
-**Instructions body (3 numbered steps):**
-1. Open the Backstory Product Roadmap → [hyperlinked text to URL above]
-2. Copy slides relevant to this customer's priorities into this section
-3. Delete this slide before presenting
-
-```javascript
-// Template 12: Roadmap Placeholder
-const slide = pres.addSlide();
-
-// Cinder warning banner
-slide.addShape("rect", {
-    x: 0, y: 0, w: 10, h: 0.65,
-    fill: { color: COLORS.cinder },
-    line: { color: COLORS.cinder, width: 0 }
-});
-slide.addText("⚠  COMPLETE BEFORE PRESENTING — INSERT ROADMAP SLIDES HERE  ⚠", {
-    x: 0, y: 0.1, w: 10, h: 0.45,
-    fontFace: "Roboto", bold: true, fontSize: 13,
-    color: COLORS.white, align: "center"
-});
-
-// Title
-slide.addText("Future Goals & Roadmap Alignment", {
-    x: 0.5, y: 0.85, w: 9, h: 0.75,
-    fontFace: "Cardo", bold: true, fontSize: 36, color: COLORS.black
-});
-
-// Indigo accent line
-slide.addShape("rect", {
-    x: 0.5, y: 1.65, w: 2.5, h: 0.04,
-    fill: { color: COLORS.indigo },
-    line: { color: COLORS.indigo, width: 0 }
-});
-
-// Instructions with hyperlink on step 1
-const ROADMAP_URL = "https://docs.google.com/presentation/d/1pw5YAQkmw3Xqey9bA-UYa6lyDGl5behoAbHOu9Zi7ag/edit";
-slide.addText([
-    { text: "1.  Open the Backstory Product Roadmap  →  ", options: { color: COLORS.graphite } },
-    { text: "View Roadmap", options: {
-        color: COLORS.indigo, underline: { style: "sng" },
-        hyperlink: { url: ROADMAP_URL, tooltip: "Backstory Product Roadmap" }
-    }},
-    { text: "\n\n2.  Copy slides relevant to this customer's priorities into this section", options: { color: COLORS.graphite } },
-    { text: "\n\n3.  Delete this slide before presenting", options: { color: COLORS.graphite, bold: true } }
-], {
-    x: 0.5, y: 1.85, w: 8.5, h: 2.6,
-    fontFace: "Roboto", fontSize: 18, valign: "top"
-});
-
-// Books icon
-slide.addImage({ data: booksIconBase64, x: 8.85, y: 4.65, w: 0.7, h: 0.55 });
-```
-
----
-
-## BBR (Backstory Business Review) Presentation
-
-### Overview
-
-A BBR is a 60-90 minute strategic account review with executive stakeholders. Generate a BBR when the user asks for:
-- BBR, PBR (former name: People.ai Business Review), Business Review, Backstory Business Review
-
-### Slide Sequence (11 slides)
-
-| # | Slide | Template | Key Content |
-|---|-------|----------|-------------|
-| 1 | Title | Template 1 | "Backstory Business Review \| [Customer]", date + CSM name as subtitle |
-| 2 | Agenda | Template 3 (Frame) | 6 agenda items (see below) |
-| 3 | Section: Customer Journey | Template 2 | Simple divider |
-| 4 | Customer Journey | Template 4 (Two-Column) | Left: Why Backstory / Right: Enablement Timeline |
-| 5 | Section: ROI & Value | Template 9 (Dark Cover) | Graphite bg, white title |
-| 6 | ROI Stats | Template 11 (Indigo Stats) | 3-4 key metrics from People.ai |
-| 7 | Adoption & Usage | Template 4 (Two-Column) | Left: What's Working / Right: Areas to Strengthen |
-| 8 | Section: Looking Ahead | Template 2 | Simple divider |
-| 9 | Roadmap Placeholder | **Template 12** | Cinder banner, hyperlinked roadmap URL, instructions |
-| 10 | Action Items | Template 3 (Frame) | Numbered next steps with owner + target date |
-| 11 | Thank You | Template 8 | "Thank you, [Customer]" with wordmark |
-
-### Standard BBR Agenda (Slide 2 content)
-
-1. Welcome and Introductions
-2. Customer Journey
-3. ROI & Value Review
-4. Adoption & Success Metrics
-5. Future Goals & Roadmap Alignment
-6. Action Items and Next Steps
-
-### People.ai Data to Gather Before Generating
-
-Use `get_account_status` and `ask_sales_ai_about_account` for the target account. Capture:
-- Engagement score and trend direction
-- Open opportunities (names, amounts, stages)
-- Key contacts and their last activity
-- Recent meeting/email activity (volume, recency)
-- Any adoption signals or usage indicators
-
-### Agent Output Format
-
-1. 2-3 sentence summary of People.ai data found
-2. Complete self-contained pptxgenjs Node.js script in a ` ```javascript ``` ` code block
-3. Final line: `Run with: npm install pptxgenjs && node bbr_[customer].js`
 
 ---
 
@@ -590,7 +491,7 @@ const bulletedText = [
 
 slide.addText(bulletedText, {
     x: 0.5, y: 1.5, w: 4.2, h: 3.5,
-    fontSize: 16,
+    fontSize: 16, 
     fontFace: "Roboto",
     color: COLORS.graphite,
     valign: "top",
@@ -635,19 +536,19 @@ function addCard(slide, x, y, w, h, color, title, items) {
         line: { color: color, width: 0 },
         rectRadius: 0.15
     });
-
+    
     // Card title
     slide.addText(title, {
         x: x + 0.15, y: y + 0.15, w: w - 0.3, h: 0.5,
         fontSize: 18, fontFace: "Roboto", bold: true, color: COLORS.white
     });
-
+    
     // Card items as single text block
     const itemsText = items.map(item => ({
         text: item,
         options: { bullet: { code: "25CF" }, indentLevel: 0 }
     }));
-
+    
     slide.addText(itemsText, {
         x: x + 0.15, y: y + 0.7, w: w - 0.3, h: h - 0.9,
         fontSize: 14, fontFace: "Roboto", color: COLORS.white,
@@ -727,7 +628,12 @@ const fs = require("fs");
 const path = require("path");
 
 // ============ BRAND CONSTANTS ============
-const COLORS = { /* ... */ };
+const COLORS = { /* see Brand Colors section */ };
+const FONTS = {
+    headline: "Cardo",       // Fallback for LL Kleisch Light
+    body: "Roboto",          // Fallback for KMR Waldenburg Regular
+    data: "Chivo Mono"       // Data labels, stat values, figures
+};
 const TEXT_STYLES = {
     tier1: { fontSize: 36, bullet: { code: "25CF" }, indentLevel: 0 },
     tier2: { fontSize: 34, bullet: { code: "2013" }, indentLevel: 1 },
@@ -756,8 +662,6 @@ function addFrame(slide) { /* ... */ }
 const logoBase64 = imageToBase64("./assets/wordmark-dark.png");
 const booksIconBase64 = imageToBase64("./assets/books-icon-dark.png");
 const booksIconWhiteBase64 = imageToBase64("./assets/books-icon-white.png");
-const buildingIconBase64 = imageToBase64("./assets/building-icon-dark.png");
-const buildingIconWhiteBase64 = imageToBase64("./assets/building-icon-white.png");
 const gradientStripeBase64 = imageToBase64("./assets/gradient-stripe.png");
 
 // ============ SLIDES ============
@@ -790,11 +694,11 @@ npm install pptxgenjs
 ## Checklist for New Presentations
 
 - [ ] Set `pres.layout = "LAYOUT_16x9"`
-- [ ] Load all logo/icon assets as base64 (wordmark, books icon dark/white, building icon dark/white)
-- [ ] Use Cardo for headlines, Roboto for body text
+- [ ] Load all logo/icon assets as base64 (wordmark, books icon dark/white, **building icon dark/white**)
+- [ ] Use Cardo (or LL Kleisch if embedded) for headlines, Roboto (or KMR Waldenburg if embedded) for body text, Chivo Mono for stat values/data labels
 - [ ] Use single text blocks with `indentLevel` for bullet lists
-- [ ] Maintain logo aspect ratios (wordmark 5.96:1, books icon 1.26:1, building icon 0.71:1)
-- [ ] Use updated color names: `palePlum`, `minty`, `cinder`, `cobalt` (not old plum/mint/ember/sky)
+- [ ] Maintain logo aspect ratios (wordmark 5.96:1, books icon 1.26:1, **building icon 0.71:1**)
+- [ ] Use v2.0 color names: `plum`, `mint`, `cinder`, `indigo`, `cobalt` (not old palePlum/minty/ember/sky)
 - [ ] Use `graphite40` for secondary/supporting text labels
 - [ ] Use `indigo` for accent lines, highlights, and people/org slide titles
 - [ ] Apply color stripe to title and section slides
@@ -809,30 +713,30 @@ npm install pptxgenjs
 
 ### Text Overlapping
 
-**Cause:** Using separate text boxes for each bullet item.
+**Cause:** Using separate text boxes for each bullet item.  
 **Solution:** Use single text block with array of text objects and `indentLevel`.
 
 ### Logo Appears Stretched
 
-**Cause:** Width/height ratio doesn't match image aspect ratio.
+**Cause:** Width/height ratio doesn't match image aspect ratio.  
 **Solution:** Calculate correct dimensions: `h = w / aspectRatio`
 
 ### Gradient Has Visible Bands
 
-**Cause:** Using pptxgenjs programmatic gradient with discrete steps.
+**Cause:** Using pptxgenjs programmatic gradient with discrete steps.  
 **Solution:** Use pre-generated gradient image instead.
 
 ### Fonts Don't Display Correctly
 
-**Cause:** Cardo/Roboto fonts not installed on viewing system.
+**Cause:** Cardo/Roboto fonts not installed on viewing system.  
 **Solution:** Fonts are embedded in PPTX; ensure using standard font names.
 
 ### Bullets Not Showing
 
-**Cause:** Incorrect bullet code format.
+**Cause:** Incorrect bullet code format.  
 **Solution:** Use `bullet: { code: "25CF" }` (Unicode without U+ prefix).
 
 ---
 
-*Document Version: 1.1*
-*Created: February 2026*
+*Document Version: 2.0*
+*Last Updated: March 2026*

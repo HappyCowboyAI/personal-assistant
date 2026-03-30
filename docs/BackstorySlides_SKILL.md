@@ -2,8 +2,8 @@
 
 > Complete reference for creating Backstory branded presentations in PPTX format using pptxgenjs.
 
-**Version:** 1.1  
-**Last Updated:** February 2026 — Updated for new master template (revised color palette, building icon, 3 new slide templates)
+**Version:** 2.0
+**Last Updated:** March 2026 — Updated for v2.0 brand guidelines (revised color palette, new typography system with LL Kleisch / KMR Waldenburg / Chivo Mono, updated color tokens)
 
 ---
 
@@ -40,14 +40,23 @@ This skill creates professional presentations using **Backstory brand guidelines
 - Clean, professional layouts with generous whitespace
 - Solid color or gradient backgrounds (no busy patterns)
 - Consistent use of brand colors for visual hierarchy
-- Headlines in serif font (Cardo), body in sans-serif (Roboto)
+- Headlines in serif font (LL Kleisch Light; fallback: Cardo), body in sans-serif (KMR Waldenburg; fallback: Roboto)
+- Data labels and stat values in monospaced font (Chivo Mono)
 - Single text blocks for bulleted lists (not individual text boxes)
 
 ---
 
 ## Brand Colors
 
-> **Updated January 2026** — The master template introduced revised hex values and two new colors. All values below reflect the current palette.
+> **Updated March 2026** — v2.0 brand guidelines. Color values sourced from Figma design token primitives. Key changes from v1.1: Horizon, Mint, and Indigo hex values updated; color names standardized.
+
+### Color Hierarchy
+
+| Weight | Colors | Usage |
+|--------|--------|-------|
+| **Neutral (dominant)** | Black, White | Primary visual language — always lead with these |
+| **Primary (supporting)** | Graphite, Surface Gray, Horizon | Structure, hierarchy, secondary surfaces |
+| **Secondary (accent only)** | Plum, Mint, Cinder, Indigo, Cobalt | Used sparingly; never competing with content |
 
 ### Primary Palette
 
@@ -55,85 +64,96 @@ This skill creates professional presentations using **Backstory brand guidelines
 |------|-----|-----|-------|
 | **Black** | `#000000` | 0/0/0 | Primary text on light backgrounds |
 | **Graphite** | `#171721` | 23/23/33 | Dark backgrounds, secondary text |
-| **Graphite 40** | `#55555E` | 85/85/94 | **NEW** — secondary/supporting text, mid-tone UI |
+| **Graphite 40** | `#55555E` | 85/85/94 | Secondary/supporting text, mid-tone UI |
 | **Surface Gray** | `#BBBCBC` | 187/188/188 | Neutral backgrounds, dividers |
-| **Horizon** | `#6397AD` | 99/151/173 | Accent color, positive indicators |
+| **Horizon** | `#6296AD` | 98/150/173 | Accent color, positive indicators |
 | **White** | `#FFFFFF` | 255/255/255 | Light backgrounds, text on dark |
 
 ### Secondary Palette
 
 | Name | HEX | RGB | Notes |
 |------|-----|-----|-------|
-| **Pale Plum** | `#B08FA2` | 176/143/162 | Updated (was Plum `#AA8FA0`) — slightly lighter |
-| **Minty** | `#5BA779` | 91/167/121 | Updated (was Mint `#CFFAD8`) — richer, more saturated |
-| **Cinder** | `#C05527` | 192/85/39 | Updated (was Ember `#D04911`) — cooler, darker orange |
-| **Navy** | `#012C48` | 1/44/72 | Dark backgrounds, emphasis |
-| **Cobalt** | `#21BFFF` | 33/191/255 | Updated (was Sky `#21B5FF`) — minimal shift |
-| **Salmon** | `#E8A090` | 232/160/144 | Soft accent |
-| **Indigo** | `#517AC1` | 81/122/193 | **NEW** — no prior equivalent; use for accent lines, highlights |
+| **Plum** | `#B08FA2` | 176/143/162 | Accent cards, tertiary data series |
+| **Mint** | `#8FCDA8` | 143/205/168 | Highlights, success indicators (v2.0: lighter, cooler than v1.1 `#5BA779`) |
+| **Cinder** | `#C05527` | 192/85/39 | Warnings, accent cards |
+| **Indigo** | `#275198` | 39/81/152 | Accent lines, highlights, dark emphasis (v2.0: significantly darker than v1.1 `#517AC1`) |
+| **Cobalt** | `#21B5FF` | 33/181/255 | Links, highlights |
+| **Salmon** | `#E8A090` | 232/160/144 | Color stripe accent |
+| **Navy** | `#012C48` | 1/44/72 | Dark backgrounds, stat values |
 
 ### Color Code (pptxgenjs format — no # prefix)
 
 ```javascript
 const COLORS = {
-    black: "000000",
-    graphite: "171721",
-    graphite40: "55555E",      // NEW: mid-tone graphite for secondary text
-    surfaceGray: "BBBCBC",
-    horizon: "6397AD",         // Updated: was 6296AD
-    white: "FFFFFF",
-    palePlum: "B08FA2",        // Updated: was AA8FA0 (Plum)
-    minty: "5BA779",           // Updated: was CFFAD8 (Mint) — now richer green
-    cinder: "C05527",          // Updated: was D04911 (Ember) — cooler/darker orange
-    navy: "012C48",
-    cobalt: "21BFFF",          // Updated: was 21B5FF (Sky)
-    salmon: "E8A090",
-    indigo: "517AC1"           // NEW: no prior equivalent
+    // Neutrals (dominant)
+    black:        "000000",
+    white:        "FFFFFF",
+
+    // Primary palette (supporting)
+    graphite:     "171721",
+    graphite40:   "55555E",   // Text/Secondary token
+    surfaceGray:  "BBBCBC",
+    horizon:      "6296AD",   // v2.0: was 6397AD in v1.1
+
+    // Secondary palette (accent only)
+    plum:         "B08FA2",
+    mint:         "8FCDA8",   // v2.0: was 5BA779 in v1.1 — lighter, cooler
+    cinder:       "C05527",
+    indigo:       "275198",   // v2.0: was 517AC1 in v1.1 — significantly darker
+    cobalt:       "21B5FF",
+    salmon:       "E8A090",   // Color stripe only
+    navy:         "012C48"    // Stat values
 };
 ```
 
 ### Approved Color Combinations
 
-| Background | Approved Text Colors |
-|------------|---------------------|
-| White | Black, Graphite, Graphite 40 |
-| Black | White, Pale Plum, Surface Gray, Minty |
-| Graphite | Pale Plum, White, Surface Gray |
-| Surface Gray | Black |
-| Horizon | Navy, White |
-| Navy | Horizon, Cobalt, Cinder, White, Indigo |
-| Pale Plum | Black, White |
-| Cinder | Black, White |
-| Indigo | White, Navy |
+| Background | Text / Foreground | Type |
+|------------|-------------------|------|
+| White | Black | Primary |
+| Black | White | Primary |
+| Graphite | White | Primary |
+| Horizon | Black | Accent |
+| Plum | Black | Secondary |
+| Cinder | White | Secondary |
+| Indigo | White | Secondary |
+| Cobalt | Black | Secondary |
+| Mint | Black | Secondary |
 
 ---
 
 ## Typography System
 
+> **v2.0 Change** — Type system updated. Three typefaces with distinct roles. PPTX uses fallback fonts unless brand fonts are embedded.
+
 ### Font Families
 
-| Element | Font | Notes |
-|---------|------|-------|
-| **Headlines** | Cardo | Serif, elegant, used for titles |
-| **Body Text** | Roboto | Sans-serif, clean, used for all other text |
+| Brand Typeface | Role | PPTX Fallback | Notes |
+|---------------|------|---------------|-------|
+| **LL Kleisch Light** | Headlines, display, pull quotes | `"Cardo"` | Embed LL Kleisch if licensed |
+| **KMR Waldenburg Regular** | Body, UI, labels, captions, buttons | `"Roboto"` | Embed KMR Waldenburg if licensed |
+| **Chivo Mono** | Data labels, stat values, figures, taglines | `"Chivo Mono"` | Available on Google Fonts — embed directly |
 
 ### Font Weights
 
 | Usage | Weight | pptxgenjs Property |
 |-------|--------|-------------------|
-| Headlines | Bold | `bold: true` |
+| Headlines | Light (LL Kleisch) / Bold (Cardo fallback) | `bold: true` |
 | Subtitles | Regular | `bold: false` |
 | Body Text | Regular | `bold: false` |
 | Emphasis | Bold | `bold: true` |
+| Data / Figures | Regular (Chivo Mono) | `bold: false` |
 
 ### Headline Sizes by Slide Type
 
 | Slide Type | Font Size | Font |
 |------------|-----------|------|
-| Title Slide | 48-72pt | Cardo Bold |
-| Section Divider | 40-64pt | Cardo Bold |
-| Content Slide Title | 32-44pt | Cardo Bold |
-| Subtitle | 18-28pt | Cardo Italic or Roboto |
+| Title Slide | 48-72pt | Cardo Bold (or LL Kleisch Light) |
+| Section Divider | 40-64pt | Cardo Bold (or LL Kleisch Light) |
+| Content Slide Title | 32-44pt | Cardo Bold (or LL Kleisch Light) |
+| Subtitle | 18-28pt | Cardo Italic or Roboto (or KMR Waldenburg) |
+| Stat Values | 36-60pt | **Chivo Mono Regular** |
+| Data Labels | 14-20pt | **Chivo Mono Regular** |
 
 ---
 
@@ -258,7 +278,7 @@ A horizontal multi-color stripe at the bottom of title and section slides.
 
 ```javascript
 function addColorStripe(slide, y = 5.1) {
-    const stripeColors = [COLORS.surfaceGray, COLORS.plum, COLORS.horizon, COLORS.salmon, COLORS.surfaceGray];
+    const stripeColors = [COLORS.surfaceGray, COLORS.plum, COLORS.horizon, COLORS.salmon, COLORS.surfaceGray];  // Surface Gray → Plum → Horizon → Salmon → Surface Gray
     stripeColors.forEach((color, i) => {
         slide.addShape("rect", {
             x: i * 2, y: y, w: 2, h: 0.525,
@@ -383,7 +403,7 @@ function addFrame(slide) {
 | Element | Position | Size | Font | Color |
 |---------|----------|------|------|-------|
 | Title | x:0.5, y:0.5, w:8, h:0.8 | 32-44pt | Cardo Bold | Black |
-| Stat Value | w:2.5, h:1.0 | 36-60pt | Cardo Bold | Navy |
+| Stat Value | w:2.5, h:1.0 | 36-60pt | **Chivo Mono Regular** | Navy |
 | Stat Label | w:2.5, h:0.4 | 14-20pt | Roboto | Graphite |
 | Stat Change | w:2.5, h:0.4 | 16pt | Roboto Bold | Green (#2E7D32) |
 | Books Icon | x:8.85, y:4.65, w:0.7, h:0.55 | â€” | â€” | â€” |
@@ -441,7 +461,7 @@ Variant of the Stats Dashboard using Indigo accent bars above each stat and Grap
 | Frame | x:0.2, y:0.2, w:9.6, h:5.2 | — | — | Graphite |
 | Title | x:0.5, y:0.5, w:8, h:0.8 | 32-44pt | Cardo Bold | Black |
 | Indigo Accent Bar | above each stat, w:1.5, h:0.06 | — | — | **Indigo** |
-| Stat Value | w:2.5, h:1.0 | 36-60pt | Cardo Bold | Navy |
+| Stat Value | w:2.5, h:1.0 | 36-60pt | **Chivo Mono Regular** | Navy |
 | Stat Label | w:2.5, h:0.4 | 14-20pt | Roboto | **Graphite 40** |
 | Stat Change | w:2.5, h:0.4 | 14pt | Roboto Bold | Green (#2E7D32) or Indigo |
 
@@ -608,7 +628,12 @@ const fs = require("fs");
 const path = require("path");
 
 // ============ BRAND CONSTANTS ============
-const COLORS = { /* ... */ };
+const COLORS = { /* see Brand Colors section */ };
+const FONTS = {
+    headline: "Cardo",       // Fallback for LL Kleisch Light
+    body: "Roboto",          // Fallback for KMR Waldenburg Regular
+    data: "Chivo Mono"       // Data labels, stat values, figures
+};
 const TEXT_STYLES = {
     tier1: { fontSize: 36, bullet: { code: "25CF" }, indentLevel: 0 },
     tier2: { fontSize: 34, bullet: { code: "2013" }, indentLevel: 1 },
@@ -670,10 +695,10 @@ npm install pptxgenjs
 
 - [ ] Set `pres.layout = "LAYOUT_16x9"`
 - [ ] Load all logo/icon assets as base64 (wordmark, books icon dark/white, **building icon dark/white**)
-- [ ] Use Cardo for headlines, Roboto for body text
+- [ ] Use Cardo (or LL Kleisch if embedded) for headlines, Roboto (or KMR Waldenburg if embedded) for body text, Chivo Mono for stat values/data labels
 - [ ] Use single text blocks with `indentLevel` for bullet lists
 - [ ] Maintain logo aspect ratios (wordmark 5.96:1, books icon 1.26:1, **building icon 0.71:1**)
-- [ ] Use updated color names: `palePlum`, `minty`, `cinder`, `cobalt` (not old plum/mint/ember/sky)
+- [ ] Use v2.0 color names: `plum`, `mint`, `cinder`, `indigo`, `cobalt` (not old palePlum/minty/ember/sky)
 - [ ] Use `graphite40` for secondary/supporting text labels
 - [ ] Use `indigo` for accent lines, highlights, and people/org slide titles
 - [ ] Apply color stripe to title and section slides
@@ -713,5 +738,5 @@ npm install pptxgenjs
 
 ---
 
-*Document Version: 1.0*  
-*Created: February 2026*
+*Document Version: 2.0*
+*Last Updated: March 2026*

@@ -21,12 +21,23 @@
 
 ## Brand Colors
 
+> **Updated March 2026** — v2.0 brand guidelines. Values from Figma design token primitives.
+
+### Color Hierarchy
+
+| Weight | Colors | Usage |
+|--------|--------|-------|
+| **Neutral (dominant)** | Black, White | Primary visual language — always lead with these |
+| **Primary (supporting)** | Graphite, Surface Gray, Horizon | Structure, hierarchy, secondary surfaces |
+| **Secondary (accent only)** | Plum, Mint, Cinder, Indigo, Cobalt | Used sparingly; never competing with content |
+
 ### Primary Palette
 
 | Name | HEX | CSS Variable | Use For |
 |------|-----|--------------|---------|
 | **Black** | `#000000` | `--bs-black` | Primary text on light BG |
 | **Graphite** | `#171721` | `--bs-graphite` | Dark backgrounds, headers |
+| **Graphite 40** | `#55555E` | `--bs-graphite40` | Secondary text, mid-tone UI |
 | **Surface Gray** | `#BBBCBC` | `--bs-surface-gray` | Card backgrounds, borders |
 | **Horizon** | `#6296AD` | `--bs-horizon` | Accent cards, Step 1 |
 | **White** | `#FFFFFF` | `--bs-white` | Light backgrounds, text on dark |
@@ -35,58 +46,76 @@
 
 | Name | HEX | CSS Variable | Use For |
 |------|-----|--------------|---------|
-| **Plum** | `#AA8FA0` | `--bs-plum` | Accent cards, Step 2 |
-| **Mint** | `#CFFAD8` | `--bs-mint` | Highlights, success indicators |
-| **Ember** | `#D04911` | `--bs-ember` | Accent cards, Step 3, warnings |
+| **Plum** | `#B08FA2` | `--bs-plum` | Accent cards, Step 2 |
+| **Mint** | `#8FCDA8` | `--bs-mint` | Highlights, success indicators |
+| **Cinder** | `#C05527` | `--bs-cinder` | Accent cards, Step 3, warnings |
+| **Indigo** | `#275198` | `--bs-indigo` | Accent lines, dark emphasis |
+| **Cobalt** | `#21B5FF` | `--bs-cobalt` | Links, Step 5, highlights |
 | **Navy** | `#012C48` | `--bs-navy` | Dark cards, Step 4, footers |
-| **Sky** | `#21B5FF` | `--bs-sky` | Links, Step 5, highlights |
+| **Salmon** | `#E8A090` | `--bs-salmon` | Color stripe accent |
 
 ### Data Visualization Colors
 
-Use this sequence for charts and graphs:
-1. Horizon (`#6296AD`) - 42% segments, primary data
-2. Navy (`#012C48`) - 38% segments, secondary data  
-3. Ember (`#D04911`) - 28% segments, tertiary data
+Use this sequence for multi-series charts (per brand guidelines):
+1. Horizon (`#6296AD`) — primary series
+2. Mint (`#8FCDA8`) — secondary series
+3. Plum (`#B08FA2`) — tertiary series
+4. Cobalt (`#21B5FF`) — quaternary series
 
 ### Color Combinations (Text on Background)
 
-| Background | Approved Text Colors |
-|------------|---------------------|
-| White | Black |
-| Black/Graphite | White, Plum, Surface Gray, Mint |
-| Horizon | White, Navy |
-| Navy | White, Horizon, Sky, Ember |
-| Plum | White, Black |
-| Ember | White, Black, Navy |
-| Sky | Navy, White |
+| Background | Text / Foreground | Type |
+|------------|-------------------|------|
+| White | Black | Primary |
+| Black | White | Primary |
+| Graphite | White | Primary |
+| Horizon | Black | Accent |
+| Plum | Black | Secondary |
+| Cinder | White | Secondary |
+| Indigo | White | Secondary |
+| Cobalt | Black | Secondary |
+| Mint | Black | Secondary |
 
 ---
 
 ## Typography
 
+> **v2.0 Change** — Three typefaces with distinct roles. Brand fonts (LL Kleisch, KMR Waldenburg) require licensing; use fallbacks (Cardo, Roboto) for web. Chivo Mono is freely available via Google Fonts.
+
 ### Font Stack
 
 ```css
---bs-font-headline: 'Cardo', Georgia, 'Times New Roman', serif;
---bs-font-body: 'Roboto', 'Helvetica Neue', Arial, sans-serif;
+--bs-font-headline: 'LL Kleisch', 'Cardo', Georgia, 'Times New Roman', serif;
+--bs-font-body: 'KMR Waldenburg', 'Roboto', 'Helvetica Neue', Arial, sans-serif;
+--bs-font-data: 'Chivo Mono', 'Courier New', monospace;
 ```
 
-**Google Fonts Import:**
+**Google Fonts Import (fallback fonts + Chivo Mono):**
 ```html
-<link href="https://fonts.googleapis.com/css2?family=Cardo:wght@400;700&family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Cardo:wght@400;700&family=Roboto:wght@400;500;700&family=Chivo+Mono:wght@400;500;700&display=swap" rel="stylesheet">
 ```
+
+### Typeface Roles
+
+| Brand Typeface | Role | Web Fallback |
+|---------------|------|--------------|
+| **LL Kleisch Light** | Headlines, display, pull quotes | Cardo |
+| **KMR Waldenburg** | Body, UI, labels, captions, buttons | Roboto |
+| **Chivo Mono** | Data labels, stat values, figures, taglines | Chivo Mono (Google Fonts) |
 
 ### Type Scale
 
 | Element | Font | Size | Weight | Line Height |
 |---------|------|------|--------|-------------|
-| Hero Title | Cardo | 72px (4.5em) | 700 | 1.1 |
-| Slide Title | Cardo | 44px (2.75em) | 700 | 1.2 |
-| Section Header | Roboto | 30px (1.875em) | 700 | 1.3 |
-| Body L1 | Roboto | 28px (1.75em) | 400 | 1.4 |
-| Body L2 | Roboto | 26px (1.625em) | 400 | 1.4 |
-| Body L3 | Roboto | 24px (1.5em) | 400 | 1.4 |
-| Caption | Roboto | 18px (1.125em) | 400 | 1.5 |
+| Hero Title | Cardo (LL Kleisch) | 72px (4.5em) | 700 (Light) | 1.1 |
+| Slide Title | Cardo (LL Kleisch) | 44px (2.75em) | 700 (Light) | 1.2 |
+| Section Header | Roboto (KMR Waldenburg) | 30px (1.875em) | 700 | 1.3 |
+| Body L1 | Roboto (KMR Waldenburg) | 28px (1.75em) | 400 | 1.4 |
+| Body L2 | Roboto (KMR Waldenburg) | 26px (1.625em) | 400 | 1.4 |
+| Body L3 | Roboto (KMR Waldenburg) | 24px (1.5em) | 400 | 1.4 |
+| Caption | Roboto (KMR Waldenburg) | 18px (1.125em) | 400 | 1.5 |
+| Stat / Data | **Chivo Mono** | varies | 400 | 1.2 |
+| Tagline / Label | **Chivo Mono** | 14px | 500 | 1.5 |
 
 ### Bullet Styles
 
@@ -126,26 +155,30 @@ Use this sequence for charts and graphs:
 ## CSS Foundation
 
 ```css
-@import url('https://fonts.googleapis.com/css2?family=Cardo:wght@400;700&family=Roboto:wght@400;500;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Cardo:wght@400;700&family=Roboto:wght@400;500;700&family=Chivo+Mono:wght@400;500;700&display=swap');
 
 :root {
-    /* Primary */
+    /* Primary (dominant: black & white; supporting: graphite, surface gray, horizon) */
     --bs-black: #000000;
     --bs-graphite: #171721;
+    --bs-graphite40: #55555E;
     --bs-surface-gray: #BBBCBC;
     --bs-horizon: #6296AD;
     --bs-white: #FFFFFF;
-    
-    /* Secondary */
-    --bs-plum: #AA8FA0;
-    --bs-mint: #CFFAD8;
-    --bs-ember: #D04911;
+
+    /* Secondary (accent only) */
+    --bs-plum: #B08FA2;
+    --bs-mint: #8FCDA8;
+    --bs-cinder: #C05527;
+    --bs-indigo: #275198;
+    --bs-cobalt: #21B5FF;
     --bs-navy: #012C48;
-    --bs-sky: #21B5FF;
-    
+    --bs-salmon: #E8A090;
+
     /* Typography */
-    --bs-font-headline: 'Cardo', Georgia, serif;
-    --bs-font-body: 'Roboto', sans-serif;
+    --bs-font-headline: 'LL Kleisch', 'Cardo', Georgia, serif;
+    --bs-font-body: 'KMR Waldenburg', 'Roboto', sans-serif;
+    --bs-font-data: 'Chivo Mono', monospace;
 }
 
 /* Reveal.js Overrides */
@@ -245,9 +278,10 @@ html, body {
 
 .bs-card.horizon { background: var(--bs-horizon); }
 .bs-card.plum { background: var(--bs-plum); }
-.bs-card.ember { background: var(--bs-ember); }
+.bs-card.cinder { background: var(--bs-cinder); }
+.bs-card.indigo { background: var(--bs-indigo); }
 .bs-card.navy { background: var(--bs-navy); }
-.bs-card.sky { background: var(--bs-sky); }
+.bs-card.cobalt { background: var(--bs-cobalt); }
 
 /* Bullet Lists */
 .bs-bullets {
@@ -310,7 +344,7 @@ html, body {
         <div style="background: var(--bs-surface-gray);"></div>
         <div style="background: var(--bs-plum);"></div>
         <div style="background: var(--bs-horizon);"></div>
-        <div style="background: #E8B4A0;"></div>
+        <div style="background: var(--bs-salmon);"></div>
         <div style="background: var(--bs-surface-gray);"></div>
     </div>
 </section>
@@ -328,7 +362,7 @@ html, body {
         <div style="background: var(--bs-surface-gray);"></div>
         <div style="background: var(--bs-plum);"></div>
         <div style="background: var(--bs-horizon);"></div>
-        <div style="background: #E8B4A0;"></div>
+        <div style="background: var(--bs-salmon);"></div>
         <div style="background: var(--bs-surface-gray);"></div>
     </div>
 </section>
@@ -519,7 +553,7 @@ html, body {
                 </ul>
             </div>
             <!-- Step 3 -->
-            <div class="bs-card ember" style="flex: 1;">
+            <div class="bs-card cinder" style="flex: 1;">
                 <h3 style="color: var(--bs-black); margin-bottom: 20px;">Step 3 Heading</h3>
                 <ul style="list-style: disc; padding-left: 1.5em; font-size: 1.3em; line-height: 1.5;">
                     <li>First action item</li>
@@ -550,7 +584,7 @@ html, body {
                 <h3 style="color: var(--bs-black); margin-bottom: 15px; font-size: 1.3em;">Step 2</h3>
                 <p style="font-size: 1.1em; line-height: 1.4;">Description of second step</p>
             </div>
-            <div class="bs-card ember" style="flex: 1;">
+            <div class="bs-card cinder" style="flex: 1;">
                 <h3 style="color: var(--bs-black); margin-bottom: 15px; font-size: 1.3em;">Step 3</h3>
                 <p style="font-size: 1.1em; line-height: 1.4;">Description of third step</p>
             </div>
@@ -581,7 +615,7 @@ html, body {
                 <strong style="margin-right: 20px; font-size: 1.3em;">Process 2:</strong>
                 <span style="font-size: 1.2em; font-style: italic;">Description of this step</span>
             </div>
-            <div class="bs-card ember" style="padding: 20px 30px; display: flex; align-items: center;">
+            <div class="bs-card cinder" style="padding: 20px 30px; display: flex; align-items: center;">
                 <strong style="margin-right: 20px; font-size: 1.3em;">Process 3:</strong>
                 <span style="font-size: 1.2em; font-style: italic;">Description of this step</span>
             </div>
@@ -589,9 +623,9 @@ html, body {
                 <strong style="margin-right: 20px; font-size: 1.3em;">Process 4:</strong>
                 <span style="font-size: 1.2em; font-style: italic;">Description of this step</span>
             </div>
-            <div class="bs-card sky" style="padding: 20px 30px; display: flex; align-items: center;">
-                <strong style="color: var(--bs-navy); margin-right: 20px; font-size: 1.3em;">Process 5:</strong>
-                <span style="color: var(--bs-navy); font-size: 1.2em; font-style: italic;">Description of this step</span>
+            <div class="bs-card cobalt" style="padding: 20px 30px; display: flex; align-items: center;">
+                <strong style="color: var(--bs-black); margin-right: 20px; font-size: 1.3em;">Process 5:</strong>
+                <span style="color: var(--bs-black); font-size: 1.2em; font-style: italic;">Description of this step</span>
             </div>
         </div>
     </div>
@@ -631,7 +665,7 @@ html, body {
             <!-- Q3 -->
             <div style="flex: 1; text-align: center;">
                 <h3 style="color: var(--bs-black); margin-bottom: 15px;">Q3</h3>
-                <div class="bs-card ember" style="padding: 25px 20px; border-radius: 20px; min-height: 300px;">
+                <div class="bs-card cinder" style="padding: 25px 20px; border-radius: 20px; min-height: 300px;">
                     <p style="font-size: 1.2em; margin-bottom: 20px;">Metric Label</p>
                     <p style="font-size: 3em; font-weight: 700; margin-bottom: 10px;">$XXX</p>
                     <p style="font-size: 2.5em; font-weight: 700; margin-bottom: 15px;">XX%</p>
@@ -780,7 +814,7 @@ html, body {
             </div>
             <!-- Metric 3 -->
             <div style="text-align: center;">
-                <div style="width: 200px; height: 200px; border-radius: 50%; background: conic-gradient(var(--bs-ember) 0% 28%, var(--bs-surface-gray) 28% 100%); display: flex; align-items: center; justify-content: center;">
+                <div style="width: 200px; height: 200px; border-radius: 50%; background: conic-gradient(var(--bs-cinder) 0% 28%, var(--bs-surface-gray) 28% 100%); display: flex; align-items: center; justify-content: center;">
                     <div style="width: 140px; height: 140px; border-radius: 50%; background: var(--bs-white); display: flex; flex-direction: column; align-items: center; justify-content: center;">
                         <span style="font-size: 2.5em; font-weight: 700; color: var(--bs-black);">28%</span>
                     </div>
@@ -805,7 +839,7 @@ html, body {
                 <svg viewBox="0 0 100 100" style="width: 100%; height: 100%; transform: rotate(-90deg);">
                     <circle cx="50" cy="50" r="40" fill="transparent" stroke="#6296AD" stroke-width="20" stroke-dasharray="105.6 264" stroke-dashoffset="0"/>
                     <circle cx="50" cy="50" r="40" fill="transparent" stroke="#012C48" stroke-width="20" stroke-dasharray="95.4 264" stroke-dashoffset="-105.6"/>
-                    <circle cx="50" cy="50" r="40" fill="transparent" stroke="#D04911" stroke-width="20" stroke-dasharray="70.3 264" stroke-dashoffset="-201"/>
+                    <circle cx="50" cy="50" r="40" fill="transparent" stroke="#C05527" stroke-width="20" stroke-dasharray="70.3 264" stroke-dashoffset="-201"/>
                 </svg>
                 <!-- Labels would be positioned absolutely -->
             </div>
@@ -813,7 +847,7 @@ html, body {
         <div style="display: flex; justify-content: center; gap: 40px; margin-top: 20px;">
             <span style="font-size: 1.2em;"><span style="color: var(--bs-horizon);">●</span> Enterprise 42%</span>
             <span style="font-size: 1.2em;"><span style="color: var(--bs-navy);">●</span> Mid-Market 38%</span>
-            <span style="font-size: 1.2em;"><span style="color: var(--bs-ember);">●</span> SMB 28%</span>
+            <span style="font-size: 1.2em;"><span style="color: var(--bs-cinder);">●</span> SMB 28%</span>
         </div>
         <img src="backstory-icon-dark.png" class="bs-icon-br" alt="">
     </div>
@@ -832,7 +866,7 @@ html, body {
         <div style="background: var(--bs-surface-gray);"></div>
         <div style="background: var(--bs-plum);"></div>
         <div style="background: var(--bs-horizon);"></div>
-        <div style="background: #E8B4A0;"></div>
+        <div style="background: var(--bs-salmon);"></div>
         <div style="background: var(--bs-surface-gray);"></div>
     </div>
 </section>
@@ -851,7 +885,7 @@ html, body {
     <title>Presentation Title | Backstory</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/reveal.js/4.6.1/reveal.min.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/reveal.js/4.6.1/theme/white.min.css">
-    <link href="https://fonts.googleapis.com/css2?family=Cardo:wght@400;700&family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Cardo:wght@400;700&family=Roboto:wght@400;500;700&family=Chivo+Mono:wght@400;500;700&display=swap" rel="stylesheet">
     <style>
         /* Paste CSS Foundation here */
     </style>
@@ -928,5 +962,5 @@ Recommended slides: Title → Agenda → Image Left (Company Overview) → 3-Col
 
 ---
 
-*Document Version: 1.0*  
-*Last Updated: February 2026*
+*Document Version: 2.0*
+*Last Updated: March 2026*
