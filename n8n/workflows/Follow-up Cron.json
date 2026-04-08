@@ -1,5 +1,5 @@
 {
-    "updatedAt": "2026-03-25T17:30:57.087Z",
+    "updatedAt": "2026-04-08T15:32:05.856Z",
     "createdAt": "2026-03-04T00:59:29.239Z",
     "id": "JhDuCvZdFN4PFTOW",
     "name": "Follow-up Cron",
@@ -31,7 +31,7 @@
             "typeVersion": 4.2,
             "position": [
                 480,
-                384
+                664
             ]
         },
         {
@@ -44,7 +44,7 @@
             "typeVersion": 2,
             "position": [
                 704,
-                384
+                664
             ]
         },
         {
@@ -75,7 +75,7 @@
             "typeVersion": 4.2,
             "position": [
                 928,
-                384
+                664
             ],
             "continueOnFail": true
         },
@@ -89,7 +89,7 @@
             "typeVersion": 2,
             "position": [
                 1152,
-                384
+                664
             ]
         },
         {
@@ -105,7 +105,7 @@
             "typeVersion": 4.2,
             "position": [
                 1376,
-                384
+                664
             ],
             "credentials": {
                 "supabaseApi": {
@@ -127,7 +127,7 @@
             "typeVersion": 4.2,
             "position": [
                 1824,
-                384
+                664
             ],
             "alwaysOutputData": true,
             "credentials": {
@@ -147,7 +147,7 @@
             "typeVersion": 2,
             "position": [
                 2048,
-                384
+                664
             ]
         },
         {
@@ -180,7 +180,7 @@
             "typeVersion": 2.2,
             "position": [
                 2272,
-                384
+                664
             ]
         },
         {
@@ -193,12 +193,12 @@
             "typeVersion": 3,
             "position": [
                 2496,
-                384
+                664
             ]
         },
         {
             "parameters": {
-                "jsCode": "// Build per-meeting recap context for AI agent\n// Output ONE item per meeting (agent processes each individually)\nconst data = $input.first().json;\nconst meetings = data.meetings || [];\n\nif (meetings.length === 0) {\n  return [{ json: { ...data, skip: true } }];\n}\n\nconst todayStr = new Date().toLocaleDateString('en-US', {\n  weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'\n});\nconst tz = data.timezone || 'America/Los_Angeles';\nconst assistantName = data.assistantName || 'Aria';\nconst assistantEmoji = data.assistantEmoji || ':robot_face:';\nconst assistantPersona = data.assistantPersona || 'direct, action-oriented, and conversational';\nconst repName = data.repName || 'Rep';\n\nconst results = [];\n\nfor (const m of meetings) {\n  const systemPrompt = `You are ${assistantName}, a personal sales assistant for ${repName}.\nYour personality: ${assistantPersona}\n\nTODAY IS ${todayStr}. ${repName} is in ${tz}.\n\nMEETING CONTEXT:\n- Account: ${m.accountName}\n- Subject: ${m.subject}\n- Time: ${m.dayStr} ${m.timeStr}\n- Participants: ${m.participants || 'Unknown'}\n- Participant Emails: ${(m.participantEmails || []).join('; ') || 'Unknown'}\n\nUse People.ai MCP tools to research this meeting:\n1. Find the meeting transcript, notes, topics discussed, and action items\n2. Look up participant roles and recent engagement history\n3. Check the related opportunity status if one exists\n4. Get recent account activity for context\n\nGenerate a structured meeting recap as a JSON object with this exact shape:\n{\n  \"summary\": \"2-3 sentence recap of what was discussed and key outcomes\",\n  \"sentiment\": \"positive|neutral|negative|mixed\",\n  \"sentiment_signal\": \"one sentence explaining the sentiment\",\n  \"tasks\": [\n    {\n      \"description\": \"specific action item from the meeting\",\n      \"owner\": \"MUST be an internal People.ai employee \u2014 never assign to external/customer contacts\",\n      \"owner_email\": \"email address of the internal owner from the Participant Emails list \u2014 match the owner name to their email\",\n      \"assignee_role\": \"CSM, AE, SE, or AI \u2014 CSM for technical support, training, onboarding, implementation; AE for strategic, commercial, expansion, executive engagement; SE for sales engineering, technical scoping, demos; AI for AI innovation and executive initiatives\",\n      \"duration_minutes\": \"estimated minutes (15, 30, 45, 60, 90, 120)\",\n      \"due_hint\": \"timeframe suggestion\",\n      \"task_category\": \"best match from: Discovery Meeting, Demo Meeting, Prospecting & Qualification, Solution Presentation & Demo, Commercials & Negotiation, Technical Scoping & Solutioning, Onboarding & Implementation, Account & Renewal Management, Expansion & Upsell, Customer Training, Internal Deal Support (Legal/Fin/Sec), Product & Engineering Inquiry, Strategic Account & Territory Planning, Sales Operations & Coaching\"\n    }\n  ],\n  \"key_decisions\": [\"decision 1\", \"decision 2\"],\n  \"follow_up_context\": \"context to enrich a follow-up email\",\n  \"meeting_category\": \"best match from: Discovery Meeting, Demo Meeting, Proposal Meeting, Security Meeting, Procurement Meeting, Legal Meeting\",\n}\n\n\nFor each task, estimate the duration in minutes and assign the role (CSM or AE) based on the nature of the work.\n\nTOOL CALL BUDGET: You have limited tool calls. After ~8 calls, produce your output.\nIf a tool returns no data, move on. Do not retry.\n\nRULES:\n- Extract REAL tasks mentioned in the meeting \u2014 do NOT fabricate\n- If transcript data is limited, say so in the summary and provide what you can from account context\n- Tasks must be specific and actionable (\"Send pricing proposal to Mark by Friday\" not \"Follow up\")\n- Maximum 5 tasks\n- Keep summary under 100 words\n- Output ONLY the JSON object \u2014 no prose, no markdown fences\n\nBased on the meeting content, select the single best-matching value for each category field. Use the exact picklist value string. If none fit well, use null.`;\n\n  const agentPrompt = `Generate a meeting recap for my ${m.subject} meeting with ${m.accountName}.` +\n    (m.participants ? ` Participants: ${m.participants}.` : '') +\n    ` Use People.ai MCP tools to find transcript data, topics, and action items.` +\n    ` Output ONLY the JSON object.`;\n\n  results.push({\n    json: {\n      ...data,\n      meeting: m,\n      accountName: m.accountName,\n      meetingSubject: m.subject,\n      activityUid: m.activityUid,\n      systemPrompt,\n      agentPrompt,\n      assistantName,\n      assistantEmoji,\n      repName,\n    }\n  });\n}\n\nreturn results;"
+                "jsCode": "// Build per-meeting recap context for AI agent\n// Output ONE item per meeting (agent processes each individually)\nconst data = $input.first().json;\nconst meetings = data.meetings || [];\n\nif (meetings.length === 0) {\n  return [{ json: { ...data, skip: true } }];\n}\n\nconst todayStr = new Date().toLocaleDateString('en-US', {\n  weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'\n});\nconst tz = data.timezone || 'America/Los_Angeles';\nconst assistantName = data.assistantName || 'Aria';\nconst assistantEmoji = data.assistantEmoji || ':robot_face:';\nconst assistantPersona = data.assistantPersona || 'direct, action-oriented, and conversational';\nconst repName = data.repName || 'Rep';\n\nconst results = [];\n\nfor (const m of meetings) {\n  const systemPrompt = `You are ${assistantName}, a personal sales assistant for ${repName}.\nYour personality: ${assistantPersona}\n\nTODAY IS ${todayStr}. ${repName} is in ${tz}.\n\nMEETING CONTEXT:\n- Account: ${m.accountName}\n- Subject: ${m.subject}\n- Time: ${m.dayStr} ${m.timeStr}\n- Participants: ${m.participants || 'Unknown'}\n- Participant Emails: ${(m.participantEmails || []).join('; ') || 'Unknown'}\n\nUse People.ai MCP tools to research this meeting:\n1. Find the meeting transcript, notes, topics discussed, and action items\n2. Look up participant roles and recent engagement history\n3. Check the related opportunity status if one exists\n4. Get recent account activity for context\n\nGenerate a structured meeting recap as a JSON object with this exact shape:\n{\n  \"summary\": \"2-3 sentence recap of what was discussed and key outcomes\",\n  \"sentiment\": \"positive|neutral|negative|mixed\",\n  \"sentiment_signal\": \"one sentence explaining the sentiment\",\n  \"tasks\": [\n    {\n      \"description\": \"specific action item from the meeting\",\n      \"owner\": \"MUST be an internal People.ai employee \u2014 never assign to external/customer contacts\",\n      \"owner_email\": \"email address of the internal owner from the Participant Emails list \u2014 match the owner name to their email\",\n      \"assignee_role\": \"CSM, AE, SE, or AI \u2014 CSM for technical support, training, onboarding, implementation; AE for strategic, commercial, expansion, executive engagement; SE for sales engineering, technical scoping, demos; AI for AI innovation and executive initiatives\",\n      \"duration_minutes\": \"estimated minutes (15, 30, 45, 60, 90, 120)\",\n      \"due_hint\": \"timeframe suggestion\",\n      \"task_category\": \"best match from: Discovery Meeting, Demo Meeting, Prospecting & Qualification, Solution Presentation & Demo, Commercials & Negotiation, Technical Scoping & Solutioning, Onboarding & Implementation, Account & Renewal Management, Expansion & Upsell, Customer Training, Internal Deal Support (Legal/Fin/Sec), Product & Engineering Inquiry, Strategic Account & Territory Planning, Sales Operations & Coaching\"\n    }\n  ],\n  \"key_decisions\": [\"decision 1\", \"decision 2\"],\n  \"follow_up_context\": \"context to enrich a follow-up email\",\n  \"meeting_category\": \"best match from: Discovery Meeting, Demo Meeting, Proposal Meeting, Security Meeting, Procurement Meeting, Onboarding & Implementation, Account & Renewal Management, Expansion & Upsell, Customer Training, Internal Deal Support, Product & Engineering Inquiry, Legal Meeting, DID NOT HAPPEN, Prospecting & Qualification, Solution Presentation & Demo, Commercials & Negotiation, Technical Scoping & Solutioning, Strategic Account & Territory Planning, Sales Operations & Coaching\",\n}\n\n\nFor each task, estimate the duration in minutes and assign the role (CSM or AE) based on the nature of the work.\n\nTOOL CALL BUDGET: You have limited tool calls. After ~8 calls, produce your output.\nIf a tool returns no data, move on. Do not retry.\n\nRULES:\n- Extract REAL tasks mentioned in the meeting \u2014 do NOT fabricate\n- If transcript data is limited, say so in the summary and provide what you can from account context\n- Tasks must be specific and actionable (\"Send pricing proposal to Mark by Friday\" not \"Follow up\")\n- Maximum 5 tasks\n- Keep summary under 100 words\n- Output ONLY the JSON object \u2014 no prose, no markdown fences\n\nBased on the meeting content, select the single best-matching value for each category field. Use the exact picklist value string. If none fit well, use null.`;\n\n  const agentPrompt = `Generate a meeting recap for my ${m.subject} meeting with ${m.accountName}.` +\n    (m.participants ? ` Participants: ${m.participants}.` : '') +\n    ` Use People.ai MCP tools to find transcript data, topics, and action items.` +\n    ` Output ONLY the JSON object.`;\n\n  results.push({\n    json: {\n      ...data,\n      meeting: m,\n      accountName: m.accountName,\n      meetingSubject: m.subject,\n      activityUid: m.activityUid,\n      systemPrompt,\n      agentPrompt,\n      assistantName,\n      assistantEmoji,\n      repName,\n    }\n  });\n}\n\nreturn results;"
             },
             "id": "3f4d7a49-445a-43dc-b1cc-b8c36462b0c4",
             "name": "Build Recap Context",
@@ -206,7 +206,7 @@
             "typeVersion": 2,
             "position": [
                 2720,
-                304
+                444
             ]
         },
         {
@@ -234,7 +234,7 @@
             "type": "n8n-nodes-base.httpRequest",
             "typeVersion": 4.2,
             "position": [
-                2944,
+                4192,
                 304
             ],
             "credentials": {
@@ -269,7 +269,7 @@
             "type": "n8n-nodes-base.httpRequest",
             "typeVersion": 4.2,
             "position": [
-                3168,
+                4416,
                 304
             ],
             "credentials": {
@@ -288,7 +288,7 @@
             "type": "n8n-nodes-base.code",
             "typeVersion": 2,
             "position": [
-                3392,
+                5088,
                 304
             ]
         },
@@ -321,8 +321,8 @@
             "type": "n8n-nodes-base.httpRequest",
             "typeVersion": 4.2,
             "position": [
-                3616,
-                384
+                5312,
+                568
             ],
             "credentials": {
                 "supabaseApi": {
@@ -348,7 +348,7 @@
             "typeVersion": 1.2,
             "position": [
                 256,
-                384
+                832
             ]
         },
         {
@@ -361,7 +361,7 @@
             "typeVersion": 2,
             "position": [
                 1600,
-                384
+                664
             ]
         },
         {
@@ -379,8 +379,8 @@
             "type": "@n8n/n8n-nodes-langchain.lmChatAnthropic",
             "typeVersion": 1.3,
             "position": [
-                3120,
-                454
+                2952,
+                668
             ],
             "credentials": {
                 "anthropicApi": {
@@ -392,15 +392,16 @@
         {
             "parameters": {
                 "endpointUrl": "https://mcp-canary.people.ai/mcp",
-                "authentication": "multipleHeadersAuth"
+                "authentication": "multipleHeadersAuth",
+                "options": {}
             },
             "id": "f588c3af-cae2-4c55-b7ec-dc85a14582cf",
             "name": "People.ai MCP (Recap)",
             "type": "@n8n/n8n-nodes-langchain.mcpClientTool",
             "typeVersion": 1.2,
             "position": [
-                3270,
-                454
+                3080,
+                668
             ],
             "credentials": {
                 "httpMultipleHeadersAuth": {
@@ -411,20 +412,20 @@
         },
         {
             "parameters": {
+                "promptType": "define",
+                "text": "={{ $json.agentPrompt }}",
                 "options": {
                     "systemMessage": "={{ $json.systemPrompt }}",
                     "maxIterations": 15
-                },
-                "text": "={{ $json.agentPrompt }}",
-                "promptType": "define"
+                }
             },
             "id": "7e8f05ac-6105-44c7-899b-298e67e0c630",
             "name": "Recap Agent",
             "type": "@n8n/n8n-nodes-langchain.agent",
             "typeVersion": 1.7,
             "position": [
-                3120,
-                304
+                2944,
+                444
             ],
             "continueOnFail": true
         },
@@ -437,33 +438,33 @@
             "type": "n8n-nodes-base.code",
             "typeVersion": 2,
             "position": [
-                3370,
-                304
+                3296,
+                444
             ]
         },
         {
             "parameters": {
-                "jsCode": "// Compact top-level card \u2014 just meeting info + action buttons\n// Full recap details go in the thread\nconst data = $('Parse Recap Output').first().json;\nconst recap = data.recap;\nconst m = data.meeting;\nconst assistantName = data.assistantName || 'Aria';\nconst assistantEmoji = data.assistantEmoji || ':robot_face:';\n\nconst subjectLine = m.subject || 'Customer Meeting';\nconst hoursAgo = m.hoursAgo || '';\nconst timeInfo = hoursAgo ? ` | ${hoursAgo}h ago` : '';\n\nconst taskCount = (recap.tasks || []).length;\nconst blocks = [];\n\nblocks.push({\n  type: \"section\",\n  text: { type: \"mrkdwn\", text: `:clipboard: *${m.accountName}* \u00b7 ${m.dayStr} ${m.timeStr} \u2014 ${subjectLine}` }\n});\n\n// Action buttons\nconst truncContext = (recap.followUpContext || '').substring(0, 500);\nconst draftPayload = JSON.stringify({\n  action: 'draft_followup',\n  account_name: m.accountName,\n  account_id: m.accountId || '',\n  activity_uid: m.activityUid,\n  meeting_subject: m.subject,\n  participants: m.participants || '',\n  follow_up_context: truncContext,\n  user_id: data.userId,\n  db_user_id: data.userId,\n  slack_user_id: data.slackUserId,\n  organization_id: data.organizationId || '',\n  assistant_name: data.assistantName,\n  assistant_emoji: data.assistantEmoji,\n  rep_name: data.repName,\n});\n\nconst savePayload = JSON.stringify({\n  action: 'save_activity',\n  account_name: m.accountName,\n  account_id: m.accountId || '',\n  activity_uid: m.activityUid,\n  meeting_subject: m.subject,\n  meeting_date: m.dayStr || '',\n  meeting_time: m.timeStr || '',\n  summary: (recap.summary || '').substring(0, 300),\n  key_decisions: (recap.keyDecisions || []).map(d => d.substring(0, 80)),\n  tasks: (recap.tasks || []).map(t => ({ description: (t.description || '').substring(0, 80), owner: t.owner || '' })),\n  sentiment: recap.sentiment,\n  cs_category: recap.csCategory || '',\n  sales_category: recap.salesCategory || '',\n  meeting_category: recap.meetingCategory || '',\n  user_id: data.userId,\n  slack_user_id: data.slackUserId,\n  rep_name: data.repName,\n  rep_email: data.email || '',\n  assistant_name: data.assistantName,\n  assistant_emoji: data.assistantEmoji,\n});\n\nblocks.push({\n  type: \"actions\",\n  elements: [\n    {\n      type: \"button\",\n      text: { type: \"plain_text\", text: \":salesforce: Review & Log\", emoji: true },\n      style: \"primary\",\n      action_id: \"recap_save_activity\",\n      value: savePayload\n    },\n    {\n      type: \"button\",\n      text: { type: \"plain_text\", text: \":email: Draft Follow-up\", emoji: true },\n      action_id: \"recap_draft_followup\",\n      value: draftPayload\n    },\n    ...(taskCount > 0 ? [{\n      type: \"button\",\n      text: { type: \"plain_text\", text: `:memo: Tasks (${taskCount})`, emoji: true },\n      action_id: \"recap_view_tasks\",\n      value: JSON.stringify({\n        account_name: m.accountName,\n        meeting_subject: m.subject,\n        tasks: (recap.tasks || []).slice(0, 5).map(t => ({\n          d: (t.description || '').substring(0, 100),\n          o: (t.owner || '').substring(0, 30),\n          e: (t.owner_email || '').substring(0, 40),\n          r: t.assignee_role || '',\n          m: t.duration_minutes || 30,\n          h: (t.due_hint || '').substring(0, 20),\n          c: (t.task_category || '').substring(0, 40),\n        })),\n        assistant_name: assistantName,\n        assistant_emoji: assistantEmoji,\n      }).substring(0, 1999)\n    }] : [])\n  ]\n});\n\nconst promptText = `Meeting Recap \u2014 ${m.accountName}: ${subjectLine}`;\n\nreturn [{ json: {\n  ...data,\n  blocks: JSON.stringify(blocks),\n  promptText,\n  assistantName,\n  assistantEmoji,\n  activityUids: [m.activityUid],\n}}];"
+                "jsCode": "const SKILL_REGISTRY = [\n  { id: 'draft_email', label: 'Draft Email',\n    keywords: ['send email', 'follow up', 'follow-up', 'email', 'reach out', 'share with', 'send to', 'write to', 'notify', 'update via email', 'loop in'],\n    buttonText: ':email: Want me to draft that email?', actionId: 'task_assist_draft_email' },\n  { id: 'presentation', label: 'Create Presentation',\n    keywords: ['create deck', 'build slides', 'presentation', 'qbr', 'prepare deck', 'slide deck', 'google slides'],\n    buttonText: ':bar_chart: Want me to build that deck?', actionId: 'task_assist_presentation' },\n  { id: 'stakeholder_map', label: 'Stakeholder Map',\n    keywords: ['map contacts', 'stakeholder', 'decision maker', 'identify contacts', 'org chart', 'key contacts', 'champion'],\n    buttonText: ':busts_in_silhouette: Want me to map the stakeholders?', actionId: 'task_assist_stakeholders' },\n  { id: 'meeting_prep', label: 'Meeting Prep',\n    keywords: ['prepare for meeting', 'prep for call', 'research before', 'meeting brief', 'pre-meeting', 'talking points'],\n    buttonText: ':clipboard: Want me to prep you for that meeting?', actionId: 'task_assist_meeting_prep' },\n];\n\nfunction matchTaskToSkill(taskSubject, taskDescription) {\n  const text = (taskSubject + ' ' + (taskDescription || '')).toLowerCase();\n  for (const skill of SKILL_REGISTRY) {\n    for (const kw of skill.keywords) {\n      if (text.includes(kw)) return skill;\n    }\n  }\n  return null;\n}\n\nconst data = $('Build Auto-Save Payload').first().json;\nconst recap = data.recap;\nconst m = data.meeting;\nconst assistantName = data.assistantName || 'Aria';\nconst assistantEmoji = data.assistantEmoji || ':robot_face:';\nconst taskCount = data.taskCount || 0;\n\nconst subjectLine = m.subject || 'Customer Meeting';\nconst blocks = [];\n\n// Header: account + time + subject\nblocks.push({\n  type: \"section\",\n  text: { type: \"mrkdwn\", text: `:clipboard: *${m.accountName}* \\u00b7 ${m.dayStr}, ${m.timeStr} \\u2014 ${subjectLine}` }\n});\n\n// Tight confirmation line\nconst taskPart = taskCount > 0 ? ` \\u00b7 ${taskCount} task${taskCount === 1 ? '' : 's'} created` : '';\nblocks.push({\n  type: \"section\",\n  text: { type: \"mrkdwn\", text: `:white_check_mark: Saved to CRM${taskPart}` }\n});\n\n// Summary teaser \u2014 first sentence or first 120 chars\nconst summary = recap.summary || '';\nif (summary) {\n  let teaser = summary;\n  const firstSentence = summary.match(/^[^.!?]+[.!?]/);\n  if (firstSentence && firstSentence[0].length <= 150) {\n    teaser = firstSentence[0];\n  } else {\n    teaser = summary.substring(0, 120);\n    if (summary.length > 120) teaser += '...';\n  }\n  blocks.push({\n    type: \"section\",\n    text: { type: \"mrkdwn\", text: `\\u{1f4ac} _\"${teaser}\"_` }\n  });\n}\n\n// Primary action: Draft Follow-up\nconst truncContext = (recap.followUpContext || '').substring(0, 500);\nconst draftPayload = JSON.stringify({\n  action: 'draft_followup',\n  account_name: m.accountName,\n  account_id: m.accountId || '',\n  activity_uid: m.activityUid,\n  meeting_subject: m.subject,\n  participants: m.participants || '',\n  follow_up_context: truncContext,\n  user_id: data.userId,\n  db_user_id: data.userId,\n  slack_user_id: data.slackUserId,\n  organization_id: data.organizationId || '',\n  assistant_name: assistantName,\n  assistant_emoji: assistantEmoji,\n  rep_name: data.repName,\n});\n\nblocks.push({\n  type: \"actions\",\n  elements: [{\n    type: \"button\",\n    text: { type: \"plain_text\", text: \":email: Want me to draft your follow-up?\", emoji: true },\n    action_id: \"recap_draft_followup\",\n    value: draftPayload\n  }]\n});\n\n// Task Assist: keyword match freshly created tasks\nconst assistable = [];\nfor (const t of (recap.tasks || [])) {\n  const skill = matchTaskToSkill(t.description, '');\n  if (skill) {\n    assistable.push({ task: t, skill });\n  }\n}\n\nif (assistable.length > 0) {\n  for (const a of assistable.slice(0, 3)) {\n    blocks.push({\n      type: \"actions\",\n      elements: [{\n        type: \"button\",\n        text: { type: \"plain_text\", text: a.skill.buttonText, emoji: true },\n        action_id: a.skill.actionId,\n        value: JSON.stringify({\n          action: 'task_assist',\n          skill: a.skill.id,\n          task_subject: a.task.description,\n          account_name: m.accountName,\n          account_id: m.accountId || '',\n          user_id: data.userId,\n          slack_user_id: data.slackUserId,\n          organization_id: data.organizationId || '',\n          assistant_name: assistantName,\n          assistant_emoji: assistantEmoji,\n          rep_name: data.repName,\n        })\n      }]\n    });\n  }\n}\n\n// Footer links as context block\nblocks.push({\n  type: \"context\",\n  elements: [{\n    type: \"mrkdwn\",\n    text: \":date: <https://glass.people.ai/sheet/294e924a-d11a-46b7-a373-aae4182c4a61|My Events Today> \\u00b7 :clipboard: <https://glass.people.ai/sheet/0250d214-84ba-48e4-b272-6839c03462f5|All Tasks Today>\"\n  }]\n});\n\nconst promptText = `Meeting Recap \\u2014 ${m.accountName}: ${subjectLine}`;\n\nreturn [{ json: {\n  ...data,\n  blocks: JSON.stringify(blocks),\n  promptText,\n  assistantName,\n  assistantEmoji,\n  activityUids: [m.activityUid],\n}}];"
             },
             "id": "76a795c3-3a26-429d-92af-918bc388d620",
             "name": "Build Recap Card",
             "type": "n8n-nodes-base.code",
             "typeVersion": 2,
             "position": [
-                3620,
+                3968,
                 304
             ]
         },
         {
             "parameters": {
-                "jsCode": "// Build detailed thread reply with decisions + tasks + Create in SF buttons\nconst data = $('Parse Recap Output').first().json;\nconst recap = data.recap;\nconst m = data.meeting;\nconst sendResult = $('Send Recap').first().json;\nconst assistantName = data.assistantName || 'Aria';\nconst assistantEmoji = data.assistantEmoji || ':robot_face:';\n\nconst blocks = [];\n\n// Summary + sentiment\nconst sentLine = `${recap.sentimentEmoji} ${recap.sentimentSignal || recap.sentiment}`;\nblocks.push({\n  type: \"section\",\n  text: { type: \"mrkdwn\", text: `${sentLine}\\n\\n${recap.summary}` }\n});\n\nblocks.push({ type: \"divider\" });\n\n// Key Decisions\nif (recap.keyDecisions && recap.keyDecisions.length > 0) {\n  const decisionText = recap.keyDecisions.map(d => `\u2022 ${d}`).join('\\n');\n  blocks.push({\n    type: \"section\",\n    text: { type: \"mrkdwn\", text: `*Key Decisions*\\n${decisionText}` }\n  });\n  blocks.push({ type: \"divider\" });\n}\n\n// Action Items with individual \"Create in SF\" buttons\nif (recap.tasks && recap.tasks.length > 0) {\n  blocks.push({\n    type: \"section\",\n    text: { type: \"mrkdwn\", text: \"*Action Items*\" }\n  });\n\n  for (let i = 0; i < recap.tasks.length; i++) {\n    const task = recap.tasks[i];\n    const roleBadge = task.assignee_role ? ` (${task.assignee_role})` : '';\n    const durationBadge = task.duration_minutes ? ` \u00b7 ${task.duration_minutes} min` : '';\n    const taskText = `\u2022 ${task.description}` +\n      (task.owner ? ` \u2014 _${task.owner}_` + roleBadge : '') +\n      durationBadge +\n      (task.due_hint ? ` \u00b7 ${task.due_hint}` : '');\n\n    const taskPayload = JSON.stringify({\n      action: 'create_task',\n      task_index: i,\n      task_description: task.description,\n      task_owner: task.owner || '',\n      task_owner_email: task.owner_email || '',\n      task_due_hint: task.due_hint || '',\n      account_name: m.accountName,\n      account_id: m.accountId || '',\n      activity_uid: m.activityUid,\n      meeting_subject: m.subject,\n      user_id: data.userId,\n      slack_user_id: data.slackUserId,\n      rep_name: data.repName,\n      rep_email: data.email || '',\n      assignee_role: task.assignee_role || '',\n      duration_minutes: task.duration_minutes || 30,\n      task_category: task.task_category || '',\n      assistant_name: data.assistantName || 'Aria',\n      assistant_emoji: data.assistantEmoji || ':robot_face:',\n    });\n\n    blocks.push({\n      type: \"section\",\n      text: { type: \"mrkdwn\", text: taskText },\n      accessory: {\n        type: \"button\",\n        text: { type: \"plain_text\", text: \":salesforce: Create Task\", emoji: true },\n        action_id: `recap_create_task_${i}`,\n        value: taskPayload\n      }\n    });\n  }\n}\n\n// If no decisions and no tasks, still post something useful\nif ((!recap.keyDecisions || recap.keyDecisions.length === 0) &&\n    (!recap.tasks || recap.tasks.length === 0)) {\n  blocks.push({\n    type: \"section\",\n    text: { type: \"mrkdwn\", text: \"_No key decisions or action items were captured for this meeting._\" }\n  });\n}\n\n// Thread footer\nblocks.push({\n  type: \"context\",\n  elements: [\n    { type: \"mrkdwn\", text: \"Reply in this thread to discuss this meeting\" }\n  ]\n});\n\nreturn [{ json: {\n  threadBlocks: JSON.stringify(blocks),\n  threadTs: sendResult.ts,\n  channelId: sendResult.channel,\n  assistantName,\n  assistantEmoji,\n}}];"
+                "jsCode": "// Simplified thread reply \u2014 read-only, no Create Task buttons\nconst data = $('Build Auto-Save Payload').first().json;\nconst recap = data.recap;\nconst m = data.meeting;\nconst sendResult = $('Send Recap').first().json;\nconst assistantName = data.assistantName || 'Aria';\nconst assistantEmoji = data.assistantEmoji || ':robot_face:';\n\nconst blocks = [];\n\n// Summary + sentiment\nconst sentLine = `${recap.sentimentEmoji} ${recap.sentimentSignal || recap.sentiment}`;\nblocks.push({\n  type: \"section\",\n  text: { type: \"mrkdwn\", text: `${sentLine}\\n\\n${recap.summary}` }\n});\n\nblocks.push({ type: \"divider\" });\n\n// Key Decisions\nif (recap.keyDecisions && recap.keyDecisions.length > 0) {\n  const decisionText = recap.keyDecisions.map(d => `\\u2022 ${d}`).join('\\n');\n  blocks.push({\n    type: \"section\",\n    text: { type: \"mrkdwn\", text: `*Key Decisions*\\n${decisionText}` }\n  });\n  blocks.push({ type: \"divider\" });\n}\n\n// Action Items \u2014 read-only list\nif (recap.tasks && recap.tasks.length > 0) {\n  blocks.push({\n    type: \"section\",\n    text: { type: \"mrkdwn\", text: \"*Action Items*\" }\n  });\n\n  for (const task of recap.tasks) {\n    const roleBadge = task.assignee_role ? ` (${task.assignee_role})` : '';\n    const durationBadge = task.duration_minutes ? ` \\u00b7 ${task.duration_minutes} min` : '';\n    const taskText = `\\u2022 ${task.description}` +\n      (task.owner ? ` \\u2014 _${task.owner}_` + roleBadge : '') +\n      durationBadge +\n      (task.due_hint ? ` \\u00b7 ${task.due_hint}` : '');\n    blocks.push({\n      type: \"section\",\n      text: { type: \"mrkdwn\", text: taskText }\n    });\n  }\n}\n\n// If nothing captured\nif ((!recap.keyDecisions || recap.keyDecisions.length === 0) &&\n    (!recap.tasks || recap.tasks.length === 0)) {\n  blocks.push({\n    type: \"section\",\n    text: { type: \"mrkdwn\", text: \"_No key decisions or action items were captured for this meeting._\" }\n  });\n}\n\n// Thread footer\nblocks.push({\n  type: \"context\",\n  elements: [\n    { type: \"mrkdwn\", text: \"Tasks and recap saved to CRM \\u00b7 Use PeopleGlass to review or modify \\u00b7 Reply in this thread to discuss\" }\n  ]\n});\n\nreturn [{ json: {\n  threadBlocks: JSON.stringify(blocks),\n  threadTs: sendResult.ts,\n  channelId: sendResult.channel,\n  assistantName,\n  assistantEmoji,\n}}];"
             },
             "id": "436bb9f2-c5c1-4a4c-8e83-0da99975244f",
             "name": "Build Recap Thread",
             "type": "n8n-nodes-base.code",
             "typeVersion": 2,
             "position": [
-                3418,
+                4640,
                 304
             ]
         },
@@ -492,7 +493,7 @@
             "type": "n8n-nodes-base.httpRequest",
             "typeVersion": 4.2,
             "position": [
-                3668,
+                4864,
                 304
             ],
             "credentials": {
@@ -501,6 +502,329 @@
                     "name": "Slackbot Auth Token"
                 }
             }
+        },
+        {
+            "parameters": {
+                "jsCode": "// Build Workato payloads for auto-saving recap to CRM\nconst data = $('Parse Recap Output').first().json;\nconst recap = data.recap;\nconst m = data.meeting;\n\n// Build description from recap parts\nconst descParts = [];\nif (recap.summary) descParts.push('Summary: ' + recap.summary);\nif (recap.keyDecisions && recap.keyDecisions.length > 0) {\n  descParts.push('Key Decisions:\\n' + recap.keyDecisions.map(d => '- ' + d).join('\\n'));\n}\nif (recap.tasks && recap.tasks.length > 0) {\n  descParts.push('Action Items:\\n' + recap.tasks.map(t =>\n    '- ' + t.description + (t.owner ? ' (' + t.owner + ')' : '')\n  ).join('\\n'));\n}\nconst description = descParts.join('\\n\\n');\n\n// Activity payload for logging the meeting recap\nconst activityPayload = {\n  action: 'log_activity',\n  salesforce_object: 'Event',\n  fields: {\n    Subject: m.subject || 'Customer Meeting',\n    Description: description,\n    ActivityDate: m.dayStr || new Date().toISOString().split('T')[0],\n    meeting_category: recap.meetingCategory || null,\n    cs_category: recap.csCategory || null,\n  },\n  context: {\n    user_email: data.email || '',\n    account_name: m.accountName || '',\n    activity_uid: m.activityUid || '',\n    prepend_description: true,\n  }\n};\n\n// Parse due date hints into actual dates\nfunction parseDueDate(hint) {\n  if (!hint) return '';\n  const now = new Date();\n  const lower = hint.toLowerCase().trim();\n  if (lower === 'today') return now.toISOString().split('T')[0];\n  if (lower === 'tomorrow') {\n    const d = new Date(now); d.setDate(d.getDate() + 1);\n    return d.toISOString().split('T')[0];\n  }\n  if (lower === 'this week' || lower === 'end of week') {\n    const d = new Date(now);\n    const dayOfWeek = d.getDay();\n    d.setDate(d.getDate() + (5 - dayOfWeek));\n    return d.toISOString().split('T')[0];\n  }\n  if (lower === 'next week') {\n    const d = new Date(now);\n    d.setDate(d.getDate() + 7);\n    return d.toISOString().split('T')[0];\n  }\n  // Try parsing as a date string\n  const parsed = new Date(hint);\n  if (!isNaN(parsed.getTime())) return parsed.toISOString().split('T')[0];\n  // Default: 1 week from now\n  const d = new Date(now); d.setDate(d.getDate() + 7);\n  return d.toISOString().split('T')[0];\n}\n\n// Task payloads\nconst taskPayloads = (recap.tasks || []).map(t => ({\n  action: 'create_task',\n  salesforce_object: 'Task',\n  fields: {\n    Subject: t.description || 'Follow-up task',\n    Description: 'From meeting: ' + (m.subject || '') + ' with ' + (m.accountName || '') +\n      (t.due_hint ? '\\nDue: ' + t.due_hint : ''),\n    ActivityDate: parseDueDate(t.due_hint),\n    Status: 'Not Started',\n    Priority: 'Normal',\n    TaskDuration: t.duration_minutes || 30,\n    Category: t.task_category || '',\n  },\n  context: {\n    user_email: data.email || '',\n    account_name: m.accountName || '',\n    meeting_subject: m.subject || '',\n    assignee_name: t.owner || '',\n    assignee_email: t.owner_email || '',\n    assignee_role: t.assignee_role || '',\n  }\n}));\n\nreturn [{ json: {\n  ...data,\n  activityPayload,\n  taskPayloads,\n  taskCount: taskPayloads.length,\n}}];"
+            },
+            "id": "a12def0c-378d-4524-8835-426755f10bb0",
+            "name": "Build Auto-Save Payload",
+            "type": "n8n-nodes-base.code",
+            "typeVersion": 2,
+            "position": [
+                3520,
+                444
+            ]
+        },
+        {
+            "parameters": {
+                "method": "POST",
+                "url": "https://webhooks.workato.com/webhooks/rest/cfff4d3a-6f27-4ba4-9754-ac22c759ecaa/assistant_sf_write",
+                "sendHeaders": true,
+                "headerParameters": {
+                    "parameters": [
+                        {
+                            "name": "Content-Type",
+                            "value": "application/json"
+                        }
+                    ]
+                },
+                "sendBody": true,
+                "specifyBody": "json",
+                "jsonBody": "={{ JSON.stringify($json.activityPayload) }}",
+                "options": {
+                    "timeout": 15000
+                }
+            },
+            "id": "5f4c7963-b1d3-4f51-a935-6017d20f3b8e",
+            "name": "Send Recap to CRM",
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4.2,
+            "position": [
+                3744,
+                304
+            ],
+            "continueOnFail": true
+        },
+        {
+            "parameters": {
+                "jsCode": "// Fan out task payloads for batch sending to Workato\nconst data = $('Build Auto-Save Payload').first().json;\nconst taskPayloads = data.taskPayloads || [];\n\nif (taskPayloads.length === 0) {\n  return [];  // no tasks extracted\n}\n\nreturn taskPayloads.map(p => ({ json: { webhook_payload: p } }));"
+            },
+            "id": "8df03c15-37b3-48b4-b893-fd3fba86925c",
+            "name": "Prepare Task Payloads",
+            "type": "n8n-nodes-base.code",
+            "typeVersion": 2,
+            "position": [
+                3744,
+                496
+            ],
+            "continueOnFail": true
+        },
+        {
+            "parameters": {
+                "method": "POST",
+                "url": "https://webhooks.workato.com/webhooks/rest/cfff4d3a-6f27-4ba4-9754-ac22c759ecaa/assistant_sf_write",
+                "sendHeaders": true,
+                "headerParameters": {
+                    "parameters": [
+                        {
+                            "name": "Content-Type",
+                            "value": "application/json"
+                        }
+                    ]
+                },
+                "sendBody": true,
+                "specifyBody": "json",
+                "jsonBody": "={{ JSON.stringify($json.webhook_payload) }}",
+                "options": {
+                    "timeout": 15000
+                }
+            },
+            "id": "f44a5a2d-dc70-4dcd-863e-c8afa1a5c65c",
+            "name": "Send Tasks to CRM",
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4.2,
+            "position": [
+                3968,
+                496
+            ],
+            "continueOnFail": true
+        },
+        {
+            "parameters": {
+                "jsCode": "const data = $('Parse Recap Output').first().json;\nconst m = data.meeting || {};\nconst requestId = 'res_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);\n\nreturn [{ json: {\n  ...data,\n  resolutionRequestId: requestId,\n  resolutionPayload: {\n    action: 'get_tasks_resolution',\n    account_name: m.accountName || '',\n    user_email: data.email || '',\n    callback_url: 'https://scottai.trackslife.com/webhook/task-resolution-callback',\n    request_id: requestId,\n  },\n  resolutionContext: {\n    channel_id: $('Open Bot DM').first().json.channel.id || '',\n    assistant_name: data.assistantName || 'Aria',\n    assistant_emoji: data.assistantEmoji || ':robot_face:',\n    mode: 'recap',\n    account_name: m.accountName || '',\n  }\n}}];"
+            },
+            "id": "ec008430-8056-4b7e-aaab-983d488524ef",
+            "name": "Fire Task Resolution",
+            "type": "n8n-nodes-base.code",
+            "typeVersion": 2,
+            "position": [
+                3744,
+                688
+            ],
+            "continueOnFail": true
+        },
+        {
+            "parameters": {
+                "method": "POST",
+                "url": "https://rhrlnkbphxntxxxcrgvv.supabase.co/rest/v1/pending_actions",
+                "authentication": "predefinedCredentialType",
+                "nodeCredentialType": "supabaseApi",
+                "sendHeaders": true,
+                "headerParameters": {
+                    "parameters": [
+                        {
+                            "name": "Content-Type",
+                            "value": "application/json"
+                        },
+                        {
+                            "name": "Prefer",
+                            "value": "return=representation"
+                        }
+                    ]
+                },
+                "sendBody": true,
+                "specifyBody": "json",
+                "jsonBody": "={{ JSON.stringify({ opportunity_id: $json.resolutionRequestId, action_type: 'resolution_request', draft_content: '{}', context: JSON.stringify($json.resolutionContext), status: 'pending' }) }}",
+                "options": {}
+            },
+            "id": "8addaf8b-1e09-4b77-a861-77fd8f17ef60",
+            "name": "Store Resolution Request",
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4.2,
+            "position": [
+                3968,
+                688
+            ],
+            "credentials": {
+                "supabaseApi": {
+                    "id": "ASRWWkQ0RSMOpNF1",
+                    "name": "Supabase account"
+                }
+            },
+            "continueOnFail": true
+        },
+        {
+            "parameters": {
+                "method": "POST",
+                "url": "https://webhooks.workato.com/webhooks/rest/cfff4d3a-6f27-4ba4-9754-ac22c759ecaa/assistant_sf_read",
+                "sendHeaders": true,
+                "headerParameters": {
+                    "parameters": [
+                        {
+                            "name": "Content-Type",
+                            "value": "application/json"
+                        }
+                    ]
+                },
+                "sendBody": true,
+                "specifyBody": "json",
+                "jsonBody": "={{ JSON.stringify($json.resolutionPayload) }}",
+                "options": {
+                    "timeout": 15000
+                }
+            },
+            "id": "701241ef-d619-4d3e-9e94-8d8c8bd6f003",
+            "name": "Send Resolution to Workato",
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4.2,
+            "position": [
+                4192,
+                688
+            ],
+            "continueOnFail": true
+        },
+        {
+            "parameters": {
+                "url": "https://rhrlnkbphxntxxxcrgvv.supabase.co/rest/v1/users?onboarding_state=eq.complete&select=id,email,slack_user_id,assistant_name,assistant_emoji,digest_scope",
+                "authentication": "predefinedCredentialType",
+                "nodeCredentialType": "supabaseApi",
+                "options": {}
+            },
+            "id": "5b6fe365-be01-4d4f-a38d-444ca11a957a",
+            "name": "Get Resolution Users",
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4.2,
+            "position": [
+                480,
+                928
+            ],
+            "credentials": {
+                "supabaseApi": {
+                    "id": "ASRWWkQ0RSMOpNF1",
+                    "name": "Supabase account"
+                }
+            }
+        },
+        {
+            "parameters": {
+                "options": {}
+            },
+            "id": "3ad78e5f-3a08-4046-8f06-853a95a532ea",
+            "name": "Loop Resolution Users",
+            "type": "n8n-nodes-base.splitInBatches",
+            "typeVersion": 3,
+            "position": [
+                704,
+                928
+            ]
+        },
+        {
+            "parameters": {
+                "method": "POST",
+                "url": "https://slack.com/api/conversations.open",
+                "authentication": "genericCredentialType",
+                "genericAuthType": "httpHeaderAuth",
+                "sendHeaders": true,
+                "headerParameters": {
+                    "parameters": [
+                        {
+                            "name": "Content-Type",
+                            "value": "application/json"
+                        }
+                    ]
+                },
+                "sendBody": true,
+                "specifyBody": "json",
+                "jsonBody": "={{ JSON.stringify({ users: $json.slack_user_id }) }}",
+                "options": {}
+            },
+            "id": "de03076b-d287-4ded-96f1-b592b7aa5dd7",
+            "name": "Open DM (Resolution)",
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4.2,
+            "position": [
+                928,
+                856
+            ],
+            "credentials": {
+                "httpHeaderAuth": {
+                    "id": "LluVuiMJ8NUbAiG7",
+                    "name": "Slackbot Auth Token"
+                }
+            }
+        },
+        {
+            "parameters": {
+                "jsCode": "const user = $('Loop Resolution Users').first().json;\nconst dm = $json.channel?.id || $json.channel || '';\nconst requestId = 'sched_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);\n\nreturn [{ json: {\n  resolutionPayload: {\n    action: 'get_tasks_resolution',\n    account_name: '',\n    user_email: user.email || '',\n    callback_url: 'https://scottai.trackslife.com/webhook/task-resolution-callback',\n    request_id: requestId,\n  },\n  resolutionContext: {\n    channelId: dm,\n    assistantName: user.assistant_name || 'Aria',\n    assistantEmoji: user.assistant_emoji || ':robot_face:',\n    mode: 'scheduled',\n  },\n  requestId,\n}}];"
+            },
+            "id": "46bea775-1cb6-405c-945f-cca14b2e6d45",
+            "name": "Build Scheduled Resolution",
+            "type": "n8n-nodes-base.code",
+            "typeVersion": 2,
+            "position": [
+                1152,
+                856
+            ]
+        },
+        {
+            "parameters": {
+                "method": "POST",
+                "url": "https://rhrlnkbphxntxxxcrgvv.supabase.co/rest/v1/pending_actions",
+                "authentication": "predefinedCredentialType",
+                "nodeCredentialType": "supabaseApi",
+                "sendHeaders": true,
+                "headerParameters": {
+                    "parameters": [
+                        {
+                            "name": "Content-Type",
+                            "value": "application/json"
+                        },
+                        {
+                            "name": "Prefer",
+                            "value": "return=representation"
+                        }
+                    ]
+                },
+                "sendBody": true,
+                "specifyBody": "json",
+                "jsonBody": "={{ JSON.stringify({ opportunity_id: $json.requestId, action_type: 'resolution_request', draft_content: '{}', context: JSON.stringify($json.resolutionContext), status: 'pending' }) }}",
+                "options": {}
+            },
+            "id": "46df65ea-f868-4c3f-bb98-65b6b3328122",
+            "name": "Store Scheduled Request",
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4.2,
+            "position": [
+                1376,
+                856
+            ],
+            "credentials": {
+                "supabaseApi": {
+                    "id": "ASRWWkQ0RSMOpNF1",
+                    "name": "Supabase account"
+                }
+            }
+        },
+        {
+            "parameters": {
+                "method": "POST",
+                "url": "https://webhooks.workato.com/webhooks/rest/cfff4d3a-6f27-4ba4-9754-ac22c759ecaa/assistant_sf_read",
+                "sendHeaders": true,
+                "headerParameters": {
+                    "parameters": [
+                        {
+                            "name": "Content-Type",
+                            "value": "application/json"
+                        }
+                    ]
+                },
+                "sendBody": true,
+                "specifyBody": "json",
+                "jsonBody": "={{ JSON.stringify($json.resolutionPayload) }}",
+                "options": {
+                    "timeout": 15000
+                }
+            },
+            "id": "f4423ea9-304b-48f5-8ae1-655be7119c70",
+            "name": "Send Scheduled Resolution",
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4.2,
+            "position": [
+                1600,
+                928
+            ],
+            "continueOnFail": true
         }
     ],
     "connections": {
@@ -656,6 +980,11 @@
                         "node": "Get Auth Token",
                         "type": "main",
                         "index": 0
+                    },
+                    {
+                        "node": "Get Resolution Users",
+                        "type": "main",
+                        "index": 0
                     }
                 ]
             ]
@@ -708,7 +1037,7 @@
             "main": [
                 [
                     {
-                        "node": "Build Recap Card",
+                        "node": "Build Auto-Save Payload",
                         "type": "main",
                         "index": 0
                     }
@@ -758,6 +1087,148 @@
                     }
                 ]
             ]
+        },
+        "Build Auto-Save Payload": {
+            "main": [
+                [
+                    {
+                        "node": "Send Recap to CRM",
+                        "type": "main",
+                        "index": 0
+                    },
+                    {
+                        "node": "Prepare Task Payloads",
+                        "type": "main",
+                        "index": 0
+                    },
+                    {
+                        "node": "Fire Task Resolution",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Send Recap to CRM": {
+            "main": [
+                [
+                    {
+                        "node": "Build Recap Card",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Prepare Task Payloads": {
+            "main": [
+                [
+                    {
+                        "node": "Send Tasks to CRM",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Send Tasks to CRM": {
+            "main": [
+                []
+            ]
+        },
+        "Fire Task Resolution": {
+            "main": [
+                [
+                    {
+                        "node": "Store Resolution Request",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Store Resolution Request": {
+            "main": [
+                [
+                    {
+                        "node": "Send Resolution to Workato",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Send Resolution to Workato": {
+            "main": [
+                []
+            ]
+        },
+        "Get Resolution Users": {
+            "main": [
+                [
+                    {
+                        "node": "Loop Resolution Users",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Loop Resolution Users": {
+            "main": [
+                [],
+                [
+                    {
+                        "node": "Open DM (Resolution)",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Open DM (Resolution)": {
+            "main": [
+                [
+                    {
+                        "node": "Build Scheduled Resolution",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Build Scheduled Resolution": {
+            "main": [
+                [
+                    {
+                        "node": "Store Scheduled Request",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Store Scheduled Request": {
+            "main": [
+                [
+                    {
+                        "node": "Send Scheduled Resolution",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Send Scheduled Resolution": {
+            "main": [
+                [
+                    {
+                        "node": "Loop Resolution Users",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
         }
     },
     "settings": {
@@ -781,15 +1252,34 @@
     },
     "meta": null,
     "pinData": {},
-    "versionId": "f4e8ddee-765a-423a-8227-0c46f5c73474",
-    "activeVersionId": "f4e8ddee-765a-423a-8227-0c46f5c73474",
-    "versionCounter": 140,
+    "versionId": "50397a69-6891-43d4-baa3-95b87638c77a",
+    "activeVersionId": "50397a69-6891-43d4-baa3-95b87638c77a",
+    "versionCounter": 188,
     "triggerCount": 1,
+    "shared": [
+        {
+            "updatedAt": "2026-03-04T00:59:29.241Z",
+            "createdAt": "2026-03-04T00:59:29.241Z",
+            "role": "workflow:owner",
+            "workflowId": "JhDuCvZdFN4PFTOW",
+            "projectId": "85jtzrEPriGDXgHV",
+            "project": {
+                "updatedAt": "2025-11-24T07:01:19.205Z",
+                "createdAt": "2025-11-24T06:56:53.862Z",
+                "id": "85jtzrEPriGDXgHV",
+                "name": "Scott Metcalf <metcalf.scott@gmail.com>",
+                "type": "personal",
+                "icon": null,
+                "description": null,
+                "creatorId": "bfa163c1-bd53-4c0f-b0ba-8dc3626f7c79"
+            }
+        }
+    ],
     "tags": [],
     "activeVersion": {
-        "updatedAt": "2026-03-25T17:30:57.088Z",
-        "createdAt": "2026-03-25T17:30:57.088Z",
-        "versionId": "f4e8ddee-765a-423a-8227-0c46f5c73474",
+        "updatedAt": "2026-04-08T15:32:05.858Z",
+        "createdAt": "2026-04-08T15:32:05.858Z",
+        "versionId": "50397a69-6891-43d4-baa3-95b87638c77a",
         "workflowId": "JhDuCvZdFN4PFTOW",
         "nodes": [
             {
@@ -816,7 +1306,7 @@
                 "typeVersion": 4.2,
                 "position": [
                     480,
-                    384
+                    664
                 ]
             },
             {
@@ -829,7 +1319,7 @@
                 "typeVersion": 2,
                 "position": [
                     704,
-                    384
+                    664
                 ]
             },
             {
@@ -860,7 +1350,7 @@
                 "typeVersion": 4.2,
                 "position": [
                     928,
-                    384
+                    664
                 ],
                 "continueOnFail": true
             },
@@ -874,7 +1364,7 @@
                 "typeVersion": 2,
                 "position": [
                     1152,
-                    384
+                    664
                 ]
             },
             {
@@ -890,7 +1380,7 @@
                 "typeVersion": 4.2,
                 "position": [
                     1376,
-                    384
+                    664
                 ],
                 "credentials": {
                     "supabaseApi": {
@@ -912,7 +1402,7 @@
                 "typeVersion": 4.2,
                 "position": [
                     1824,
-                    384
+                    664
                 ],
                 "alwaysOutputData": true,
                 "credentials": {
@@ -932,7 +1422,7 @@
                 "typeVersion": 2,
                 "position": [
                     2048,
-                    384
+                    664
                 ]
             },
             {
@@ -965,7 +1455,7 @@
                 "typeVersion": 2.2,
                 "position": [
                     2272,
-                    384
+                    664
                 ]
             },
             {
@@ -978,12 +1468,12 @@
                 "typeVersion": 3,
                 "position": [
                     2496,
-                    384
+                    664
                 ]
             },
             {
                 "parameters": {
-                    "jsCode": "// Build per-meeting recap context for AI agent\n// Output ONE item per meeting (agent processes each individually)\nconst data = $input.first().json;\nconst meetings = data.meetings || [];\n\nif (meetings.length === 0) {\n  return [{ json: { ...data, skip: true } }];\n}\n\nconst todayStr = new Date().toLocaleDateString('en-US', {\n  weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'\n});\nconst tz = data.timezone || 'America/Los_Angeles';\nconst assistantName = data.assistantName || 'Aria';\nconst assistantEmoji = data.assistantEmoji || ':robot_face:';\nconst assistantPersona = data.assistantPersona || 'direct, action-oriented, and conversational';\nconst repName = data.repName || 'Rep';\n\nconst results = [];\n\nfor (const m of meetings) {\n  const systemPrompt = `You are ${assistantName}, a personal sales assistant for ${repName}.\nYour personality: ${assistantPersona}\n\nTODAY IS ${todayStr}. ${repName} is in ${tz}.\n\nMEETING CONTEXT:\n- Account: ${m.accountName}\n- Subject: ${m.subject}\n- Time: ${m.dayStr} ${m.timeStr}\n- Participants: ${m.participants || 'Unknown'}\n- Participant Emails: ${(m.participantEmails || []).join('; ') || 'Unknown'}\n\nUse People.ai MCP tools to research this meeting:\n1. Find the meeting transcript, notes, topics discussed, and action items\n2. Look up participant roles and recent engagement history\n3. Check the related opportunity status if one exists\n4. Get recent account activity for context\n\nGenerate a structured meeting recap as a JSON object with this exact shape:\n{\n  \"summary\": \"2-3 sentence recap of what was discussed and key outcomes\",\n  \"sentiment\": \"positive|neutral|negative|mixed\",\n  \"sentiment_signal\": \"one sentence explaining the sentiment\",\n  \"tasks\": [\n    {\n      \"description\": \"specific action item from the meeting\",\n      \"owner\": \"MUST be an internal People.ai employee \u2014 never assign to external/customer contacts\",\n      \"owner_email\": \"email address of the internal owner from the Participant Emails list \u2014 match the owner name to their email\",\n      \"assignee_role\": \"CSM, AE, SE, or AI \u2014 CSM for technical support, training, onboarding, implementation; AE for strategic, commercial, expansion, executive engagement; SE for sales engineering, technical scoping, demos; AI for AI innovation and executive initiatives\",\n      \"duration_minutes\": \"estimated minutes (15, 30, 45, 60, 90, 120)\",\n      \"due_hint\": \"timeframe suggestion\",\n      \"task_category\": \"best match from: Discovery Meeting, Demo Meeting, Prospecting & Qualification, Solution Presentation & Demo, Commercials & Negotiation, Technical Scoping & Solutioning, Onboarding & Implementation, Account & Renewal Management, Expansion & Upsell, Customer Training, Internal Deal Support (Legal/Fin/Sec), Product & Engineering Inquiry, Strategic Account & Territory Planning, Sales Operations & Coaching\"\n    }\n  ],\n  \"key_decisions\": [\"decision 1\", \"decision 2\"],\n  \"follow_up_context\": \"context to enrich a follow-up email\",\n  \"meeting_category\": \"best match from: Discovery Meeting, Demo Meeting, Proposal Meeting, Security Meeting, Procurement Meeting, Legal Meeting\",\n}\n\n\nFor each task, estimate the duration in minutes and assign the role (CSM or AE) based on the nature of the work.\n\nTOOL CALL BUDGET: You have limited tool calls. After ~8 calls, produce your output.\nIf a tool returns no data, move on. Do not retry.\n\nRULES:\n- Extract REAL tasks mentioned in the meeting \u2014 do NOT fabricate\n- If transcript data is limited, say so in the summary and provide what you can from account context\n- Tasks must be specific and actionable (\"Send pricing proposal to Mark by Friday\" not \"Follow up\")\n- Maximum 5 tasks\n- Keep summary under 100 words\n- Output ONLY the JSON object \u2014 no prose, no markdown fences\n\nBased on the meeting content, select the single best-matching value for each category field. Use the exact picklist value string. If none fit well, use null.`;\n\n  const agentPrompt = `Generate a meeting recap for my ${m.subject} meeting with ${m.accountName}.` +\n    (m.participants ? ` Participants: ${m.participants}.` : '') +\n    ` Use People.ai MCP tools to find transcript data, topics, and action items.` +\n    ` Output ONLY the JSON object.`;\n\n  results.push({\n    json: {\n      ...data,\n      meeting: m,\n      accountName: m.accountName,\n      meetingSubject: m.subject,\n      activityUid: m.activityUid,\n      systemPrompt,\n      agentPrompt,\n      assistantName,\n      assistantEmoji,\n      repName,\n    }\n  });\n}\n\nreturn results;"
+                    "jsCode": "// Build per-meeting recap context for AI agent\n// Output ONE item per meeting (agent processes each individually)\nconst data = $input.first().json;\nconst meetings = data.meetings || [];\n\nif (meetings.length === 0) {\n  return [{ json: { ...data, skip: true } }];\n}\n\nconst todayStr = new Date().toLocaleDateString('en-US', {\n  weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'\n});\nconst tz = data.timezone || 'America/Los_Angeles';\nconst assistantName = data.assistantName || 'Aria';\nconst assistantEmoji = data.assistantEmoji || ':robot_face:';\nconst assistantPersona = data.assistantPersona || 'direct, action-oriented, and conversational';\nconst repName = data.repName || 'Rep';\n\nconst results = [];\n\nfor (const m of meetings) {\n  const systemPrompt = `You are ${assistantName}, a personal sales assistant for ${repName}.\nYour personality: ${assistantPersona}\n\nTODAY IS ${todayStr}. ${repName} is in ${tz}.\n\nMEETING CONTEXT:\n- Account: ${m.accountName}\n- Subject: ${m.subject}\n- Time: ${m.dayStr} ${m.timeStr}\n- Participants: ${m.participants || 'Unknown'}\n- Participant Emails: ${(m.participantEmails || []).join('; ') || 'Unknown'}\n\nUse People.ai MCP tools to research this meeting:\n1. Find the meeting transcript, notes, topics discussed, and action items\n2. Look up participant roles and recent engagement history\n3. Check the related opportunity status if one exists\n4. Get recent account activity for context\n\nGenerate a structured meeting recap as a JSON object with this exact shape:\n{\n  \"summary\": \"2-3 sentence recap of what was discussed and key outcomes\",\n  \"sentiment\": \"positive|neutral|negative|mixed\",\n  \"sentiment_signal\": \"one sentence explaining the sentiment\",\n  \"tasks\": [\n    {\n      \"description\": \"specific action item from the meeting\",\n      \"owner\": \"MUST be an internal People.ai employee \u2014 never assign to external/customer contacts\",\n      \"owner_email\": \"email address of the internal owner from the Participant Emails list \u2014 match the owner name to their email\",\n      \"assignee_role\": \"CSM, AE, SE, or AI \u2014 CSM for technical support, training, onboarding, implementation; AE for strategic, commercial, expansion, executive engagement; SE for sales engineering, technical scoping, demos; AI for AI innovation and executive initiatives\",\n      \"duration_minutes\": \"estimated minutes (15, 30, 45, 60, 90, 120)\",\n      \"due_hint\": \"timeframe suggestion\",\n      \"task_category\": \"best match from: Discovery Meeting, Demo Meeting, Prospecting & Qualification, Solution Presentation & Demo, Commercials & Negotiation, Technical Scoping & Solutioning, Onboarding & Implementation, Account & Renewal Management, Expansion & Upsell, Customer Training, Internal Deal Support (Legal/Fin/Sec), Product & Engineering Inquiry, Strategic Account & Territory Planning, Sales Operations & Coaching\"\n    }\n  ],\n  \"key_decisions\": [\"decision 1\", \"decision 2\"],\n  \"follow_up_context\": \"context to enrich a follow-up email\",\n  \"meeting_category\": \"best match from: Discovery Meeting, Demo Meeting, Proposal Meeting, Security Meeting, Procurement Meeting, Onboarding & Implementation, Account & Renewal Management, Expansion & Upsell, Customer Training, Internal Deal Support, Product & Engineering Inquiry, Legal Meeting, DID NOT HAPPEN, Prospecting & Qualification, Solution Presentation & Demo, Commercials & Negotiation, Technical Scoping & Solutioning, Strategic Account & Territory Planning, Sales Operations & Coaching\",\n}\n\n\nFor each task, estimate the duration in minutes and assign the role (CSM or AE) based on the nature of the work.\n\nTOOL CALL BUDGET: You have limited tool calls. After ~8 calls, produce your output.\nIf a tool returns no data, move on. Do not retry.\n\nRULES:\n- Extract REAL tasks mentioned in the meeting \u2014 do NOT fabricate\n- If transcript data is limited, say so in the summary and provide what you can from account context\n- Tasks must be specific and actionable (\"Send pricing proposal to Mark by Friday\" not \"Follow up\")\n- Maximum 5 tasks\n- Keep summary under 100 words\n- Output ONLY the JSON object \u2014 no prose, no markdown fences\n\nBased on the meeting content, select the single best-matching value for each category field. Use the exact picklist value string. If none fit well, use null.`;\n\n  const agentPrompt = `Generate a meeting recap for my ${m.subject} meeting with ${m.accountName}.` +\n    (m.participants ? ` Participants: ${m.participants}.` : '') +\n    ` Use People.ai MCP tools to find transcript data, topics, and action items.` +\n    ` Output ONLY the JSON object.`;\n\n  results.push({\n    json: {\n      ...data,\n      meeting: m,\n      accountName: m.accountName,\n      meetingSubject: m.subject,\n      activityUid: m.activityUid,\n      systemPrompt,\n      agentPrompt,\n      assistantName,\n      assistantEmoji,\n      repName,\n    }\n  });\n}\n\nreturn results;"
                 },
                 "id": "3f4d7a49-445a-43dc-b1cc-b8c36462b0c4",
                 "name": "Build Recap Context",
@@ -991,7 +1481,7 @@
                 "typeVersion": 2,
                 "position": [
                     2720,
-                    304
+                    444
                 ]
             },
             {
@@ -1019,7 +1509,7 @@
                 "type": "n8n-nodes-base.httpRequest",
                 "typeVersion": 4.2,
                 "position": [
-                    2944,
+                    4192,
                     304
                 ],
                 "credentials": {
@@ -1054,7 +1544,7 @@
                 "type": "n8n-nodes-base.httpRequest",
                 "typeVersion": 4.2,
                 "position": [
-                    3168,
+                    4416,
                     304
                 ],
                 "credentials": {
@@ -1073,7 +1563,7 @@
                 "type": "n8n-nodes-base.code",
                 "typeVersion": 2,
                 "position": [
-                    3392,
+                    5088,
                     304
                 ]
             },
@@ -1106,8 +1596,8 @@
                 "type": "n8n-nodes-base.httpRequest",
                 "typeVersion": 4.2,
                 "position": [
-                    3616,
-                    384
+                    5312,
+                    568
                 ],
                 "credentials": {
                     "supabaseApi": {
@@ -1133,7 +1623,7 @@
                 "typeVersion": 1.2,
                 "position": [
                     256,
-                    384
+                    832
                 ]
             },
             {
@@ -1146,7 +1636,7 @@
                 "typeVersion": 2,
                 "position": [
                     1600,
-                    384
+                    664
                 ]
             },
             {
@@ -1164,8 +1654,8 @@
                 "type": "@n8n/n8n-nodes-langchain.lmChatAnthropic",
                 "typeVersion": 1.3,
                 "position": [
-                    3120,
-                    454
+                    2952,
+                    668
                 ],
                 "credentials": {
                     "anthropicApi": {
@@ -1177,15 +1667,16 @@
             {
                 "parameters": {
                     "endpointUrl": "https://mcp-canary.people.ai/mcp",
-                    "authentication": "multipleHeadersAuth"
+                    "authentication": "multipleHeadersAuth",
+                    "options": {}
                 },
                 "id": "f588c3af-cae2-4c55-b7ec-dc85a14582cf",
                 "name": "People.ai MCP (Recap)",
                 "type": "@n8n/n8n-nodes-langchain.mcpClientTool",
                 "typeVersion": 1.2,
                 "position": [
-                    3270,
-                    454
+                    3080,
+                    668
                 ],
                 "credentials": {
                     "httpMultipleHeadersAuth": {
@@ -1196,20 +1687,20 @@
             },
             {
                 "parameters": {
+                    "promptType": "define",
+                    "text": "={{ $json.agentPrompt }}",
                     "options": {
                         "systemMessage": "={{ $json.systemPrompt }}",
                         "maxIterations": 15
-                    },
-                    "text": "={{ $json.agentPrompt }}",
-                    "promptType": "define"
+                    }
                 },
                 "id": "7e8f05ac-6105-44c7-899b-298e67e0c630",
                 "name": "Recap Agent",
                 "type": "@n8n/n8n-nodes-langchain.agent",
                 "typeVersion": 1.7,
                 "position": [
-                    3120,
-                    304
+                    2944,
+                    444
                 ],
                 "continueOnFail": true
             },
@@ -1222,33 +1713,33 @@
                 "type": "n8n-nodes-base.code",
                 "typeVersion": 2,
                 "position": [
-                    3370,
-                    304
+                    3296,
+                    444
                 ]
             },
             {
                 "parameters": {
-                    "jsCode": "// Compact top-level card \u2014 just meeting info + action buttons\n// Full recap details go in the thread\nconst data = $('Parse Recap Output').first().json;\nconst recap = data.recap;\nconst m = data.meeting;\nconst assistantName = data.assistantName || 'Aria';\nconst assistantEmoji = data.assistantEmoji || ':robot_face:';\n\nconst subjectLine = m.subject || 'Customer Meeting';\nconst hoursAgo = m.hoursAgo || '';\nconst timeInfo = hoursAgo ? ` | ${hoursAgo}h ago` : '';\n\nconst taskCount = (recap.tasks || []).length;\nconst blocks = [];\n\nblocks.push({\n  type: \"section\",\n  text: { type: \"mrkdwn\", text: `:clipboard: *${m.accountName}* \u00b7 ${m.dayStr} ${m.timeStr} \u2014 ${subjectLine}` }\n});\n\n// Action buttons\nconst truncContext = (recap.followUpContext || '').substring(0, 500);\nconst draftPayload = JSON.stringify({\n  action: 'draft_followup',\n  account_name: m.accountName,\n  account_id: m.accountId || '',\n  activity_uid: m.activityUid,\n  meeting_subject: m.subject,\n  participants: m.participants || '',\n  follow_up_context: truncContext,\n  user_id: data.userId,\n  db_user_id: data.userId,\n  slack_user_id: data.slackUserId,\n  organization_id: data.organizationId || '',\n  assistant_name: data.assistantName,\n  assistant_emoji: data.assistantEmoji,\n  rep_name: data.repName,\n});\n\nconst savePayload = JSON.stringify({\n  action: 'save_activity',\n  account_name: m.accountName,\n  account_id: m.accountId || '',\n  activity_uid: m.activityUid,\n  meeting_subject: m.subject,\n  meeting_date: m.dayStr || '',\n  meeting_time: m.timeStr || '',\n  summary: (recap.summary || '').substring(0, 300),\n  key_decisions: (recap.keyDecisions || []).map(d => d.substring(0, 80)),\n  tasks: (recap.tasks || []).map(t => ({ description: (t.description || '').substring(0, 80), owner: t.owner || '' })),\n  sentiment: recap.sentiment,\n  cs_category: recap.csCategory || '',\n  sales_category: recap.salesCategory || '',\n  meeting_category: recap.meetingCategory || '',\n  user_id: data.userId,\n  slack_user_id: data.slackUserId,\n  rep_name: data.repName,\n  rep_email: data.email || '',\n  assistant_name: data.assistantName,\n  assistant_emoji: data.assistantEmoji,\n});\n\nblocks.push({\n  type: \"actions\",\n  elements: [\n    {\n      type: \"button\",\n      text: { type: \"plain_text\", text: \":salesforce: Review & Log\", emoji: true },\n      style: \"primary\",\n      action_id: \"recap_save_activity\",\n      value: savePayload\n    },\n    {\n      type: \"button\",\n      text: { type: \"plain_text\", text: \":email: Draft Follow-up\", emoji: true },\n      action_id: \"recap_draft_followup\",\n      value: draftPayload\n    },\n    ...(taskCount > 0 ? [{\n      type: \"button\",\n      text: { type: \"plain_text\", text: `:memo: Tasks (${taskCount})`, emoji: true },\n      action_id: \"recap_view_tasks\",\n      value: JSON.stringify({\n        account_name: m.accountName,\n        meeting_subject: m.subject,\n        tasks: (recap.tasks || []).slice(0, 5).map(t => ({\n          d: (t.description || '').substring(0, 100),\n          o: (t.owner || '').substring(0, 30),\n          e: (t.owner_email || '').substring(0, 40),\n          r: t.assignee_role || '',\n          m: t.duration_minutes || 30,\n          h: (t.due_hint || '').substring(0, 20),\n          c: (t.task_category || '').substring(0, 40),\n        })),\n        assistant_name: assistantName,\n        assistant_emoji: assistantEmoji,\n      }).substring(0, 1999)\n    }] : [])\n  ]\n});\n\nconst promptText = `Meeting Recap \u2014 ${m.accountName}: ${subjectLine}`;\n\nreturn [{ json: {\n  ...data,\n  blocks: JSON.stringify(blocks),\n  promptText,\n  assistantName,\n  assistantEmoji,\n  activityUids: [m.activityUid],\n}}];"
+                    "jsCode": "const SKILL_REGISTRY = [\n  { id: 'draft_email', label: 'Draft Email',\n    keywords: ['send email', 'follow up', 'follow-up', 'email', 'reach out', 'share with', 'send to', 'write to', 'notify', 'update via email', 'loop in'],\n    buttonText: ':email: Want me to draft that email?', actionId: 'task_assist_draft_email' },\n  { id: 'presentation', label: 'Create Presentation',\n    keywords: ['create deck', 'build slides', 'presentation', 'qbr', 'prepare deck', 'slide deck', 'google slides'],\n    buttonText: ':bar_chart: Want me to build that deck?', actionId: 'task_assist_presentation' },\n  { id: 'stakeholder_map', label: 'Stakeholder Map',\n    keywords: ['map contacts', 'stakeholder', 'decision maker', 'identify contacts', 'org chart', 'key contacts', 'champion'],\n    buttonText: ':busts_in_silhouette: Want me to map the stakeholders?', actionId: 'task_assist_stakeholders' },\n  { id: 'meeting_prep', label: 'Meeting Prep',\n    keywords: ['prepare for meeting', 'prep for call', 'research before', 'meeting brief', 'pre-meeting', 'talking points'],\n    buttonText: ':clipboard: Want me to prep you for that meeting?', actionId: 'task_assist_meeting_prep' },\n];\n\nfunction matchTaskToSkill(taskSubject, taskDescription) {\n  const text = (taskSubject + ' ' + (taskDescription || '')).toLowerCase();\n  for (const skill of SKILL_REGISTRY) {\n    for (const kw of skill.keywords) {\n      if (text.includes(kw)) return skill;\n    }\n  }\n  return null;\n}\n\nconst data = $('Build Auto-Save Payload').first().json;\nconst recap = data.recap;\nconst m = data.meeting;\nconst assistantName = data.assistantName || 'Aria';\nconst assistantEmoji = data.assistantEmoji || ':robot_face:';\nconst taskCount = data.taskCount || 0;\n\nconst subjectLine = m.subject || 'Customer Meeting';\nconst blocks = [];\n\n// Header: account + time + subject\nblocks.push({\n  type: \"section\",\n  text: { type: \"mrkdwn\", text: `:clipboard: *${m.accountName}* \\u00b7 ${m.dayStr}, ${m.timeStr} \\u2014 ${subjectLine}` }\n});\n\n// Tight confirmation line\nconst taskPart = taskCount > 0 ? ` \\u00b7 ${taskCount} task${taskCount === 1 ? '' : 's'} created` : '';\nblocks.push({\n  type: \"section\",\n  text: { type: \"mrkdwn\", text: `:white_check_mark: Saved to CRM${taskPart}` }\n});\n\n// Summary teaser \u2014 first sentence or first 120 chars\nconst summary = recap.summary || '';\nif (summary) {\n  let teaser = summary;\n  const firstSentence = summary.match(/^[^.!?]+[.!?]/);\n  if (firstSentence && firstSentence[0].length <= 150) {\n    teaser = firstSentence[0];\n  } else {\n    teaser = summary.substring(0, 120);\n    if (summary.length > 120) teaser += '...';\n  }\n  blocks.push({\n    type: \"section\",\n    text: { type: \"mrkdwn\", text: `\\u{1f4ac} _\"${teaser}\"_` }\n  });\n}\n\n// Primary action: Draft Follow-up\nconst truncContext = (recap.followUpContext || '').substring(0, 500);\nconst draftPayload = JSON.stringify({\n  action: 'draft_followup',\n  account_name: m.accountName,\n  account_id: m.accountId || '',\n  activity_uid: m.activityUid,\n  meeting_subject: m.subject,\n  participants: m.participants || '',\n  follow_up_context: truncContext,\n  user_id: data.userId,\n  db_user_id: data.userId,\n  slack_user_id: data.slackUserId,\n  organization_id: data.organizationId || '',\n  assistant_name: assistantName,\n  assistant_emoji: assistantEmoji,\n  rep_name: data.repName,\n});\n\nblocks.push({\n  type: \"actions\",\n  elements: [{\n    type: \"button\",\n    text: { type: \"plain_text\", text: \":email: Want me to draft your follow-up?\", emoji: true },\n    action_id: \"recap_draft_followup\",\n    value: draftPayload\n  }]\n});\n\n// Task Assist: keyword match freshly created tasks\nconst assistable = [];\nfor (const t of (recap.tasks || [])) {\n  const skill = matchTaskToSkill(t.description, '');\n  if (skill) {\n    assistable.push({ task: t, skill });\n  }\n}\n\nif (assistable.length > 0) {\n  for (const a of assistable.slice(0, 3)) {\n    blocks.push({\n      type: \"actions\",\n      elements: [{\n        type: \"button\",\n        text: { type: \"plain_text\", text: a.skill.buttonText, emoji: true },\n        action_id: a.skill.actionId,\n        value: JSON.stringify({\n          action: 'task_assist',\n          skill: a.skill.id,\n          task_subject: a.task.description,\n          account_name: m.accountName,\n          account_id: m.accountId || '',\n          user_id: data.userId,\n          slack_user_id: data.slackUserId,\n          organization_id: data.organizationId || '',\n          assistant_name: assistantName,\n          assistant_emoji: assistantEmoji,\n          rep_name: data.repName,\n        })\n      }]\n    });\n  }\n}\n\n// Footer links as context block\nblocks.push({\n  type: \"context\",\n  elements: [{\n    type: \"mrkdwn\",\n    text: \":date: <https://glass.people.ai/sheet/294e924a-d11a-46b7-a373-aae4182c4a61|My Events Today> \\u00b7 :clipboard: <https://glass.people.ai/sheet/0250d214-84ba-48e4-b272-6839c03462f5|All Tasks Today>\"\n  }]\n});\n\nconst promptText = `Meeting Recap \\u2014 ${m.accountName}: ${subjectLine}`;\n\nreturn [{ json: {\n  ...data,\n  blocks: JSON.stringify(blocks),\n  promptText,\n  assistantName,\n  assistantEmoji,\n  activityUids: [m.activityUid],\n}}];"
                 },
                 "id": "76a795c3-3a26-429d-92af-918bc388d620",
                 "name": "Build Recap Card",
                 "type": "n8n-nodes-base.code",
                 "typeVersion": 2,
                 "position": [
-                    3620,
+                    3968,
                     304
                 ]
             },
             {
                 "parameters": {
-                    "jsCode": "// Build detailed thread reply with decisions + tasks + Create in SF buttons\nconst data = $('Parse Recap Output').first().json;\nconst recap = data.recap;\nconst m = data.meeting;\nconst sendResult = $('Send Recap').first().json;\nconst assistantName = data.assistantName || 'Aria';\nconst assistantEmoji = data.assistantEmoji || ':robot_face:';\n\nconst blocks = [];\n\n// Summary + sentiment\nconst sentLine = `${recap.sentimentEmoji} ${recap.sentimentSignal || recap.sentiment}`;\nblocks.push({\n  type: \"section\",\n  text: { type: \"mrkdwn\", text: `${sentLine}\\n\\n${recap.summary}` }\n});\n\nblocks.push({ type: \"divider\" });\n\n// Key Decisions\nif (recap.keyDecisions && recap.keyDecisions.length > 0) {\n  const decisionText = recap.keyDecisions.map(d => `\u2022 ${d}`).join('\\n');\n  blocks.push({\n    type: \"section\",\n    text: { type: \"mrkdwn\", text: `*Key Decisions*\\n${decisionText}` }\n  });\n  blocks.push({ type: \"divider\" });\n}\n\n// Action Items with individual \"Create in SF\" buttons\nif (recap.tasks && recap.tasks.length > 0) {\n  blocks.push({\n    type: \"section\",\n    text: { type: \"mrkdwn\", text: \"*Action Items*\" }\n  });\n\n  for (let i = 0; i < recap.tasks.length; i++) {\n    const task = recap.tasks[i];\n    const roleBadge = task.assignee_role ? ` (${task.assignee_role})` : '';\n    const durationBadge = task.duration_minutes ? ` \u00b7 ${task.duration_minutes} min` : '';\n    const taskText = `\u2022 ${task.description}` +\n      (task.owner ? ` \u2014 _${task.owner}_` + roleBadge : '') +\n      durationBadge +\n      (task.due_hint ? ` \u00b7 ${task.due_hint}` : '');\n\n    const taskPayload = JSON.stringify({\n      action: 'create_task',\n      task_index: i,\n      task_description: task.description,\n      task_owner: task.owner || '',\n      task_owner_email: task.owner_email || '',\n      task_due_hint: task.due_hint || '',\n      account_name: m.accountName,\n      account_id: m.accountId || '',\n      activity_uid: m.activityUid,\n      meeting_subject: m.subject,\n      user_id: data.userId,\n      slack_user_id: data.slackUserId,\n      rep_name: data.repName,\n      rep_email: data.email || '',\n      assignee_role: task.assignee_role || '',\n      duration_minutes: task.duration_minutes || 30,\n      task_category: task.task_category || '',\n      assistant_name: data.assistantName || 'Aria',\n      assistant_emoji: data.assistantEmoji || ':robot_face:',\n    });\n\n    blocks.push({\n      type: \"section\",\n      text: { type: \"mrkdwn\", text: taskText },\n      accessory: {\n        type: \"button\",\n        text: { type: \"plain_text\", text: \":salesforce: Create Task\", emoji: true },\n        action_id: `recap_create_task_${i}`,\n        value: taskPayload\n      }\n    });\n  }\n}\n\n// If no decisions and no tasks, still post something useful\nif ((!recap.keyDecisions || recap.keyDecisions.length === 0) &&\n    (!recap.tasks || recap.tasks.length === 0)) {\n  blocks.push({\n    type: \"section\",\n    text: { type: \"mrkdwn\", text: \"_No key decisions or action items were captured for this meeting._\" }\n  });\n}\n\n// Thread footer\nblocks.push({\n  type: \"context\",\n  elements: [\n    { type: \"mrkdwn\", text: \"Reply in this thread to discuss this meeting\" }\n  ]\n});\n\nreturn [{ json: {\n  threadBlocks: JSON.stringify(blocks),\n  threadTs: sendResult.ts,\n  channelId: sendResult.channel,\n  assistantName,\n  assistantEmoji,\n}}];"
+                    "jsCode": "// Simplified thread reply \u2014 read-only, no Create Task buttons\nconst data = $('Build Auto-Save Payload').first().json;\nconst recap = data.recap;\nconst m = data.meeting;\nconst sendResult = $('Send Recap').first().json;\nconst assistantName = data.assistantName || 'Aria';\nconst assistantEmoji = data.assistantEmoji || ':robot_face:';\n\nconst blocks = [];\n\n// Summary + sentiment\nconst sentLine = `${recap.sentimentEmoji} ${recap.sentimentSignal || recap.sentiment}`;\nblocks.push({\n  type: \"section\",\n  text: { type: \"mrkdwn\", text: `${sentLine}\\n\\n${recap.summary}` }\n});\n\nblocks.push({ type: \"divider\" });\n\n// Key Decisions\nif (recap.keyDecisions && recap.keyDecisions.length > 0) {\n  const decisionText = recap.keyDecisions.map(d => `\\u2022 ${d}`).join('\\n');\n  blocks.push({\n    type: \"section\",\n    text: { type: \"mrkdwn\", text: `*Key Decisions*\\n${decisionText}` }\n  });\n  blocks.push({ type: \"divider\" });\n}\n\n// Action Items \u2014 read-only list\nif (recap.tasks && recap.tasks.length > 0) {\n  blocks.push({\n    type: \"section\",\n    text: { type: \"mrkdwn\", text: \"*Action Items*\" }\n  });\n\n  for (const task of recap.tasks) {\n    const roleBadge = task.assignee_role ? ` (${task.assignee_role})` : '';\n    const durationBadge = task.duration_minutes ? ` \\u00b7 ${task.duration_minutes} min` : '';\n    const taskText = `\\u2022 ${task.description}` +\n      (task.owner ? ` \\u2014 _${task.owner}_` + roleBadge : '') +\n      durationBadge +\n      (task.due_hint ? ` \\u00b7 ${task.due_hint}` : '');\n    blocks.push({\n      type: \"section\",\n      text: { type: \"mrkdwn\", text: taskText }\n    });\n  }\n}\n\n// If nothing captured\nif ((!recap.keyDecisions || recap.keyDecisions.length === 0) &&\n    (!recap.tasks || recap.tasks.length === 0)) {\n  blocks.push({\n    type: \"section\",\n    text: { type: \"mrkdwn\", text: \"_No key decisions or action items were captured for this meeting._\" }\n  });\n}\n\n// Thread footer\nblocks.push({\n  type: \"context\",\n  elements: [\n    { type: \"mrkdwn\", text: \"Tasks and recap saved to CRM \\u00b7 Use PeopleGlass to review or modify \\u00b7 Reply in this thread to discuss\" }\n  ]\n});\n\nreturn [{ json: {\n  threadBlocks: JSON.stringify(blocks),\n  threadTs: sendResult.ts,\n  channelId: sendResult.channel,\n  assistantName,\n  assistantEmoji,\n}}];"
                 },
                 "id": "436bb9f2-c5c1-4a4c-8e83-0da99975244f",
                 "name": "Build Recap Thread",
                 "type": "n8n-nodes-base.code",
                 "typeVersion": 2,
                 "position": [
-                    3418,
+                    4640,
                     304
                 ]
             },
@@ -1277,7 +1768,7 @@
                 "type": "n8n-nodes-base.httpRequest",
                 "typeVersion": 4.2,
                 "position": [
-                    3668,
+                    4864,
                     304
                 ],
                 "credentials": {
@@ -1286,6 +1777,329 @@
                         "name": "Slackbot Auth Token"
                     }
                 }
+            },
+            {
+                "parameters": {
+                    "jsCode": "// Build Workato payloads for auto-saving recap to CRM\nconst data = $('Parse Recap Output').first().json;\nconst recap = data.recap;\nconst m = data.meeting;\n\n// Build description from recap parts\nconst descParts = [];\nif (recap.summary) descParts.push('Summary: ' + recap.summary);\nif (recap.keyDecisions && recap.keyDecisions.length > 0) {\n  descParts.push('Key Decisions:\\n' + recap.keyDecisions.map(d => '- ' + d).join('\\n'));\n}\nif (recap.tasks && recap.tasks.length > 0) {\n  descParts.push('Action Items:\\n' + recap.tasks.map(t =>\n    '- ' + t.description + (t.owner ? ' (' + t.owner + ')' : '')\n  ).join('\\n'));\n}\nconst description = descParts.join('\\n\\n');\n\n// Activity payload for logging the meeting recap\nconst activityPayload = {\n  action: 'log_activity',\n  salesforce_object: 'Event',\n  fields: {\n    Subject: m.subject || 'Customer Meeting',\n    Description: description,\n    ActivityDate: m.dayStr || new Date().toISOString().split('T')[0],\n    meeting_category: recap.meetingCategory || null,\n    cs_category: recap.csCategory || null,\n  },\n  context: {\n    user_email: data.email || '',\n    account_name: m.accountName || '',\n    activity_uid: m.activityUid || '',\n    prepend_description: true,\n  }\n};\n\n// Parse due date hints into actual dates\nfunction parseDueDate(hint) {\n  if (!hint) return '';\n  const now = new Date();\n  const lower = hint.toLowerCase().trim();\n  if (lower === 'today') return now.toISOString().split('T')[0];\n  if (lower === 'tomorrow') {\n    const d = new Date(now); d.setDate(d.getDate() + 1);\n    return d.toISOString().split('T')[0];\n  }\n  if (lower === 'this week' || lower === 'end of week') {\n    const d = new Date(now);\n    const dayOfWeek = d.getDay();\n    d.setDate(d.getDate() + (5 - dayOfWeek));\n    return d.toISOString().split('T')[0];\n  }\n  if (lower === 'next week') {\n    const d = new Date(now);\n    d.setDate(d.getDate() + 7);\n    return d.toISOString().split('T')[0];\n  }\n  // Try parsing as a date string\n  const parsed = new Date(hint);\n  if (!isNaN(parsed.getTime())) return parsed.toISOString().split('T')[0];\n  // Default: 1 week from now\n  const d = new Date(now); d.setDate(d.getDate() + 7);\n  return d.toISOString().split('T')[0];\n}\n\n// Task payloads\nconst taskPayloads = (recap.tasks || []).map(t => ({\n  action: 'create_task',\n  salesforce_object: 'Task',\n  fields: {\n    Subject: t.description || 'Follow-up task',\n    Description: 'From meeting: ' + (m.subject || '') + ' with ' + (m.accountName || '') +\n      (t.due_hint ? '\\nDue: ' + t.due_hint : ''),\n    ActivityDate: parseDueDate(t.due_hint),\n    Status: 'Not Started',\n    Priority: 'Normal',\n    TaskDuration: t.duration_minutes || 30,\n    Category: t.task_category || '',\n  },\n  context: {\n    user_email: data.email || '',\n    account_name: m.accountName || '',\n    meeting_subject: m.subject || '',\n    assignee_name: t.owner || '',\n    assignee_email: t.owner_email || '',\n    assignee_role: t.assignee_role || '',\n  }\n}));\n\nreturn [{ json: {\n  ...data,\n  activityPayload,\n  taskPayloads,\n  taskCount: taskPayloads.length,\n}}];"
+                },
+                "id": "a12def0c-378d-4524-8835-426755f10bb0",
+                "name": "Build Auto-Save Payload",
+                "type": "n8n-nodes-base.code",
+                "typeVersion": 2,
+                "position": [
+                    3520,
+                    444
+                ]
+            },
+            {
+                "parameters": {
+                    "method": "POST",
+                    "url": "https://webhooks.workato.com/webhooks/rest/cfff4d3a-6f27-4ba4-9754-ac22c759ecaa/assistant_sf_write",
+                    "sendHeaders": true,
+                    "headerParameters": {
+                        "parameters": [
+                            {
+                                "name": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ]
+                    },
+                    "sendBody": true,
+                    "specifyBody": "json",
+                    "jsonBody": "={{ JSON.stringify($json.activityPayload) }}",
+                    "options": {
+                        "timeout": 15000
+                    }
+                },
+                "id": "5f4c7963-b1d3-4f51-a935-6017d20f3b8e",
+                "name": "Send Recap to CRM",
+                "type": "n8n-nodes-base.httpRequest",
+                "typeVersion": 4.2,
+                "position": [
+                    3744,
+                    304
+                ],
+                "continueOnFail": true
+            },
+            {
+                "parameters": {
+                    "jsCode": "// Fan out task payloads for batch sending to Workato\nconst data = $('Build Auto-Save Payload').first().json;\nconst taskPayloads = data.taskPayloads || [];\n\nif (taskPayloads.length === 0) {\n  return [];  // no tasks extracted\n}\n\nreturn taskPayloads.map(p => ({ json: { webhook_payload: p } }));"
+                },
+                "id": "8df03c15-37b3-48b4-b893-fd3fba86925c",
+                "name": "Prepare Task Payloads",
+                "type": "n8n-nodes-base.code",
+                "typeVersion": 2,
+                "position": [
+                    3744,
+                    496
+                ],
+                "continueOnFail": true
+            },
+            {
+                "parameters": {
+                    "method": "POST",
+                    "url": "https://webhooks.workato.com/webhooks/rest/cfff4d3a-6f27-4ba4-9754-ac22c759ecaa/assistant_sf_write",
+                    "sendHeaders": true,
+                    "headerParameters": {
+                        "parameters": [
+                            {
+                                "name": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ]
+                    },
+                    "sendBody": true,
+                    "specifyBody": "json",
+                    "jsonBody": "={{ JSON.stringify($json.webhook_payload) }}",
+                    "options": {
+                        "timeout": 15000
+                    }
+                },
+                "id": "f44a5a2d-dc70-4dcd-863e-c8afa1a5c65c",
+                "name": "Send Tasks to CRM",
+                "type": "n8n-nodes-base.httpRequest",
+                "typeVersion": 4.2,
+                "position": [
+                    3968,
+                    496
+                ],
+                "continueOnFail": true
+            },
+            {
+                "parameters": {
+                    "jsCode": "const data = $('Parse Recap Output').first().json;\nconst m = data.meeting || {};\nconst requestId = 'res_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);\n\nreturn [{ json: {\n  ...data,\n  resolutionRequestId: requestId,\n  resolutionPayload: {\n    action: 'get_tasks_resolution',\n    account_name: m.accountName || '',\n    user_email: data.email || '',\n    callback_url: 'https://scottai.trackslife.com/webhook/task-resolution-callback',\n    request_id: requestId,\n  },\n  resolutionContext: {\n    channel_id: $('Open Bot DM').first().json.channel.id || '',\n    assistant_name: data.assistantName || 'Aria',\n    assistant_emoji: data.assistantEmoji || ':robot_face:',\n    mode: 'recap',\n    account_name: m.accountName || '',\n  }\n}}];"
+                },
+                "id": "ec008430-8056-4b7e-aaab-983d488524ef",
+                "name": "Fire Task Resolution",
+                "type": "n8n-nodes-base.code",
+                "typeVersion": 2,
+                "position": [
+                    3744,
+                    688
+                ],
+                "continueOnFail": true
+            },
+            {
+                "parameters": {
+                    "method": "POST",
+                    "url": "https://rhrlnkbphxntxxxcrgvv.supabase.co/rest/v1/pending_actions",
+                    "authentication": "predefinedCredentialType",
+                    "nodeCredentialType": "supabaseApi",
+                    "sendHeaders": true,
+                    "headerParameters": {
+                        "parameters": [
+                            {
+                                "name": "Content-Type",
+                                "value": "application/json"
+                            },
+                            {
+                                "name": "Prefer",
+                                "value": "return=representation"
+                            }
+                        ]
+                    },
+                    "sendBody": true,
+                    "specifyBody": "json",
+                    "jsonBody": "={{ JSON.stringify({ opportunity_id: $json.resolutionRequestId, action_type: 'resolution_request', draft_content: '{}', context: JSON.stringify($json.resolutionContext), status: 'pending' }) }}",
+                    "options": {}
+                },
+                "id": "8addaf8b-1e09-4b77-a861-77fd8f17ef60",
+                "name": "Store Resolution Request",
+                "type": "n8n-nodes-base.httpRequest",
+                "typeVersion": 4.2,
+                "position": [
+                    3968,
+                    688
+                ],
+                "credentials": {
+                    "supabaseApi": {
+                        "id": "ASRWWkQ0RSMOpNF1",
+                        "name": "Supabase account"
+                    }
+                },
+                "continueOnFail": true
+            },
+            {
+                "parameters": {
+                    "method": "POST",
+                    "url": "https://webhooks.workato.com/webhooks/rest/cfff4d3a-6f27-4ba4-9754-ac22c759ecaa/assistant_sf_read",
+                    "sendHeaders": true,
+                    "headerParameters": {
+                        "parameters": [
+                            {
+                                "name": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ]
+                    },
+                    "sendBody": true,
+                    "specifyBody": "json",
+                    "jsonBody": "={{ JSON.stringify($json.resolutionPayload) }}",
+                    "options": {
+                        "timeout": 15000
+                    }
+                },
+                "id": "701241ef-d619-4d3e-9e94-8d8c8bd6f003",
+                "name": "Send Resolution to Workato",
+                "type": "n8n-nodes-base.httpRequest",
+                "typeVersion": 4.2,
+                "position": [
+                    4192,
+                    688
+                ],
+                "continueOnFail": true
+            },
+            {
+                "parameters": {
+                    "url": "https://rhrlnkbphxntxxxcrgvv.supabase.co/rest/v1/users?onboarding_state=eq.complete&select=id,email,slack_user_id,assistant_name,assistant_emoji,digest_scope",
+                    "authentication": "predefinedCredentialType",
+                    "nodeCredentialType": "supabaseApi",
+                    "options": {}
+                },
+                "id": "5b6fe365-be01-4d4f-a38d-444ca11a957a",
+                "name": "Get Resolution Users",
+                "type": "n8n-nodes-base.httpRequest",
+                "typeVersion": 4.2,
+                "position": [
+                    480,
+                    928
+                ],
+                "credentials": {
+                    "supabaseApi": {
+                        "id": "ASRWWkQ0RSMOpNF1",
+                        "name": "Supabase account"
+                    }
+                }
+            },
+            {
+                "parameters": {
+                    "options": {}
+                },
+                "id": "3ad78e5f-3a08-4046-8f06-853a95a532ea",
+                "name": "Loop Resolution Users",
+                "type": "n8n-nodes-base.splitInBatches",
+                "typeVersion": 3,
+                "position": [
+                    704,
+                    928
+                ]
+            },
+            {
+                "parameters": {
+                    "method": "POST",
+                    "url": "https://slack.com/api/conversations.open",
+                    "authentication": "genericCredentialType",
+                    "genericAuthType": "httpHeaderAuth",
+                    "sendHeaders": true,
+                    "headerParameters": {
+                        "parameters": [
+                            {
+                                "name": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ]
+                    },
+                    "sendBody": true,
+                    "specifyBody": "json",
+                    "jsonBody": "={{ JSON.stringify({ users: $json.slack_user_id }) }}",
+                    "options": {}
+                },
+                "id": "de03076b-d287-4ded-96f1-b592b7aa5dd7",
+                "name": "Open DM (Resolution)",
+                "type": "n8n-nodes-base.httpRequest",
+                "typeVersion": 4.2,
+                "position": [
+                    928,
+                    856
+                ],
+                "credentials": {
+                    "httpHeaderAuth": {
+                        "id": "LluVuiMJ8NUbAiG7",
+                        "name": "Slackbot Auth Token"
+                    }
+                }
+            },
+            {
+                "parameters": {
+                    "jsCode": "const user = $('Loop Resolution Users').first().json;\nconst dm = $json.channel?.id || $json.channel || '';\nconst requestId = 'sched_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);\n\nreturn [{ json: {\n  resolutionPayload: {\n    action: 'get_tasks_resolution',\n    account_name: '',\n    user_email: user.email || '',\n    callback_url: 'https://scottai.trackslife.com/webhook/task-resolution-callback',\n    request_id: requestId,\n  },\n  resolutionContext: {\n    channelId: dm,\n    assistantName: user.assistant_name || 'Aria',\n    assistantEmoji: user.assistant_emoji || ':robot_face:',\n    mode: 'scheduled',\n  },\n  requestId,\n}}];"
+                },
+                "id": "46bea775-1cb6-405c-945f-cca14b2e6d45",
+                "name": "Build Scheduled Resolution",
+                "type": "n8n-nodes-base.code",
+                "typeVersion": 2,
+                "position": [
+                    1152,
+                    856
+                ]
+            },
+            {
+                "parameters": {
+                    "method": "POST",
+                    "url": "https://rhrlnkbphxntxxxcrgvv.supabase.co/rest/v1/pending_actions",
+                    "authentication": "predefinedCredentialType",
+                    "nodeCredentialType": "supabaseApi",
+                    "sendHeaders": true,
+                    "headerParameters": {
+                        "parameters": [
+                            {
+                                "name": "Content-Type",
+                                "value": "application/json"
+                            },
+                            {
+                                "name": "Prefer",
+                                "value": "return=representation"
+                            }
+                        ]
+                    },
+                    "sendBody": true,
+                    "specifyBody": "json",
+                    "jsonBody": "={{ JSON.stringify({ opportunity_id: $json.requestId, action_type: 'resolution_request', draft_content: '{}', context: JSON.stringify($json.resolutionContext), status: 'pending' }) }}",
+                    "options": {}
+                },
+                "id": "46df65ea-f868-4c3f-bb98-65b6b3328122",
+                "name": "Store Scheduled Request",
+                "type": "n8n-nodes-base.httpRequest",
+                "typeVersion": 4.2,
+                "position": [
+                    1376,
+                    856
+                ],
+                "credentials": {
+                    "supabaseApi": {
+                        "id": "ASRWWkQ0RSMOpNF1",
+                        "name": "Supabase account"
+                    }
+                }
+            },
+            {
+                "parameters": {
+                    "method": "POST",
+                    "url": "https://webhooks.workato.com/webhooks/rest/cfff4d3a-6f27-4ba4-9754-ac22c759ecaa/assistant_sf_read",
+                    "sendHeaders": true,
+                    "headerParameters": {
+                        "parameters": [
+                            {
+                                "name": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ]
+                    },
+                    "sendBody": true,
+                    "specifyBody": "json",
+                    "jsonBody": "={{ JSON.stringify($json.resolutionPayload) }}",
+                    "options": {
+                        "timeout": 15000
+                    }
+                },
+                "id": "f4423ea9-304b-48f5-8ae1-655be7119c70",
+                "name": "Send Scheduled Resolution",
+                "type": "n8n-nodes-base.httpRequest",
+                "typeVersion": 4.2,
+                "position": [
+                    1600,
+                    928
+                ],
+                "continueOnFail": true
             }
         ],
         "connections": {
@@ -1441,6 +2255,11 @@
                             "node": "Get Auth Token",
                             "type": "main",
                             "index": 0
+                        },
+                        {
+                            "node": "Get Resolution Users",
+                            "type": "main",
+                            "index": 0
                         }
                     ]
                 ]
@@ -1493,7 +2312,7 @@
                 "main": [
                     [
                         {
-                            "node": "Build Recap Card",
+                            "node": "Build Auto-Save Payload",
                             "type": "main",
                             "index": 0
                         }
@@ -1543,11 +2362,171 @@
                         }
                     ]
                 ]
+            },
+            "Build Auto-Save Payload": {
+                "main": [
+                    [
+                        {
+                            "node": "Send Recap to CRM",
+                            "type": "main",
+                            "index": 0
+                        },
+                        {
+                            "node": "Prepare Task Payloads",
+                            "type": "main",
+                            "index": 0
+                        },
+                        {
+                            "node": "Fire Task Resolution",
+                            "type": "main",
+                            "index": 0
+                        }
+                    ]
+                ]
+            },
+            "Send Recap to CRM": {
+                "main": [
+                    [
+                        {
+                            "node": "Build Recap Card",
+                            "type": "main",
+                            "index": 0
+                        }
+                    ]
+                ]
+            },
+            "Prepare Task Payloads": {
+                "main": [
+                    [
+                        {
+                            "node": "Send Tasks to CRM",
+                            "type": "main",
+                            "index": 0
+                        }
+                    ]
+                ]
+            },
+            "Send Tasks to CRM": {
+                "main": [
+                    []
+                ]
+            },
+            "Fire Task Resolution": {
+                "main": [
+                    [
+                        {
+                            "node": "Store Resolution Request",
+                            "type": "main",
+                            "index": 0
+                        }
+                    ]
+                ]
+            },
+            "Store Resolution Request": {
+                "main": [
+                    [
+                        {
+                            "node": "Send Resolution to Workato",
+                            "type": "main",
+                            "index": 0
+                        }
+                    ]
+                ]
+            },
+            "Send Resolution to Workato": {
+                "main": [
+                    []
+                ]
+            },
+            "Get Resolution Users": {
+                "main": [
+                    [
+                        {
+                            "node": "Loop Resolution Users",
+                            "type": "main",
+                            "index": 0
+                        }
+                    ]
+                ]
+            },
+            "Loop Resolution Users": {
+                "main": [
+                    [],
+                    [
+                        {
+                            "node": "Open DM (Resolution)",
+                            "type": "main",
+                            "index": 0
+                        }
+                    ]
+                ]
+            },
+            "Open DM (Resolution)": {
+                "main": [
+                    [
+                        {
+                            "node": "Build Scheduled Resolution",
+                            "type": "main",
+                            "index": 0
+                        }
+                    ]
+                ]
+            },
+            "Build Scheduled Resolution": {
+                "main": [
+                    [
+                        {
+                            "node": "Store Scheduled Request",
+                            "type": "main",
+                            "index": 0
+                        }
+                    ]
+                ]
+            },
+            "Store Scheduled Request": {
+                "main": [
+                    [
+                        {
+                            "node": "Send Scheduled Resolution",
+                            "type": "main",
+                            "index": 0
+                        }
+                    ]
+                ]
+            },
+            "Send Scheduled Resolution": {
+                "main": [
+                    [
+                        {
+                            "node": "Loop Resolution Users",
+                            "type": "main",
+                            "index": 0
+                        }
+                    ]
+                ]
             }
         },
         "authors": "Scott Metcalf",
         "name": null,
         "description": null,
-        "autosaved": false
+        "autosaved": false,
+        "workflowPublishHistory": [
+            {
+                "createdAt": "2026-04-08T15:32:05.971Z",
+                "id": 2052,
+                "workflowId": "JhDuCvZdFN4PFTOW",
+                "versionId": "50397a69-6891-43d4-baa3-95b87638c77a",
+                "event": "activated",
+                "userId": "bfa163c1-bd53-4c0f-b0ba-8dc3626f7c79"
+            },
+            {
+                "createdAt": "2026-04-08T15:32:05.936Z",
+                "id": 2051,
+                "workflowId": "JhDuCvZdFN4PFTOW",
+                "versionId": "50397a69-6891-43d4-baa3-95b87638c77a",
+                "event": "deactivated",
+                "userId": "bfa163c1-bd53-4c0f-b0ba-8dc3626f7c79"
+            }
+        ]
     }
 }

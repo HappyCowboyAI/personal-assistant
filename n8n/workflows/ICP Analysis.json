@@ -1,0 +1,1343 @@
+{
+    "updatedAt": "2026-04-01T19:29:21.636Z",
+    "createdAt": "2026-04-01T14:17:51.279Z",
+    "id": "2lWTeRVCrjx1NtmJ",
+    "name": "ICP Analysis",
+    "description": null,
+    "active": true,
+    "isArchived": false,
+    "nodes": [
+        {
+            "parameters": {
+                "inputSource": "passthrough"
+            },
+            "id": "c9b06f72-1ab7-4d46-b51c-a81609f78121",
+            "name": "Workflow Input Trigger",
+            "type": "n8n-nodes-base.executeWorkflowTrigger",
+            "typeVersion": 1.1,
+            "position": [
+                0,
+                436
+            ]
+        },
+        {
+            "parameters": {
+                "jsCode": "// Pass through input with mode extracted\nconst input = $input.first().json;\nconst mode = (input.mode || 'calibrate').toLowerCase().trim();\nreturn [{ json: { ...input, mode } }];\n"
+            },
+            "id": "02dc928e-a8b0-47cb-a521-87b28024556f",
+            "name": "Route Mode",
+            "type": "n8n-nodes-base.code",
+            "typeVersion": 2,
+            "position": [
+                224,
+                436
+            ]
+        },
+        {
+            "parameters": {
+                "conditions": {
+                    "options": {
+                        "version": 2,
+                        "caseSensitive": true,
+                        "typeValidation": "strict"
+                    },
+                    "combinator": "and",
+                    "conditions": [
+                        {
+                            "id": "d7355f3c-56cb-4217-a61f-01a07de11268",
+                            "operator": {
+                                "name": "filter.operator.equals",
+                                "type": "string",
+                                "operation": "equals"
+                            },
+                            "leftValue": "={{ $json.mode }}",
+                            "rightValue": "calibrate"
+                        }
+                    ]
+                },
+                "options": {}
+            },
+            "id": "a49967c8-f9b5-4359-b807-dd71f4462b13",
+            "name": "IF Is Calibrate",
+            "type": "n8n-nodes-base.if",
+            "typeVersion": 2.2,
+            "position": [
+                448,
+                436
+            ]
+        },
+        {
+            "parameters": {
+                "conditions": {
+                    "options": {
+                        "version": 2,
+                        "caseSensitive": true,
+                        "typeValidation": "strict"
+                    },
+                    "combinator": "and",
+                    "conditions": [
+                        {
+                            "id": "44b8e074-a63c-4e72-9b01-e640fca37242",
+                            "operator": {
+                                "name": "filter.operator.equals",
+                                "type": "string",
+                                "operation": "equals"
+                            },
+                            "leftValue": "={{ $json.mode }}",
+                            "rightValue": "targets"
+                        }
+                    ]
+                },
+                "options": {}
+            },
+            "id": "99cbda79-3e50-43ed-b4e2-bfdfc8defad2",
+            "name": "IF Is Targets",
+            "type": "n8n-nodes-base.if",
+            "typeVersion": 2.2,
+            "position": [
+                672,
+                584
+            ]
+        },
+        {
+            "parameters": {
+                "method": "POST",
+                "url": "https://api.people.ai/v3/auth/tokens",
+                "sendHeaders": true,
+                "headerParameters": {
+                    "parameters": [
+                        {
+                            "name": "Content-Type",
+                            "value": "application/x-www-form-urlencoded"
+                        }
+                    ]
+                },
+                "sendBody": true,
+                "specifyBody": "string",
+                "body": "client_id=YOUR_CLIENT_ID&client_secret=YOUR_CLIENT_SECRET&grant_type=client_credentials",
+                "options": {}
+            },
+            "id": "45818d20-0dfc-4e72-aad6-149c11bc48a9",
+            "name": "Get Auth Token",
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4.2,
+            "position": [
+                672,
+                -60
+            ]
+        },
+        {
+            "parameters": {
+                "method": "POST",
+                "url": "https://api.people.ai/v3/beta/insights/export",
+                "sendHeaders": true,
+                "headerParameters": {
+                    "parameters": [
+                        {
+                            "name": "Authorization",
+                            "value": "=Bearer {{ $json.access_token }}"
+                        },
+                        {
+                            "name": "Content-Type",
+                            "value": "application/json"
+                        }
+                    ]
+                },
+                "sendBody": true,
+                "specifyBody": "json",
+                "jsonBody": "{\"object\": \"opportunity\", \"columns\": [{\"slug\": \"ootb_opportunity_name\"}, {\"slug\": \"ootb_opportunity_account\"}], \"filter\": {\"$and\": [{\"attribute\": {\"slug\": \"ootb_opportunity_is_won\"}, \"clause\": {\"$eq\": true}}, {\"attribute\": {\"slug\": \"ootb_opportunity_close_date\", \"variation_id\": \"ootb_opportunity_close_date_0\"}, \"clause\": {\"$within\": {\"$ref\": \"time_ranges.last_90_days\"}}}]}}",
+                "options": {}
+            },
+            "id": "4df61920-0476-4f5b-bcae-b75a8c82fec3",
+            "name": "Fetch Won Opps",
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4.2,
+            "position": [
+                960,
+                -60
+            ]
+        },
+        {
+            "parameters": {
+                "method": "POST",
+                "url": "https://api.people.ai/v3/beta/insights/export",
+                "sendHeaders": true,
+                "headerParameters": {
+                    "parameters": [
+                        {
+                            "name": "Authorization",
+                            "value": "=Bearer {{ $('Get Auth Token').first().json.access_token }}"
+                        },
+                        {
+                            "name": "Content-Type",
+                            "value": "application/json"
+                        }
+                    ]
+                },
+                "sendBody": true,
+                "specifyBody": "json",
+                "jsonBody": "{\"object\": \"opportunity\", \"columns\": [{\"slug\": \"ootb_opportunity_name\"}, {\"slug\": \"ootb_opportunity_account\"}], \"filter\": {\"$and\": [{\"attribute\": {\"slug\": \"ootb_opportunity_is_closed\"}, \"clause\": {\"$eq\": true}}, {\"attribute\": {\"slug\": \"ootb_opportunity_is_won\"}, \"clause\": {\"$eq\": false}}, {\"attribute\": {\"slug\": \"ootb_opportunity_close_date\", \"variation_id\": \"ootb_opportunity_close_date_0\"}, \"clause\": {\"$within\": {\"$ref\": \"time_ranges.last_90_days\"}}}]}}",
+                "options": {}
+            },
+            "id": "dc2b17de-f600-4193-83d3-ff35cc95b599",
+            "name": "Fetch Lost Opps",
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4.2,
+            "position": [
+                1696,
+                -60
+            ]
+        },
+        {
+            "parameters": {
+                "jsCode": "\nfunction parseCSV(csvData) {\n  if (!csvData || !csvData.trim()) return [];\n  function parseLine(line) { const v=[]; let q=false,c=''; for(let i=0;i<line.length;i++){const ch=line[i]; if(ch==='\"'){q=!q;continue;} if(ch===','&&!q){v.push(c.trim());c='';continue;} c+=ch;} v.push(c.trim()); return v; }\n  const lines = csvData.trim().split('\\n');\n  const h = parseLine(lines[0]);\n  const rows = [];\n  for (let i=1; i<lines.length; i++) { const v=parseLine(lines[i]); if(v.length<2)continue; const r={}; h.forEach((hh,idx)=>r[hh]=v[idx]||''); rows.push(r); }\n  return rows;\n}\nconst n = s => { const x=Number(String(s||'0').replace(/[,$]/g,'')); return isFinite(x)?x:0; };\n\nconst input = $('Route Mode').first().json;\n\n// Parse opportunity lists to get unique account names\nconst wonOpps = parseCSV($('Fetch Won Opps').first().json.data || '');\nconst lostOpps = parseCSV($('Fetch Lost Opps').first().json.data || '');\nconst accountMetrics = parseCSV($('Fetch Account Metrics').first().json.data || '');\n\n// Extract unique account names from won/lost opps\nconst wonAccounts = new Set();\nwonOpps.forEach(o => {\n  const acct = o['Opportunity Account (name)'] || o['Account (name)'] || '';\n  if (acct) wonAccounts.add(acct.toLowerCase());\n});\n\nconst lostAccounts = new Set();\nlostOpps.forEach(o => {\n  const acct = o['Opportunity Account (name)'] || o['Account (name)'] || '';\n  if (acct) lostAccounts.add(acct.toLowerCase());\n});\n\n// Remove accounts that appear in both (mixed results)\nconst pureWon = new Set([...wonAccounts].filter(a => !lostAccounts.has(a)));\nconst pureLost = new Set([...lostAccounts].filter(a => !wonAccounts.has(a)));\n\n// Build metrics lookup by account name\nconst metricsMap = {};\naccountMetrics.forEach(a => {\n  const name = (a['Account Name'] || '').toLowerCase();\n  if (name) metricsMap[name] = a;\n});\n\n// Match account metrics to won/lost cohorts\nfunction getMetrics(accountSet) {\n  const matched = [];\n  for (const acctName of accountSet) {\n    const m = metricsMap[acctName];\n    if (m) matched.push(m);\n  }\n  return matched;\n}\n\nconst winners = getMetrics(pureWon);\nconst losers = getMetrics(pureLost);\n\nfunction analyze(accs) {\n  if (!accs.length) return null;\n  const vals = accs.map(a => ({\n    eng: n(a['Account Engagement Level']),\n    mtg90: n(a['Meetings (Last 90 Days)']),\n    eS: n(a['Emails Sent (Last 90 Days)']), eR: n(a['Emails Received (Last 90 Days)']),\n    ppl: n(a['People Engaged (Last 90 Days)']), execs: n(a['Executives Engaged (Last 90 Days)']),\n    execActs: n(a['Activities with Executives (C-Level) (Last 90 Days)']),\n    industry: a['Industry']||'Unknown', type: a['Account Type']||'Unknown'\n  }));\n  const avg = fn => Math.round(vals.reduce((s,a)=>s+fn(a),0)/vals.length*10)/10;\n  const pct = fn => Math.round(vals.reduce((s,a)=>s+fn(a),0)/vals.length*100);\n  const indMap = {};\n  vals.forEach(v => { indMap[v.industry] = (indMap[v.industry]||0)+1; });\n  const topInd = Object.entries(indMap).sort((a,b)=>b[1]-a[1]).slice(0,5)\n    .map(([ind,ct]) => ind+' ('+Math.round(ct/vals.length*100)+'%)');\n  const typeMap = {};\n  vals.forEach(v => { typeMap[v.type] = (typeMap[v.type]||0)+1; });\n  const topTypes = Object.entries(typeMap).sort((a,b)=>b[1]-a[1]).slice(0,3)\n    .map(([t,ct]) => t+' ('+Math.round(ct/vals.length*100)+'%)');\n  return {\n    count: accs.length, oppCount: 0,\n    eng: avg(a=>a.eng), mtg90: avg(a=>a.mtg90),\n    emails: avg(a=>a.eS+a.eR), emailsSent: avg(a=>a.eS), emailsRecv: avg(a=>a.eR),\n    ppl: avg(a=>a.ppl), execs: avg(a=>a.execs), execActs: avg(a=>a.execActs),\n    mtgRatio: pct(a => { const t=a.mtg90+a.eS+a.eR; return t>0?a.mtg90/t:0; }),\n    execPct: pct(a => a.ppl>0 ? Math.min(a.execs/a.ppl, 1) : 0),\n    respRate: Math.round(vals.reduce((s,a)=>s+(a.eS>0?a.eR/a.eS:0),0)/vals.length*100)/100,\n    topInd, topTypes\n  };\n}\n\nconst w = analyze(winners);\nconst l = analyze(losers);\nif (!w || !l) {\n  return [{json:{\n    channel: input.channelId,\n    text: 'Insufficient data for ICP calibration. Need accounts with both won and lost opps in last 90 days.',\n    username: input.assistantName || 'Aria',\n    icon_emoji: input.assistantEmoji || ':robot_face:',\n  }}];\n}\nw.oppCount = wonOpps.length;\nl.oppCount = lostOpps.length;\n\nconst gap = (wv,lv,s) => { const d=Math.round((wv-lv)*10)/10; return (d>0?'+':'')+d+(s||''); };\nconst date = new Date().toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric',year:'numeric'});\n\nlet text = ':dart: *ICP Calibration \\u2014 Win Pattern Fingerprint*\\n_'+date+'_\\n_'+w.oppCount+' won opps ('+w.count+' accounts) vs '+l.oppCount+' lost opps ('+l.count+' accounts) \\u2014 close date in last 90 days_\\n\\n'+\n  '*:bar_chart: Behavioral Benchmarks*\\n```\\n'+\n  'Dimension         | Winners | Losers  | Gap\\n'+\n  '------------------+---------+---------+---------\\n'+\n  'Engagement        | '+String(w.eng).padEnd(7)+' | '+String(l.eng).padEnd(7)+' | '+gap(w.eng,l.eng)+'\\n'+\n  'Meetings (90d)    | '+String(w.mtg90).padEnd(7)+' | '+String(l.mtg90).padEnd(7)+' | '+gap(w.mtg90,l.mtg90)+'\\n'+\n  'Emails Sent       | '+String(w.emailsSent).padEnd(7)+' | '+String(l.emailsSent).padEnd(7)+' | '+gap(w.emailsSent,l.emailsSent)+'\\n'+\n  'Emails Received   | '+String(w.emailsRecv).padEnd(7)+' | '+String(l.emailsRecv).padEnd(7)+' | '+gap(w.emailsRecv,l.emailsRecv)+'\\n'+\n  'People Engaged    | '+String(w.ppl).padEnd(7)+' | '+String(l.ppl).padEnd(7)+' | '+gap(w.ppl,l.ppl)+'\\n'+\n  'Execs Engaged     | '+String(w.execs).padEnd(7)+' | '+String(l.execs).padEnd(7)+' | '+gap(w.execs,l.execs)+'\\n'+\n  'Exec Activities   | '+String(w.execActs).padEnd(7)+' | '+String(l.execActs).padEnd(7)+' | '+gap(w.execActs,l.execActs)+'\\n'+\n  'Meeting Ratio     | '+String(w.mtgRatio+'%').padEnd(7)+' | '+String(l.mtgRatio+'%').padEnd(7)+' | '+gap(w.mtgRatio,l.mtgRatio,'%')+'\\n'+\n  'Exec % of People  | '+String(w.execPct+'%').padEnd(7)+' | '+String(l.execPct+'%').padEnd(7)+' | '+gap(w.execPct,l.execPct,'%')+'\\n'+\n  'Email Response    | '+String(w.respRate).padEnd(7)+' | '+String(l.respRate).padEnd(7)+' | '+gap(w.respRate,l.respRate)+'\\n'+\n  '```\\n\\n'+\n  '*:trophy: Winner Profile*\\n'+\n  '\\u2022 Industries: '+w.topInd.join(', ')+'\\n'+\n  '\\u2022 Account types: '+w.topTypes.join(', ')+'\\n'+\n  '\\u2022 '+w.mtg90+' meetings/90d, '+w.mtgRatio+'% meeting ratio\\n'+\n  '\\u2022 '+w.ppl+' people engaged, '+w.execs+' execs, '+w.execPct+'% exec coverage\\n'+\n  '\\u2022 '+w.respRate+' email response rate ('+w.emailsRecv+' received / '+w.emailsSent+' sent)\\n\\n'+\n  '*:no_entry_sign: Loser Profile*\\n'+\n  '\\u2022 Industries: '+l.topInd.join(', ')+'\\n'+\n  '\\u2022 Account types: '+l.topTypes.join(', ')+'\\n'+\n  '\\u2022 '+l.mtg90+' meetings/90d, '+l.mtgRatio+'% meeting ratio\\n'+\n  '\\u2022 '+l.ppl+' people engaged, '+l.execs+' execs, '+l.execPct+'% exec coverage\\n'+\n  '\\u2022 '+l.respRate+' email response rate\\n\\n'+\n  '*:dart: Key Differentiators* (biggest gaps)\\n';\n\nconst dims = [\n  {name:'Engagement', gap:Math.abs(w.eng-l.eng), desc: w.eng+' vs '+l.eng},\n  {name:'Meetings (90d)', gap:Math.abs(w.mtg90-l.mtg90), desc: w.mtg90+' vs '+l.mtg90},\n  {name:'Emails Total', gap:Math.abs(w.emails-l.emails), desc: w.emails+' vs '+l.emails},\n  {name:'People Engaged', gap:Math.abs(w.ppl-l.ppl), desc: w.ppl+' vs '+l.ppl},\n  {name:'Execs Engaged', gap:Math.abs(w.execs-l.execs), desc: w.execs+' vs '+l.execs},\n  {name:'Exec Activities', gap:Math.abs(w.execActs-l.execActs), desc: w.execActs+' vs '+l.execActs},\n  {name:'Meeting Ratio', gap:Math.abs(w.mtgRatio-l.mtgRatio), desc: w.mtgRatio+'% vs '+l.mtgRatio+'%'},\n  {name:'Email Response', gap:Math.abs(w.respRate-l.respRate), desc: w.respRate+' vs '+l.respRate}\n].sort((a,b) => b.gap - a.gap);\n\ntext += dims.slice(0,4).map((d,i) => (i+1)+'. *'+d.name+'*: '+d.desc+' (winners vs losers)').join('\\n');\ntext += '\\n\\n_Close date in last 90 days \\u2022 Accounts with mixed results excluded \\u2022 People.ai + Claude AI_';\n\nreturn [{json:{\n  channel: input.channelId,\n  text: text,\n  username: input.assistantName || 'Aria',\n  icon_emoji: input.assistantEmoji || ':robot_face:',\n}}];\n"
+            },
+            "id": "530f43c3-c279-4602-a5df-0f701009210a",
+            "name": "Analyze Calibration",
+            "type": "n8n-nodes-base.code",
+            "typeVersion": 2,
+            "position": [
+                3168,
+                -208
+            ]
+        },
+        {
+            "parameters": {
+                "method": "POST",
+                "url": "https://slack.com/api/chat.postMessage",
+                "authentication": "genericCredentialType",
+                "genericAuthType": "httpHeaderAuth",
+                "sendHeaders": true,
+                "headerParameters": {
+                    "parameters": [
+                        {
+                            "name": "Content-Type",
+                            "value": "application/json"
+                        }
+                    ]
+                },
+                "sendBody": true,
+                "specifyBody": "json",
+                "jsonBody": "={{ JSON.stringify({ channel: $json.channel, text: $json.text, username: $json.username, icon_emoji: $json.icon_emoji, unfurl_links: false, unfurl_media: false }) }}",
+                "options": {}
+            },
+            "id": "4a41c067-0cdb-45d5-9bf6-5db033f3825f",
+            "name": "Send Fingerprint",
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4.2,
+            "position": [
+                3968,
+                -208
+            ],
+            "credentials": {
+                "httpHeaderAuth": {
+                    "id": "LluVuiMJ8NUbAiG7",
+                    "name": "Slackbot Auth Token"
+                }
+            }
+        },
+        {
+            "parameters": {
+                "promptType": "define",
+                "text": "={{ \"Find and rank my best ICP-fit prospects. My name is \" + $json.repName + \". My digest scope is \" + $json.digestScope + \". My email is \" + $json.email + \".\" }}",
+                "options": {
+                    "systemMessage": "You are a sales targeting expert. Using People.ai tools, identify and rank the user's best-fit prospects.\n\nApply these ICP benchmarks when evaluating accounts:\n\u2022 High meeting-to-email ratio (>0.3) = strong fit\n\u2022 Executive engagement present = strong fit\n\u2022 Multi-threaded (3+ stakeholders engaged) = strong fit\n\u2022 Email responsiveness ratio > 0.5 = strong fit\n\u2022 Growing contact velocity (7-day contacts > 25% of 30-day) = momentum signal\n\nROLE-BASED FILTERING:\n- If the user's digestScope is \"my_deals\": only show accounts owned by or assigned to the user\n- If \"team_deals\": show the user's team accounts\n- If \"top_pipeline\": show top accounts across the org\n\nUse People.ai tools to:\n1. Get the user's accounts with engagement data\n2. Score each against the ICP benchmarks\n3. Rank by fit score (highest first)\n\nFORMAT IN SLACK MRKDWN (not markdown). Structure as:\n\n*:dart: ICP Target List*\n\nFor each account (top 10):\n\u2022 *Account Name* \u2014 Fit Score: X/10\n  Strengths: [what matches ICP]\n  Gaps: [what's missing]\n  Next action: [specific recommendation]\n\nKeep under 2500 characters.",
+                    "maxIterations": 5
+                }
+            },
+            "id": "cca32a9a-3199-41e2-b2c7-c866545b45a1",
+            "name": "Targets Agent",
+            "type": "@n8n/n8n-nodes-langchain.agent",
+            "typeVersion": 1.7,
+            "position": [
+                896,
+                132
+            ],
+            "continueOnFail": true
+        },
+        {
+            "parameters": {
+                "model": {
+                    "__rl": true,
+                    "mode": "list",
+                    "value": "claude-sonnet-4-5-20250929",
+                    "cachedResultName": "Claude Sonnet 4.5"
+                },
+                "options": {}
+            },
+            "id": "b7644817-8001-478b-bbb2-6c2115095ded",
+            "name": "Anthropic Chat Model (Targets)",
+            "type": "@n8n/n8n-nodes-langchain.lmChatAnthropic",
+            "typeVersion": 1.3,
+            "position": [
+                904,
+                356
+            ],
+            "credentials": {
+                "anthropicApi": {
+                    "id": "rlAz7ZSl4y6AwRUq",
+                    "name": "Anthropic account 2"
+                }
+            }
+        },
+        {
+            "parameters": {
+                "endpointUrl": "https://mcp.people.ai/mcp",
+                "authentication": "multipleHeadersAuth",
+                "options": {}
+            },
+            "id": "b5538b57-e806-4b64-9e56-a94603bed0f2",
+            "name": "People.ai MCP (Targets)",
+            "type": "@n8n/n8n-nodes-langchain.mcpClientTool",
+            "typeVersion": 1.2,
+            "position": [
+                1032,
+                356
+            ],
+            "credentials": {
+                "httpMultipleHeadersAuth": {
+                    "id": "wvV5pwBeIL7f2vLG",
+                    "name": "People.ai MCP Multi-Header"
+                }
+            }
+        },
+        {
+            "parameters": {
+                "method": "POST",
+                "url": "https://slack.com/api/chat.postMessage",
+                "authentication": "genericCredentialType",
+                "genericAuthType": "httpHeaderAuth",
+                "sendBody": true,
+                "specifyBody": "json",
+                "jsonBody": "={\n  \"channel\": \"{{ $('Route Mode').first().json.channelId }}\",\n  \"text\": \"ICP Target List\",\n  \"blocks\": [{\"type\": \"section\", \"text\": {\"type\": \"mrkdwn\", \"text\": {{ JSON.stringify($('Targets Agent').first().json.output || 'No results').slice(0, 3000) }} }}],\n  \"username\": \"{{ $('Route Mode').first().json.assistantName }}\",\n  \"icon_emoji\": \"{{ $('Route Mode').first().json.assistantEmoji }}\"\n}",
+                "options": {}
+            },
+            "id": "2c7e1134-43ec-4d95-b2d8-d9e34100e2ab",
+            "name": "Send Targets",
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4.2,
+            "position": [
+                1248,
+                236
+            ],
+            "credentials": {
+                "httpHeaderAuth": {
+                    "id": "LluVuiMJ8NUbAiG7",
+                    "name": "Slackbot Auth Token"
+                }
+            }
+        },
+        {
+            "parameters": {
+                "promptType": "define",
+                "text": "={{ \"Evaluate this account against our ICP: \" + ($json.companyName || \"unknown company\") + \". My name is \" + $json.repName + \". My email is \" + $json.email + \".\" }}",
+                "options": {
+                    "systemMessage": "You are an ICP fit analyst. The user wants to evaluate a specific account against their Ideal Customer Profile.\n\nApply these ICP benchmarks:\n\u2022 Meeting-to-email ratio benchmark: >0.3 = strong\n\u2022 Executive engagement: present = strong signal\n\u2022 Multi-threading: 3+ stakeholders = strong\n\u2022 Email responsiveness: >0.5 reply ratio = healthy\n\u2022 Contact velocity: 7-day > 25% of 30-day = momentum\n\nUsing People.ai tools:\n1. Look up the specified account\n2. Get engagement metrics, stakeholder data, activity history\n3. Score the account on each ICP dimension (1-10 scale)\n4. Compute overall ICP fit score\n5. Identify gaps and recommend actions\n\nFORMAT IN SLACK MRKDWN (not markdown). Structure as:\n\n*:bar_chart: ICP Fit Report \u2014 [Account Name]*\n\n*Overall Fit Score: X/10*\n\n*Dimension Scores:*\n\u2022 Meeting engagement: X/10\n\u2022 Executive access: X/10\n\u2022 Multi-threading: X/10\n\u2022 Email responsiveness: X/10\n\u2022 Contact velocity: X/10\n\u2022 Stakeholder breadth: X/10\n\n*Strengths:*\n\u2022 [what matches ICP well]\n\n*Gaps:*\n\u2022 [where it falls short]\n\n*Recommendations:*\n\u2022 [specific next steps to improve fit]\n\nKeep under 2500 characters.",
+                    "maxIterations": 5
+                }
+            },
+            "id": "17f5d680-3ef1-4c91-b822-57f142eb99a6",
+            "name": "Compare Agent",
+            "type": "@n8n/n8n-nodes-langchain.agent",
+            "typeVersion": 1.7,
+            "position": [
+                896,
+                636
+            ],
+            "continueOnFail": true
+        },
+        {
+            "parameters": {
+                "model": {
+                    "__rl": true,
+                    "mode": "list",
+                    "value": "claude-sonnet-4-5-20250929",
+                    "cachedResultName": "Claude Sonnet 4.5"
+                },
+                "options": {}
+            },
+            "id": "b5c7bbd1-353e-4c71-9c30-549114d257bf",
+            "name": "Anthropic Chat Model (Compare)",
+            "type": "@n8n/n8n-nodes-langchain.lmChatAnthropic",
+            "typeVersion": 1.3,
+            "position": [
+                904,
+                860
+            ],
+            "credentials": {
+                "anthropicApi": {
+                    "id": "rlAz7ZSl4y6AwRUq",
+                    "name": "Anthropic account 2"
+                }
+            }
+        },
+        {
+            "parameters": {
+                "endpointUrl": "https://mcp.people.ai/mcp",
+                "authentication": "multipleHeadersAuth",
+                "options": {}
+            },
+            "id": "2a5fb7d7-3cb7-44d1-bcc3-cf4e3fccf9ef",
+            "name": "People.ai MCP (Compare)",
+            "type": "@n8n/n8n-nodes-langchain.mcpClientTool",
+            "typeVersion": 1.2,
+            "position": [
+                1032,
+                860
+            ],
+            "credentials": {
+                "httpMultipleHeadersAuth": {
+                    "id": "wvV5pwBeIL7f2vLG",
+                    "name": "People.ai MCP Multi-Header"
+                }
+            }
+        },
+        {
+            "parameters": {
+                "method": "POST",
+                "url": "https://slack.com/api/chat.postMessage",
+                "authentication": "genericCredentialType",
+                "genericAuthType": "httpHeaderAuth",
+                "sendBody": true,
+                "specifyBody": "json",
+                "jsonBody": "={\n  \"channel\": \"{{ $('Route Mode').first().json.channelId }}\",\n  \"text\": \"ICP Fit Report\",\n  \"blocks\": [{\"type\": \"section\", \"text\": {\"type\": \"mrkdwn\", \"text\": {{ JSON.stringify($('Compare Agent').first().json.output || 'No results').slice(0, 3000) }} }}],\n  \"username\": \"{{ $('Route Mode').first().json.assistantName }}\",\n  \"icon_emoji\": \"{{ $('Route Mode').first().json.assistantEmoji }}\"\n}",
+                "options": {}
+            },
+            "id": "12e07bb2-d610-4cb0-a03e-71a5e84a1f6f",
+            "name": "Send Compare",
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4.2,
+            "position": [
+                1248,
+                636
+            ],
+            "credentials": {
+                "httpHeaderAuth": {
+                    "id": "LluVuiMJ8NUbAiG7",
+                    "name": "Slackbot Auth Token"
+                }
+            }
+        },
+        {
+            "id": "68eed69e-2593-41e3-812c-70a45602cb5a",
+            "name": "Fetch Account Metrics",
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4.2,
+            "position": [
+                2000,
+                -200
+            ],
+            "parameters": {
+                "method": "POST",
+                "url": "https://api.people.ai/v3/beta/insights/export",
+                "sendHeaders": true,
+                "headerParameters": {
+                    "parameters": [
+                        {
+                            "name": "Content-Type",
+                            "value": "application/json"
+                        },
+                        {
+                            "name": "Authorization",
+                            "value": "=Bearer {{ $('Get Auth Token').first().json.access_token }}"
+                        }
+                    ]
+                },
+                "sendBody": true,
+                "specifyBody": "json",
+                "jsonBody": "{\"object\": \"account\", \"columns\": [{\"slug\": \"ootb_account_name\"}, {\"slug\": \"ootb_account_original_owner\"}, {\"slug\": \"ootb_account_engagement_level\"}, {\"slug\": \"ootb_account_industry\"}, {\"slug\": \"ootb_account_type\"}, {\"slug\": \"ootb_account_count_of_meetings_standard\", \"variation_id\": \"ootb_account_count_of_meetings_standard_last_90_days\"}, {\"slug\": \"ootb_account_count_of_emails_sent\", \"variation_id\": \"ootb_account_count_of_emails_sent_last_90_days\"}, {\"slug\": \"ootb_account_count_of_emails_received\", \"variation_id\": \"ootb_account_count_of_emails_received_last_90_days\"}, {\"slug\": \"ootb_account_people_engaged\", \"variation_id\": \"ootb_account_people_engaged_last_90_days\"}, {\"slug\": \"ootb_account_executive_engaged\", \"variation_id\": \"ootb_account_executive_engaged_last_90_days\"}, {\"slug\": \"ootb_account_executive_activities\", \"variation_id\": \"ootb_account_executive_activities_last_90_days\"}], \"filter\": {\"attribute\": {\"slug\": \"ootb_account_engagement_level\"}, \"clause\": {\"$gt\": 0}}}",
+                "options": {}
+            }
+        }
+    ],
+    "connections": {
+        "Anthropic Chat Model (Targets)": {
+            "ai_languageModel": [
+                [
+                    {
+                        "node": "Targets Agent",
+                        "type": "ai_languageModel",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "People.ai MCP (Targets)": {
+            "ai_tool": [
+                [
+                    {
+                        "node": "Targets Agent",
+                        "type": "ai_tool",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Anthropic Chat Model (Compare)": {
+            "ai_languageModel": [
+                [
+                    {
+                        "node": "Compare Agent",
+                        "type": "ai_languageModel",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "People.ai MCP (Compare)": {
+            "ai_tool": [
+                [
+                    {
+                        "node": "Compare Agent",
+                        "type": "ai_tool",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Workflow Input Trigger": {
+            "main": [
+                [
+                    {
+                        "node": "Route Mode",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Route Mode": {
+            "main": [
+                [
+                    {
+                        "node": "IF Is Calibrate",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "IF Is Calibrate": {
+            "main": [
+                [
+                    {
+                        "node": "Get Auth Token",
+                        "type": "main",
+                        "index": 0
+                    }
+                ],
+                [
+                    {
+                        "node": "IF Is Targets",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "IF Is Targets": {
+            "main": [
+                [
+                    {
+                        "node": "Targets Agent",
+                        "type": "main",
+                        "index": 0
+                    }
+                ],
+                [
+                    {
+                        "node": "Compare Agent",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Get Auth Token": {
+            "main": [
+                [
+                    {
+                        "node": "Fetch Won Opps",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Merge All Data": {
+            "main": [
+                [
+                    {
+                        "node": "Generate Fingerprint Agent",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Targets Agent": {
+            "main": [
+                [
+                    {
+                        "node": "Send Targets",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Compare Agent": {
+            "main": [
+                [
+                    {
+                        "node": "Send Compare",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Analyze Calibration": {
+            "main": [
+                [
+                    {
+                        "node": "Send Fingerprint",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Fetch Won Opps": {
+            "main": [
+                [
+                    {
+                        "node": "Fetch Lost Opps",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Fetch Lost Opps": {
+            "main": [
+                [
+                    {
+                        "node": "Fetch Account Metrics",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Fetch Account Metrics": {
+            "main": [
+                [
+                    {
+                        "node": "Analyze Calibration",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        }
+    },
+    "settings": {
+        "executionOrder": "v1",
+        "saveManualExecutions": true,
+        "callerPolicy": "workflowsFromSameOwner",
+        "availableInMCP": false,
+        "executionTimeout": 600
+    },
+    "staticData": null,
+    "meta": null,
+    "pinData": {},
+    "versionId": "17bc9e79-7ecd-46f8-9c11-0ed0d1054359",
+    "activeVersionId": "17bc9e79-7ecd-46f8-9c11-0ed0d1054359",
+    "versionCounter": 65,
+    "triggerCount": 0,
+    "shared": [
+        {
+            "updatedAt": "2026-04-01T14:17:51.281Z",
+            "createdAt": "2026-04-01T14:17:51.281Z",
+            "role": "workflow:owner",
+            "workflowId": "2lWTeRVCrjx1NtmJ",
+            "projectId": "85jtzrEPriGDXgHV",
+            "project": {
+                "updatedAt": "2025-11-24T07:01:19.205Z",
+                "createdAt": "2025-11-24T06:56:53.862Z",
+                "id": "85jtzrEPriGDXgHV",
+                "name": "Scott Metcalf <metcalf.scott@gmail.com>",
+                "type": "personal",
+                "icon": null,
+                "description": null,
+                "creatorId": "bfa163c1-bd53-4c0f-b0ba-8dc3626f7c79"
+            }
+        }
+    ],
+    "tags": [],
+    "activeVersion": {
+        "updatedAt": "2026-04-01T19:29:21.637Z",
+        "createdAt": "2026-04-01T19:29:21.637Z",
+        "versionId": "17bc9e79-7ecd-46f8-9c11-0ed0d1054359",
+        "workflowId": "2lWTeRVCrjx1NtmJ",
+        "nodes": [
+            {
+                "parameters": {
+                    "inputSource": "passthrough"
+                },
+                "id": "c9b06f72-1ab7-4d46-b51c-a81609f78121",
+                "name": "Workflow Input Trigger",
+                "type": "n8n-nodes-base.executeWorkflowTrigger",
+                "typeVersion": 1.1,
+                "position": [
+                    0,
+                    436
+                ]
+            },
+            {
+                "parameters": {
+                    "jsCode": "// Pass through input with mode extracted\nconst input = $input.first().json;\nconst mode = (input.mode || 'calibrate').toLowerCase().trim();\nreturn [{ json: { ...input, mode } }];\n"
+                },
+                "id": "02dc928e-a8b0-47cb-a521-87b28024556f",
+                "name": "Route Mode",
+                "type": "n8n-nodes-base.code",
+                "typeVersion": 2,
+                "position": [
+                    224,
+                    436
+                ]
+            },
+            {
+                "parameters": {
+                    "conditions": {
+                        "options": {
+                            "version": 2,
+                            "caseSensitive": true,
+                            "typeValidation": "strict"
+                        },
+                        "combinator": "and",
+                        "conditions": [
+                            {
+                                "id": "d7355f3c-56cb-4217-a61f-01a07de11268",
+                                "operator": {
+                                    "name": "filter.operator.equals",
+                                    "type": "string",
+                                    "operation": "equals"
+                                },
+                                "leftValue": "={{ $json.mode }}",
+                                "rightValue": "calibrate"
+                            }
+                        ]
+                    },
+                    "options": {}
+                },
+                "id": "a49967c8-f9b5-4359-b807-dd71f4462b13",
+                "name": "IF Is Calibrate",
+                "type": "n8n-nodes-base.if",
+                "typeVersion": 2.2,
+                "position": [
+                    448,
+                    436
+                ]
+            },
+            {
+                "parameters": {
+                    "conditions": {
+                        "options": {
+                            "version": 2,
+                            "caseSensitive": true,
+                            "typeValidation": "strict"
+                        },
+                        "combinator": "and",
+                        "conditions": [
+                            {
+                                "id": "44b8e074-a63c-4e72-9b01-e640fca37242",
+                                "operator": {
+                                    "name": "filter.operator.equals",
+                                    "type": "string",
+                                    "operation": "equals"
+                                },
+                                "leftValue": "={{ $json.mode }}",
+                                "rightValue": "targets"
+                            }
+                        ]
+                    },
+                    "options": {}
+                },
+                "id": "99cbda79-3e50-43ed-b4e2-bfdfc8defad2",
+                "name": "IF Is Targets",
+                "type": "n8n-nodes-base.if",
+                "typeVersion": 2.2,
+                "position": [
+                    672,
+                    584
+                ]
+            },
+            {
+                "parameters": {
+                    "method": "POST",
+                    "url": "https://api.people.ai/v3/auth/tokens",
+                    "sendHeaders": true,
+                    "headerParameters": {
+                        "parameters": [
+                            {
+                                "name": "Content-Type",
+                                "value": "application/x-www-form-urlencoded"
+                            }
+                        ]
+                    },
+                    "sendBody": true,
+                    "specifyBody": "string",
+                    "body": "client_id=YOUR_CLIENT_ID&client_secret=YOUR_CLIENT_SECRET&grant_type=client_credentials",
+                    "options": {}
+                },
+                "id": "45818d20-0dfc-4e72-aad6-149c11bc48a9",
+                "name": "Get Auth Token",
+                "type": "n8n-nodes-base.httpRequest",
+                "typeVersion": 4.2,
+                "position": [
+                    672,
+                    -60
+                ]
+            },
+            {
+                "parameters": {
+                    "method": "POST",
+                    "url": "https://api.people.ai/v3/beta/insights/export",
+                    "sendHeaders": true,
+                    "headerParameters": {
+                        "parameters": [
+                            {
+                                "name": "Authorization",
+                                "value": "=Bearer {{ $json.access_token }}"
+                            },
+                            {
+                                "name": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ]
+                    },
+                    "sendBody": true,
+                    "specifyBody": "json",
+                    "jsonBody": "{\"object\": \"opportunity\", \"columns\": [{\"slug\": \"ootb_opportunity_name\"}, {\"slug\": \"ootb_opportunity_account\"}], \"filter\": {\"$and\": [{\"attribute\": {\"slug\": \"ootb_opportunity_is_won\"}, \"clause\": {\"$eq\": true}}, {\"attribute\": {\"slug\": \"ootb_opportunity_close_date\", \"variation_id\": \"ootb_opportunity_close_date_0\"}, \"clause\": {\"$within\": {\"$ref\": \"time_ranges.last_90_days\"}}}]}}",
+                    "options": {}
+                },
+                "id": "4df61920-0476-4f5b-bcae-b75a8c82fec3",
+                "name": "Fetch Won Opps",
+                "type": "n8n-nodes-base.httpRequest",
+                "typeVersion": 4.2,
+                "position": [
+                    960,
+                    -60
+                ]
+            },
+            {
+                "parameters": {
+                    "method": "POST",
+                    "url": "https://api.people.ai/v3/beta/insights/export",
+                    "sendHeaders": true,
+                    "headerParameters": {
+                        "parameters": [
+                            {
+                                "name": "Authorization",
+                                "value": "=Bearer {{ $('Get Auth Token').first().json.access_token }}"
+                            },
+                            {
+                                "name": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ]
+                    },
+                    "sendBody": true,
+                    "specifyBody": "json",
+                    "jsonBody": "{\"object\": \"opportunity\", \"columns\": [{\"slug\": \"ootb_opportunity_name\"}, {\"slug\": \"ootb_opportunity_account\"}], \"filter\": {\"$and\": [{\"attribute\": {\"slug\": \"ootb_opportunity_is_closed\"}, \"clause\": {\"$eq\": true}}, {\"attribute\": {\"slug\": \"ootb_opportunity_is_won\"}, \"clause\": {\"$eq\": false}}, {\"attribute\": {\"slug\": \"ootb_opportunity_close_date\", \"variation_id\": \"ootb_opportunity_close_date_0\"}, \"clause\": {\"$within\": {\"$ref\": \"time_ranges.last_90_days\"}}}]}}",
+                    "options": {}
+                },
+                "id": "dc2b17de-f600-4193-83d3-ff35cc95b599",
+                "name": "Fetch Lost Opps",
+                "type": "n8n-nodes-base.httpRequest",
+                "typeVersion": 4.2,
+                "position": [
+                    1696,
+                    -60
+                ]
+            },
+            {
+                "parameters": {
+                    "jsCode": "\nfunction parseCSV(csvData) {\n  if (!csvData || !csvData.trim()) return [];\n  function parseLine(line) { const v=[]; let q=false,c=''; for(let i=0;i<line.length;i++){const ch=line[i]; if(ch==='\"'){q=!q;continue;} if(ch===','&&!q){v.push(c.trim());c='';continue;} c+=ch;} v.push(c.trim()); return v; }\n  const lines = csvData.trim().split('\\n');\n  const h = parseLine(lines[0]);\n  const rows = [];\n  for (let i=1; i<lines.length; i++) { const v=parseLine(lines[i]); if(v.length<2)continue; const r={}; h.forEach((hh,idx)=>r[hh]=v[idx]||''); rows.push(r); }\n  return rows;\n}\nconst n = s => { const x=Number(String(s||'0').replace(/[,$]/g,'')); return isFinite(x)?x:0; };\n\nconst input = $('Route Mode').first().json;\n\n// Parse opportunity lists to get unique account names\nconst wonOpps = parseCSV($('Fetch Won Opps').first().json.data || '');\nconst lostOpps = parseCSV($('Fetch Lost Opps').first().json.data || '');\nconst accountMetrics = parseCSV($('Fetch Account Metrics').first().json.data || '');\n\n// Extract unique account names from won/lost opps\nconst wonAccounts = new Set();\nwonOpps.forEach(o => {\n  const acct = o['Opportunity Account (name)'] || o['Account (name)'] || '';\n  if (acct) wonAccounts.add(acct.toLowerCase());\n});\n\nconst lostAccounts = new Set();\nlostOpps.forEach(o => {\n  const acct = o['Opportunity Account (name)'] || o['Account (name)'] || '';\n  if (acct) lostAccounts.add(acct.toLowerCase());\n});\n\n// Remove accounts that appear in both (mixed results)\nconst pureWon = new Set([...wonAccounts].filter(a => !lostAccounts.has(a)));\nconst pureLost = new Set([...lostAccounts].filter(a => !wonAccounts.has(a)));\n\n// Build metrics lookup by account name\nconst metricsMap = {};\naccountMetrics.forEach(a => {\n  const name = (a['Account Name'] || '').toLowerCase();\n  if (name) metricsMap[name] = a;\n});\n\n// Match account metrics to won/lost cohorts\nfunction getMetrics(accountSet) {\n  const matched = [];\n  for (const acctName of accountSet) {\n    const m = metricsMap[acctName];\n    if (m) matched.push(m);\n  }\n  return matched;\n}\n\nconst winners = getMetrics(pureWon);\nconst losers = getMetrics(pureLost);\n\nfunction analyze(accs) {\n  if (!accs.length) return null;\n  const vals = accs.map(a => ({\n    eng: n(a['Account Engagement Level']),\n    mtg90: n(a['Meetings (Last 90 Days)']),\n    eS: n(a['Emails Sent (Last 90 Days)']), eR: n(a['Emails Received (Last 90 Days)']),\n    ppl: n(a['People Engaged (Last 90 Days)']), execs: n(a['Executives Engaged (Last 90 Days)']),\n    execActs: n(a['Activities with Executives (C-Level) (Last 90 Days)']),\n    industry: a['Industry']||'Unknown', type: a['Account Type']||'Unknown'\n  }));\n  const avg = fn => Math.round(vals.reduce((s,a)=>s+fn(a),0)/vals.length*10)/10;\n  const pct = fn => Math.round(vals.reduce((s,a)=>s+fn(a),0)/vals.length*100);\n  const indMap = {};\n  vals.forEach(v => { indMap[v.industry] = (indMap[v.industry]||0)+1; });\n  const topInd = Object.entries(indMap).sort((a,b)=>b[1]-a[1]).slice(0,5)\n    .map(([ind,ct]) => ind+' ('+Math.round(ct/vals.length*100)+'%)');\n  const typeMap = {};\n  vals.forEach(v => { typeMap[v.type] = (typeMap[v.type]||0)+1; });\n  const topTypes = Object.entries(typeMap).sort((a,b)=>b[1]-a[1]).slice(0,3)\n    .map(([t,ct]) => t+' ('+Math.round(ct/vals.length*100)+'%)');\n  return {\n    count: accs.length, oppCount: 0,\n    eng: avg(a=>a.eng), mtg90: avg(a=>a.mtg90),\n    emails: avg(a=>a.eS+a.eR), emailsSent: avg(a=>a.eS), emailsRecv: avg(a=>a.eR),\n    ppl: avg(a=>a.ppl), execs: avg(a=>a.execs), execActs: avg(a=>a.execActs),\n    mtgRatio: pct(a => { const t=a.mtg90+a.eS+a.eR; return t>0?a.mtg90/t:0; }),\n    execPct: pct(a => a.ppl>0 ? Math.min(a.execs/a.ppl, 1) : 0),\n    respRate: Math.round(vals.reduce((s,a)=>s+(a.eS>0?a.eR/a.eS:0),0)/vals.length*100)/100,\n    topInd, topTypes\n  };\n}\n\nconst w = analyze(winners);\nconst l = analyze(losers);\nif (!w || !l) {\n  return [{json:{\n    channel: input.channelId,\n    text: 'Insufficient data for ICP calibration. Need accounts with both won and lost opps in last 90 days.',\n    username: input.assistantName || 'Aria',\n    icon_emoji: input.assistantEmoji || ':robot_face:',\n  }}];\n}\nw.oppCount = wonOpps.length;\nl.oppCount = lostOpps.length;\n\nconst gap = (wv,lv,s) => { const d=Math.round((wv-lv)*10)/10; return (d>0?'+':'')+d+(s||''); };\nconst date = new Date().toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric',year:'numeric'});\n\nlet text = ':dart: *ICP Calibration \\u2014 Win Pattern Fingerprint*\\n_'+date+'_\\n_'+w.oppCount+' won opps ('+w.count+' accounts) vs '+l.oppCount+' lost opps ('+l.count+' accounts) \\u2014 close date in last 90 days_\\n\\n'+\n  '*:bar_chart: Behavioral Benchmarks*\\n```\\n'+\n  'Dimension         | Winners | Losers  | Gap\\n'+\n  '------------------+---------+---------+---------\\n'+\n  'Engagement        | '+String(w.eng).padEnd(7)+' | '+String(l.eng).padEnd(7)+' | '+gap(w.eng,l.eng)+'\\n'+\n  'Meetings (90d)    | '+String(w.mtg90).padEnd(7)+' | '+String(l.mtg90).padEnd(7)+' | '+gap(w.mtg90,l.mtg90)+'\\n'+\n  'Emails Sent       | '+String(w.emailsSent).padEnd(7)+' | '+String(l.emailsSent).padEnd(7)+' | '+gap(w.emailsSent,l.emailsSent)+'\\n'+\n  'Emails Received   | '+String(w.emailsRecv).padEnd(7)+' | '+String(l.emailsRecv).padEnd(7)+' | '+gap(w.emailsRecv,l.emailsRecv)+'\\n'+\n  'People Engaged    | '+String(w.ppl).padEnd(7)+' | '+String(l.ppl).padEnd(7)+' | '+gap(w.ppl,l.ppl)+'\\n'+\n  'Execs Engaged     | '+String(w.execs).padEnd(7)+' | '+String(l.execs).padEnd(7)+' | '+gap(w.execs,l.execs)+'\\n'+\n  'Exec Activities   | '+String(w.execActs).padEnd(7)+' | '+String(l.execActs).padEnd(7)+' | '+gap(w.execActs,l.execActs)+'\\n'+\n  'Meeting Ratio     | '+String(w.mtgRatio+'%').padEnd(7)+' | '+String(l.mtgRatio+'%').padEnd(7)+' | '+gap(w.mtgRatio,l.mtgRatio,'%')+'\\n'+\n  'Exec % of People  | '+String(w.execPct+'%').padEnd(7)+' | '+String(l.execPct+'%').padEnd(7)+' | '+gap(w.execPct,l.execPct,'%')+'\\n'+\n  'Email Response    | '+String(w.respRate).padEnd(7)+' | '+String(l.respRate).padEnd(7)+' | '+gap(w.respRate,l.respRate)+'\\n'+\n  '```\\n\\n'+\n  '*:trophy: Winner Profile*\\n'+\n  '\\u2022 Industries: '+w.topInd.join(', ')+'\\n'+\n  '\\u2022 Account types: '+w.topTypes.join(', ')+'\\n'+\n  '\\u2022 '+w.mtg90+' meetings/90d, '+w.mtgRatio+'% meeting ratio\\n'+\n  '\\u2022 '+w.ppl+' people engaged, '+w.execs+' execs, '+w.execPct+'% exec coverage\\n'+\n  '\\u2022 '+w.respRate+' email response rate ('+w.emailsRecv+' received / '+w.emailsSent+' sent)\\n\\n'+\n  '*:no_entry_sign: Loser Profile*\\n'+\n  '\\u2022 Industries: '+l.topInd.join(', ')+'\\n'+\n  '\\u2022 Account types: '+l.topTypes.join(', ')+'\\n'+\n  '\\u2022 '+l.mtg90+' meetings/90d, '+l.mtgRatio+'% meeting ratio\\n'+\n  '\\u2022 '+l.ppl+' people engaged, '+l.execs+' execs, '+l.execPct+'% exec coverage\\n'+\n  '\\u2022 '+l.respRate+' email response rate\\n\\n'+\n  '*:dart: Key Differentiators* (biggest gaps)\\n';\n\nconst dims = [\n  {name:'Engagement', gap:Math.abs(w.eng-l.eng), desc: w.eng+' vs '+l.eng},\n  {name:'Meetings (90d)', gap:Math.abs(w.mtg90-l.mtg90), desc: w.mtg90+' vs '+l.mtg90},\n  {name:'Emails Total', gap:Math.abs(w.emails-l.emails), desc: w.emails+' vs '+l.emails},\n  {name:'People Engaged', gap:Math.abs(w.ppl-l.ppl), desc: w.ppl+' vs '+l.ppl},\n  {name:'Execs Engaged', gap:Math.abs(w.execs-l.execs), desc: w.execs+' vs '+l.execs},\n  {name:'Exec Activities', gap:Math.abs(w.execActs-l.execActs), desc: w.execActs+' vs '+l.execActs},\n  {name:'Meeting Ratio', gap:Math.abs(w.mtgRatio-l.mtgRatio), desc: w.mtgRatio+'% vs '+l.mtgRatio+'%'},\n  {name:'Email Response', gap:Math.abs(w.respRate-l.respRate), desc: w.respRate+' vs '+l.respRate}\n].sort((a,b) => b.gap - a.gap);\n\ntext += dims.slice(0,4).map((d,i) => (i+1)+'. *'+d.name+'*: '+d.desc+' (winners vs losers)').join('\\n');\ntext += '\\n\\n_Close date in last 90 days \\u2022 Accounts with mixed results excluded \\u2022 People.ai + Claude AI_';\n\nreturn [{json:{\n  channel: input.channelId,\n  text: text,\n  username: input.assistantName || 'Aria',\n  icon_emoji: input.assistantEmoji || ':robot_face:',\n}}];\n"
+                },
+                "id": "530f43c3-c279-4602-a5df-0f701009210a",
+                "name": "Analyze Calibration",
+                "type": "n8n-nodes-base.code",
+                "typeVersion": 2,
+                "position": [
+                    3168,
+                    -208
+                ]
+            },
+            {
+                "parameters": {
+                    "method": "POST",
+                    "url": "https://slack.com/api/chat.postMessage",
+                    "authentication": "genericCredentialType",
+                    "genericAuthType": "httpHeaderAuth",
+                    "sendHeaders": true,
+                    "headerParameters": {
+                        "parameters": [
+                            {
+                                "name": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ]
+                    },
+                    "sendBody": true,
+                    "specifyBody": "json",
+                    "jsonBody": "={{ JSON.stringify({ channel: $json.channel, text: $json.text, username: $json.username, icon_emoji: $json.icon_emoji, unfurl_links: false, unfurl_media: false }) }}",
+                    "options": {}
+                },
+                "id": "4a41c067-0cdb-45d5-9bf6-5db033f3825f",
+                "name": "Send Fingerprint",
+                "type": "n8n-nodes-base.httpRequest",
+                "typeVersion": 4.2,
+                "position": [
+                    3968,
+                    -208
+                ],
+                "credentials": {
+                    "httpHeaderAuth": {
+                        "id": "LluVuiMJ8NUbAiG7",
+                        "name": "Slackbot Auth Token"
+                    }
+                }
+            },
+            {
+                "parameters": {
+                    "promptType": "define",
+                    "text": "={{ \"Find and rank my best ICP-fit prospects. My name is \" + $json.repName + \". My digest scope is \" + $json.digestScope + \". My email is \" + $json.email + \".\" }}",
+                    "options": {
+                        "systemMessage": "You are a sales targeting expert. Using People.ai tools, identify and rank the user's best-fit prospects.\n\nApply these ICP benchmarks when evaluating accounts:\n\u2022 High meeting-to-email ratio (>0.3) = strong fit\n\u2022 Executive engagement present = strong fit\n\u2022 Multi-threaded (3+ stakeholders engaged) = strong fit\n\u2022 Email responsiveness ratio > 0.5 = strong fit\n\u2022 Growing contact velocity (7-day contacts > 25% of 30-day) = momentum signal\n\nROLE-BASED FILTERING:\n- If the user's digestScope is \"my_deals\": only show accounts owned by or assigned to the user\n- If \"team_deals\": show the user's team accounts\n- If \"top_pipeline\": show top accounts across the org\n\nUse People.ai tools to:\n1. Get the user's accounts with engagement data\n2. Score each against the ICP benchmarks\n3. Rank by fit score (highest first)\n\nFORMAT IN SLACK MRKDWN (not markdown). Structure as:\n\n*:dart: ICP Target List*\n\nFor each account (top 10):\n\u2022 *Account Name* \u2014 Fit Score: X/10\n  Strengths: [what matches ICP]\n  Gaps: [what's missing]\n  Next action: [specific recommendation]\n\nKeep under 2500 characters.",
+                        "maxIterations": 5
+                    }
+                },
+                "id": "cca32a9a-3199-41e2-b2c7-c866545b45a1",
+                "name": "Targets Agent",
+                "type": "@n8n/n8n-nodes-langchain.agent",
+                "typeVersion": 1.7,
+                "position": [
+                    896,
+                    132
+                ],
+                "continueOnFail": true
+            },
+            {
+                "parameters": {
+                    "model": {
+                        "__rl": true,
+                        "mode": "list",
+                        "value": "claude-sonnet-4-5-20250929",
+                        "cachedResultName": "Claude Sonnet 4.5"
+                    },
+                    "options": {}
+                },
+                "id": "b7644817-8001-478b-bbb2-6c2115095ded",
+                "name": "Anthropic Chat Model (Targets)",
+                "type": "@n8n/n8n-nodes-langchain.lmChatAnthropic",
+                "typeVersion": 1.3,
+                "position": [
+                    904,
+                    356
+                ],
+                "credentials": {
+                    "anthropicApi": {
+                        "id": "rlAz7ZSl4y6AwRUq",
+                        "name": "Anthropic account 2"
+                    }
+                }
+            },
+            {
+                "parameters": {
+                    "endpointUrl": "https://mcp.people.ai/mcp",
+                    "authentication": "multipleHeadersAuth",
+                    "options": {}
+                },
+                "id": "b5538b57-e806-4b64-9e56-a94603bed0f2",
+                "name": "People.ai MCP (Targets)",
+                "type": "@n8n/n8n-nodes-langchain.mcpClientTool",
+                "typeVersion": 1.2,
+                "position": [
+                    1032,
+                    356
+                ],
+                "credentials": {
+                    "httpMultipleHeadersAuth": {
+                        "id": "wvV5pwBeIL7f2vLG",
+                        "name": "People.ai MCP Multi-Header"
+                    }
+                }
+            },
+            {
+                "parameters": {
+                    "method": "POST",
+                    "url": "https://slack.com/api/chat.postMessage",
+                    "authentication": "genericCredentialType",
+                    "genericAuthType": "httpHeaderAuth",
+                    "sendBody": true,
+                    "specifyBody": "json",
+                    "jsonBody": "={\n  \"channel\": \"{{ $('Route Mode').first().json.channelId }}\",\n  \"text\": \"ICP Target List\",\n  \"blocks\": [{\"type\": \"section\", \"text\": {\"type\": \"mrkdwn\", \"text\": {{ JSON.stringify($('Targets Agent').first().json.output || 'No results').slice(0, 3000) }} }}],\n  \"username\": \"{{ $('Route Mode').first().json.assistantName }}\",\n  \"icon_emoji\": \"{{ $('Route Mode').first().json.assistantEmoji }}\"\n}",
+                    "options": {}
+                },
+                "id": "2c7e1134-43ec-4d95-b2d8-d9e34100e2ab",
+                "name": "Send Targets",
+                "type": "n8n-nodes-base.httpRequest",
+                "typeVersion": 4.2,
+                "position": [
+                    1248,
+                    236
+                ],
+                "credentials": {
+                    "httpHeaderAuth": {
+                        "id": "LluVuiMJ8NUbAiG7",
+                        "name": "Slackbot Auth Token"
+                    }
+                }
+            },
+            {
+                "parameters": {
+                    "promptType": "define",
+                    "text": "={{ \"Evaluate this account against our ICP: \" + ($json.companyName || \"unknown company\") + \". My name is \" + $json.repName + \". My email is \" + $json.email + \".\" }}",
+                    "options": {
+                        "systemMessage": "You are an ICP fit analyst. The user wants to evaluate a specific account against their Ideal Customer Profile.\n\nApply these ICP benchmarks:\n\u2022 Meeting-to-email ratio benchmark: >0.3 = strong\n\u2022 Executive engagement: present = strong signal\n\u2022 Multi-threading: 3+ stakeholders = strong\n\u2022 Email responsiveness: >0.5 reply ratio = healthy\n\u2022 Contact velocity: 7-day > 25% of 30-day = momentum\n\nUsing People.ai tools:\n1. Look up the specified account\n2. Get engagement metrics, stakeholder data, activity history\n3. Score the account on each ICP dimension (1-10 scale)\n4. Compute overall ICP fit score\n5. Identify gaps and recommend actions\n\nFORMAT IN SLACK MRKDWN (not markdown). Structure as:\n\n*:bar_chart: ICP Fit Report \u2014 [Account Name]*\n\n*Overall Fit Score: X/10*\n\n*Dimension Scores:*\n\u2022 Meeting engagement: X/10\n\u2022 Executive access: X/10\n\u2022 Multi-threading: X/10\n\u2022 Email responsiveness: X/10\n\u2022 Contact velocity: X/10\n\u2022 Stakeholder breadth: X/10\n\n*Strengths:*\n\u2022 [what matches ICP well]\n\n*Gaps:*\n\u2022 [where it falls short]\n\n*Recommendations:*\n\u2022 [specific next steps to improve fit]\n\nKeep under 2500 characters.",
+                        "maxIterations": 5
+                    }
+                },
+                "id": "17f5d680-3ef1-4c91-b822-57f142eb99a6",
+                "name": "Compare Agent",
+                "type": "@n8n/n8n-nodes-langchain.agent",
+                "typeVersion": 1.7,
+                "position": [
+                    896,
+                    636
+                ],
+                "continueOnFail": true
+            },
+            {
+                "parameters": {
+                    "model": {
+                        "__rl": true,
+                        "mode": "list",
+                        "value": "claude-sonnet-4-5-20250929",
+                        "cachedResultName": "Claude Sonnet 4.5"
+                    },
+                    "options": {}
+                },
+                "id": "b5c7bbd1-353e-4c71-9c30-549114d257bf",
+                "name": "Anthropic Chat Model (Compare)",
+                "type": "@n8n/n8n-nodes-langchain.lmChatAnthropic",
+                "typeVersion": 1.3,
+                "position": [
+                    904,
+                    860
+                ],
+                "credentials": {
+                    "anthropicApi": {
+                        "id": "rlAz7ZSl4y6AwRUq",
+                        "name": "Anthropic account 2"
+                    }
+                }
+            },
+            {
+                "parameters": {
+                    "endpointUrl": "https://mcp.people.ai/mcp",
+                    "authentication": "multipleHeadersAuth",
+                    "options": {}
+                },
+                "id": "2a5fb7d7-3cb7-44d1-bcc3-cf4e3fccf9ef",
+                "name": "People.ai MCP (Compare)",
+                "type": "@n8n/n8n-nodes-langchain.mcpClientTool",
+                "typeVersion": 1.2,
+                "position": [
+                    1032,
+                    860
+                ],
+                "credentials": {
+                    "httpMultipleHeadersAuth": {
+                        "id": "wvV5pwBeIL7f2vLG",
+                        "name": "People.ai MCP Multi-Header"
+                    }
+                }
+            },
+            {
+                "parameters": {
+                    "method": "POST",
+                    "url": "https://slack.com/api/chat.postMessage",
+                    "authentication": "genericCredentialType",
+                    "genericAuthType": "httpHeaderAuth",
+                    "sendBody": true,
+                    "specifyBody": "json",
+                    "jsonBody": "={\n  \"channel\": \"{{ $('Route Mode').first().json.channelId }}\",\n  \"text\": \"ICP Fit Report\",\n  \"blocks\": [{\"type\": \"section\", \"text\": {\"type\": \"mrkdwn\", \"text\": {{ JSON.stringify($('Compare Agent').first().json.output || 'No results').slice(0, 3000) }} }}],\n  \"username\": \"{{ $('Route Mode').first().json.assistantName }}\",\n  \"icon_emoji\": \"{{ $('Route Mode').first().json.assistantEmoji }}\"\n}",
+                    "options": {}
+                },
+                "id": "12e07bb2-d610-4cb0-a03e-71a5e84a1f6f",
+                "name": "Send Compare",
+                "type": "n8n-nodes-base.httpRequest",
+                "typeVersion": 4.2,
+                "position": [
+                    1248,
+                    636
+                ],
+                "credentials": {
+                    "httpHeaderAuth": {
+                        "id": "LluVuiMJ8NUbAiG7",
+                        "name": "Slackbot Auth Token"
+                    }
+                }
+            },
+            {
+                "id": "68eed69e-2593-41e3-812c-70a45602cb5a",
+                "name": "Fetch Account Metrics",
+                "type": "n8n-nodes-base.httpRequest",
+                "typeVersion": 4.2,
+                "position": [
+                    2000,
+                    -200
+                ],
+                "parameters": {
+                    "method": "POST",
+                    "url": "https://api.people.ai/v3/beta/insights/export",
+                    "sendHeaders": true,
+                    "headerParameters": {
+                        "parameters": [
+                            {
+                                "name": "Content-Type",
+                                "value": "application/json"
+                            },
+                            {
+                                "name": "Authorization",
+                                "value": "=Bearer {{ $('Get Auth Token').first().json.access_token }}"
+                            }
+                        ]
+                    },
+                    "sendBody": true,
+                    "specifyBody": "json",
+                    "jsonBody": "{\"object\": \"account\", \"columns\": [{\"slug\": \"ootb_account_name\"}, {\"slug\": \"ootb_account_original_owner\"}, {\"slug\": \"ootb_account_engagement_level\"}, {\"slug\": \"ootb_account_industry\"}, {\"slug\": \"ootb_account_type\"}, {\"slug\": \"ootb_account_count_of_meetings_standard\", \"variation_id\": \"ootb_account_count_of_meetings_standard_last_90_days\"}, {\"slug\": \"ootb_account_count_of_emails_sent\", \"variation_id\": \"ootb_account_count_of_emails_sent_last_90_days\"}, {\"slug\": \"ootb_account_count_of_emails_received\", \"variation_id\": \"ootb_account_count_of_emails_received_last_90_days\"}, {\"slug\": \"ootb_account_people_engaged\", \"variation_id\": \"ootb_account_people_engaged_last_90_days\"}, {\"slug\": \"ootb_account_executive_engaged\", \"variation_id\": \"ootb_account_executive_engaged_last_90_days\"}, {\"slug\": \"ootb_account_executive_activities\", \"variation_id\": \"ootb_account_executive_activities_last_90_days\"}], \"filter\": {\"attribute\": {\"slug\": \"ootb_account_engagement_level\"}, \"clause\": {\"$gt\": 0}}}",
+                    "options": {}
+                }
+            }
+        ],
+        "connections": {
+            "Anthropic Chat Model (Targets)": {
+                "ai_languageModel": [
+                    [
+                        {
+                            "node": "Targets Agent",
+                            "type": "ai_languageModel",
+                            "index": 0
+                        }
+                    ]
+                ]
+            },
+            "People.ai MCP (Targets)": {
+                "ai_tool": [
+                    [
+                        {
+                            "node": "Targets Agent",
+                            "type": "ai_tool",
+                            "index": 0
+                        }
+                    ]
+                ]
+            },
+            "Anthropic Chat Model (Compare)": {
+                "ai_languageModel": [
+                    [
+                        {
+                            "node": "Compare Agent",
+                            "type": "ai_languageModel",
+                            "index": 0
+                        }
+                    ]
+                ]
+            },
+            "People.ai MCP (Compare)": {
+                "ai_tool": [
+                    [
+                        {
+                            "node": "Compare Agent",
+                            "type": "ai_tool",
+                            "index": 0
+                        }
+                    ]
+                ]
+            },
+            "Workflow Input Trigger": {
+                "main": [
+                    [
+                        {
+                            "node": "Route Mode",
+                            "type": "main",
+                            "index": 0
+                        }
+                    ]
+                ]
+            },
+            "Route Mode": {
+                "main": [
+                    [
+                        {
+                            "node": "IF Is Calibrate",
+                            "type": "main",
+                            "index": 0
+                        }
+                    ]
+                ]
+            },
+            "IF Is Calibrate": {
+                "main": [
+                    [
+                        {
+                            "node": "Get Auth Token",
+                            "type": "main",
+                            "index": 0
+                        }
+                    ],
+                    [
+                        {
+                            "node": "IF Is Targets",
+                            "type": "main",
+                            "index": 0
+                        }
+                    ]
+                ]
+            },
+            "IF Is Targets": {
+                "main": [
+                    [
+                        {
+                            "node": "Targets Agent",
+                            "type": "main",
+                            "index": 0
+                        }
+                    ],
+                    [
+                        {
+                            "node": "Compare Agent",
+                            "type": "main",
+                            "index": 0
+                        }
+                    ]
+                ]
+            },
+            "Get Auth Token": {
+                "main": [
+                    [
+                        {
+                            "node": "Fetch Won Opps",
+                            "type": "main",
+                            "index": 0
+                        }
+                    ]
+                ]
+            },
+            "Merge All Data": {
+                "main": [
+                    [
+                        {
+                            "node": "Generate Fingerprint Agent",
+                            "type": "main",
+                            "index": 0
+                        }
+                    ]
+                ]
+            },
+            "Targets Agent": {
+                "main": [
+                    [
+                        {
+                            "node": "Send Targets",
+                            "type": "main",
+                            "index": 0
+                        }
+                    ]
+                ]
+            },
+            "Compare Agent": {
+                "main": [
+                    [
+                        {
+                            "node": "Send Compare",
+                            "type": "main",
+                            "index": 0
+                        }
+                    ]
+                ]
+            },
+            "Analyze Calibration": {
+                "main": [
+                    [
+                        {
+                            "node": "Send Fingerprint",
+                            "type": "main",
+                            "index": 0
+                        }
+                    ]
+                ]
+            },
+            "Fetch Won Opps": {
+                "main": [
+                    [
+                        {
+                            "node": "Fetch Lost Opps",
+                            "type": "main",
+                            "index": 0
+                        }
+                    ]
+                ]
+            },
+            "Fetch Lost Opps": {
+                "main": [
+                    [
+                        {
+                            "node": "Fetch Account Metrics",
+                            "type": "main",
+                            "index": 0
+                        }
+                    ]
+                ]
+            },
+            "Fetch Account Metrics": {
+                "main": [
+                    [
+                        {
+                            "node": "Analyze Calibration",
+                            "type": "main",
+                            "index": 0
+                        }
+                    ]
+                ]
+            }
+        },
+        "authors": "Scott Metcalf",
+        "name": null,
+        "description": null,
+        "autosaved": false,
+        "workflowPublishHistory": [
+            {
+                "createdAt": "2026-04-01T19:29:21.685Z",
+                "id": 1931,
+                "workflowId": "2lWTeRVCrjx1NtmJ",
+                "versionId": "17bc9e79-7ecd-46f8-9c11-0ed0d1054359",
+                "event": "activated",
+                "userId": "bfa163c1-bd53-4c0f-b0ba-8dc3626f7c79"
+            },
+            {
+                "createdAt": "2026-04-01T19:29:21.670Z",
+                "id": 1930,
+                "workflowId": "2lWTeRVCrjx1NtmJ",
+                "versionId": "17bc9e79-7ecd-46f8-9c11-0ed0d1054359",
+                "event": "deactivated",
+                "userId": "bfa163c1-bd53-4c0f-b0ba-8dc3626f7c79"
+            }
+        ]
+    }
+}

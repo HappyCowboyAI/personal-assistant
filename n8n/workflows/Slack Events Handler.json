@@ -1,5 +1,5 @@
 {
-    "updatedAt": "2026-03-29T15:02:51.842Z",
+    "updatedAt": "2026-04-03T14:03:48.903Z",
     "createdAt": "2026-02-24T05:08:17.753Z",
     "id": "QuQbIaWetunUOFUW",
     "name": "Slack Events Handler",
@@ -186,7 +186,7 @@
         },
         {
             "parameters": {
-                "jsCode": "const event = $('Extract Event Data').first().json;\nconst user = $('Lookup User').first().json;\nconst text = event.text;\nconst userId = event.userId;\n\nlet userExists = !!(user && user.id);\nlet state = userExists ? (user.onboarding_state || 'new') : null;\nlet route = 'unknown';\nlet subRoute = 'help';\n\nif (!userExists) {\n  route = 'new_user';\n} else if (state === 'new') {\n  route = 'send_greeting';\n} else if (state === 'awaiting_name') {\n  route = 'capture_name';\n} else if (state === 'awaiting_emoji') {\n  route = 'capture_emoji';\n} else if (state === 'complete') {\n  const lower = text.toLowerCase();\n\n  \n  // --- Pending action routing (announcement confirmation) ---\n  const pendingRaw = $('Check Pending Action').first().json;\n  const hasPending = Array.isArray(pendingRaw)\n    ? pendingRaw.length > 0 && pendingRaw[0].id\n    : (pendingRaw && pendingRaw.id);\n\n  if (hasPending) {\n    if (lower === 'send') route = 'confirm_announce';\n    else if (lower === 'cancel') route = 'cancel_announce';\n    else if (lower.startsWith('announce:') || lower.startsWith('announce ')) route = 'cmd_announce';\n    else route = 'expire_pending';\n  }\n\n  // --- Pass 1/2/3 only run if no route set by pending action check ---\n  if (route === 'unknown') {\n  // --- Pass 1: Exact command matching (keyword at start of text) ---\n  if (lower.startsWith('announce:') || lower.startsWith('announce ')) route = 'cmd_announce';\n  else if (lower.startsWith('rename ')) route = 'cmd_rename';\n  else if (lower.startsWith('emoji ')) route = 'cmd_emoji';\n  else if (lower.startsWith('persona ')) route = 'cmd_persona';\n  else if (lower === 'scope' || lower.startsWith('scope ')) route = 'cmd_scope';\n  else if (lower === 'focus' || lower.startsWith('focus ')) route = 'cmd_focus';\n  else if (lower === 'silence' || lower === 'silent' || lower === 'silent accounts' || lower.startsWith('silence check')) {\n      route = 'cmd_silence';\n    } else if (lower === 'brief' || lower.startsWith('brief ')) route = 'cmd_brief';\n  else if (lower === 'meet' || lower.startsWith('meet ') || lower.startsWith('meeting brief ') || lower.startsWith('prep ')) route = 'cmd_meet';\n  else if (lower === 'insights' || lower.startsWith('insights ')) route = 'cmd_insights';\n  else if (/\\b(bbr|pbr)\\b/i.test(lower)) route = 'cmd_bbr';\n  else if (lower === 'presentation' || lower.startsWith('presentation ')) route = 'cmd_presentation';\n  else if (lower === 'stakeholders' || lower.startsWith('stakeholders ')) {\n    route = 'cmd_other'; subRoute = 'stakeholders';\n  }\n  else if (lower === 'followup' || lower.startsWith('followup ') || lower.startsWith('follow-up ') || lower.startsWith('follow up ')) {\n    route = 'cmd_recap';\n  }\n  else if (lower === 'tasks' || lower === 'task' || lower.startsWith('tasks ')) route = 'cmd_tasks';\n  else if (lower === 'recap' || lower.startsWith('recap ')) route = 'cmd_recap';\n  else if (lower.startsWith('more ') || (lower.startsWith('help ') && lower !== 'help')) {\n    route = 'cmd_other'; subRoute = 'more_help';\n  } else {\n    // --- Pass 2: Fuzzy keyword matching (keyword anywhere in text) ---\n    if (/\\b(presentation|slide|slides|deck)\\b/.test(lower)) route = 'cmd_presentation';\n    else if (/\\b(business\\s+review)\\b/.test(lower)) route = 'cmd_bbr';\n    else if (/\\b(brief|briefing|digest)\\b/.test(lower)) route = 'cmd_brief';\n    else if (/\\b(meet(?:ing)?\\s+(?:brief|prep)|prep\\s+(?:me|for))\\b/i.test(lower)) route = 'cmd_meet';\n    else if (/\\binsights?\\b/.test(lower)) route = 'cmd_insights';\n    else if (/\\b(stakeholder|stakeholders|who\\s+(should|am|are)\\s+I?\\s*(be\\s+)?talk)/i.test(lower)) {\n      route = 'cmd_other'; subRoute = 'stakeholders';\n    }\n    else if (/\\b(follow[\\s-]?up|draft\\s+(a\\s+)?(email|message|note))\\b/i.test(lower)) {\n      route = 'cmd_recap';\n    }\n    else if (/\\bmy tasks\\b/i.test(lower)) route = 'cmd_tasks';\n    else if (/\\b(recap|meeting\\s+recap)\\b/i.test(lower)) route = 'cmd_recap';\n    else {\n      // --- Pass 3: Meta commands and fallback ---\n      route = 'cmd_other';\n      if (lower === 'stop digest' || lower === 'pause digest') subRoute = 'stop_digest';\n      else if (lower === 'resume digest' || lower === 'start digest') subRoute = 'resume_digest';\n      else if (lower === 'stop briefs' || lower === 'pause briefs' || lower === 'stop meeting briefs') subRoute = 'stop_briefs';\n      else if (lower === 'start briefs' || lower === 'resume briefs' || lower === 'start meeting briefs') subRoute = 'resume_briefs';\n      else if (lower === 'stop followups' || lower === 'pause followups' || lower === 'stop follow-ups') subRoute = 'stop_followups';\n      else if (lower === 'start followups' || lower === 'resume followups' || lower === 'start follow-ups') subRoute = 'resume_followups';\n      else if (lower === 'stop tips' || lower === 'pause tips') subRoute = 'stop_tips';\n      else if (lower === 'resume tips' || lower === 'start tips') subRoute = 'resume_tips';\n      else if (lower === 'stop announcements') subRoute = 'stop_announcements';\n      else if (lower === 'resume announcements' || lower === 'start announcements') subRoute = 'resume_announcements';\n      else if (lower === 'help') subRoute = 'help';\n      else subRoute = 'unrecognized';\n    }\n  }\n  } // end route === 'unknown' guard\n}\n\nlet assistantName = (userExists && user.assistant_name) ? user.assistant_name : 'Your Assistant';\nlet assistantEmoji = (userExists && user.assistant_emoji) ? user.assistant_emoji : ':robot_face:';\n\nreturn [{\n  json: {\n    route, subRoute, userId, text,\n    channelId: event.channelId,\n    teamId: event.teamId,\n    userRecord: userExists ? user : null,\n    dbUserId: userExists ? user.id : null,\n    organizationId: userExists ? user.organization_id : null,\n    assistantName, assistantEmoji, state\n  }\n}];\n"
+                "jsCode": "const event = $('Extract Event Data').first().json;\nconst user = $('Lookup User').first().json;\nconst text = event.text;\nconst userId = event.userId;\n\nlet userExists = !!(user && user.id);\nlet state = userExists ? (user.onboarding_state || 'new') : null;\nlet route = 'unknown';\nlet subRoute = 'help';\n\nif (!userExists) {\n  route = 'new_user';\n} else if (state === 'new') {\n  route = 'send_greeting';\n} else if (state === 'awaiting_name') {\n  route = 'capture_name';\n} else if (state === 'awaiting_emoji') {\n  route = 'capture_emoji';\n} else if (state === 'complete') {\n  const lower = text.toLowerCase();\n\n  \n  // --- Pending action routing (announcement confirmation) ---\n  const pendingRaw = $('Check Pending Action').first().json;\n  const hasPending = Array.isArray(pendingRaw)\n    ? pendingRaw.length > 0 && pendingRaw[0].id\n    : (pendingRaw && pendingRaw.id);\n\n  if (hasPending) {\n    if (lower === 'send') route = 'confirm_announce';\n    else if (lower === 'cancel') route = 'cancel_announce';\n    else if (lower.startsWith('announce:') || lower.startsWith('announce ')) route = 'cmd_announce';\n    else route = 'expire_pending';\n  }\n\n  // --- Pass 1/2/3 only run if no route set by pending action check ---\n  if (route === 'unknown') {\n  // --- Pass 1: Exact command matching (keyword at start of text) ---\n  if (lower.startsWith('announce:') || lower.startsWith('announce ')) route = 'cmd_announce';\n  else if (lower.startsWith('rename ')) route = 'cmd_rename';\n  else if (lower.startsWith('emoji ')) route = 'cmd_emoji';\n  else if (lower.startsWith('persona ')) route = 'cmd_persona';\n  else if (lower === 'scope' || lower.startsWith('scope ')) route = 'cmd_scope';\n  else if (lower === 'focus' || lower.startsWith('focus ')) route = 'cmd_focus';\n  else if (lower === 'silence' || lower === 'silent' || lower === 'silent accounts' || lower.startsWith('silence check')) {\n      route = 'cmd_silence';\n    } else if (lower === 'brief' || lower.startsWith('brief ')) route = 'cmd_brief';\n  else if (lower === 'meet' || lower.startsWith('meet ') || lower.startsWith('meeting brief ') || lower.startsWith('prep ')) route = 'cmd_meet';\n  else if (lower === 'icp') { route = 'cmd_icp'; subRoute = 'calibrate'; }\n  else if (lower === 'icp targets') { route = 'cmd_icp'; subRoute = 'targets'; }\n  else if (lower.startsWith('icp ')) { route = 'cmd_icp'; subRoute = 'compare'; }\n  else if (lower === 'insights' || lower.startsWith('insights ')) route = 'cmd_insights';\n  else if (/\\b(bbr|pbr)\\b/i.test(lower)) route = 'cmd_bbr';\n  else if (lower === 'presentation' || lower.startsWith('presentation ')) route = 'cmd_presentation';\n  else if (lower === 'stakeholders' || lower.startsWith('stakeholders ')) {\n    route = 'cmd_other'; subRoute = 'stakeholders';\n  }\n  else if (lower === 'followup' || lower.startsWith('followup ') || lower.startsWith('follow-up ') || lower.startsWith('follow up ')) {\n    route = 'cmd_recap';\n  }\n  else if (lower === 'tasks' || lower === 'task' || lower.startsWith('tasks ')) route = 'cmd_tasks';\n  else if (lower === 'recap' || lower.startsWith('recap ')) route = 'cmd_recap';\n  else if (lower.startsWith('more ') || (lower.startsWith('help ') && lower !== 'help')) {\n    route = 'cmd_other'; subRoute = 'more_help';\n  } else {\n    // --- Pass 2: Fuzzy keyword matching (keyword anywhere in text) ---\n    if (/\\b(presentation|slide|slides|deck)\\b/.test(lower)) route = 'cmd_presentation';\n    else if (/\\b(business\\s+review)\\b/.test(lower)) route = 'cmd_bbr';\n    else if (/\\b(brief|briefing|digest)\\b/.test(lower)) route = 'cmd_brief';\n    else if (/\\b(meet(?:ing)?\\s+(?:brief|prep)|prep\\s+(?:me|for))\\b/i.test(lower)) route = 'cmd_meet';\n    else if (/\\binsights?\\b/.test(lower)) route = 'cmd_insights';\n    else if (/\\b(stakeholder|stakeholders|who\\s+(should|am|are)\\s+I?\\s*(be\\s+)?talk)/i.test(lower)) {\n      route = 'cmd_other'; subRoute = 'stakeholders';\n    }\n    else if (/\\b(follow[\\s-]?up|draft\\s+(a\\s+)?(email|message|note))\\b/i.test(lower)) {\n      route = 'cmd_recap';\n    }\n    else if (/\\bmy tasks\\b/i.test(lower)) route = 'cmd_tasks';\n    else if (/\\b(recap|meeting\\s+recap)\\b/i.test(lower)) route = 'cmd_recap';\n    else {\n      // --- Pass 3: Meta commands and fallback ---\n      route = 'cmd_other';\n      if (lower === 'stop digest' || lower === 'pause digest') subRoute = 'stop_digest';\n      else if (lower === 'resume digest' || lower === 'start digest') subRoute = 'resume_digest';\n      else if (lower === 'stop briefs' || lower === 'pause briefs' || lower === 'stop meeting briefs') subRoute = 'stop_briefs';\n      else if (lower === 'start briefs' || lower === 'resume briefs' || lower === 'start meeting briefs') subRoute = 'resume_briefs';\n      else if (lower === 'stop followups' || lower === 'pause followups' || lower === 'stop follow-ups') subRoute = 'stop_followups';\n      else if (lower === 'start followups' || lower === 'resume followups' || lower === 'start follow-ups') subRoute = 'resume_followups';\n      else if (lower === 'stop tips' || lower === 'pause tips') subRoute = 'stop_tips';\n      else if (lower === 'resume tips' || lower === 'start tips') subRoute = 'resume_tips';\n      else if (lower === 'stop announcements') subRoute = 'stop_announcements';\n      else if (lower === 'resume announcements' || lower === 'start announcements') subRoute = 'resume_announcements';\n      else if (lower === 'help') subRoute = 'help';\n      else subRoute = 'unrecognized';\n    }\n  }\n  } // end route === 'unknown' guard\n}\n\nlet assistantName = (userExists && user.assistant_name) ? user.assistant_name : 'Your Assistant';\nlet assistantEmoji = (userExists && user.assistant_emoji) ? user.assistant_emoji : ':robot_face:';\n\nreturn [{\n  json: {\n    route, subRoute, userId, text,\n    companyName: (text || '').toLowerCase().startsWith('icp ') && subRoute === 'compare' ? text.replace(/^icp\\s+/i, '').trim() : '',\n    channelId: event.channelId,\n    teamId: event.teamId,\n    userRecord: userExists ? user : null,\n    dbUserId: userExists ? user.id : null,\n    organizationId: userExists ? user.organization_id : null,\n    assistantName, assistantEmoji, state\n  }\n}];\n"
             },
             "id": "78d5c4a9-ed4b-437d-8988-8e8492248677",
             "name": "Route by State",
@@ -821,7 +821,7 @@
         },
         {
             "parameters": {
-                "jsCode": "const data = $('Route by State').first().json;\nlet text = '';\nconst r = data.subRoute;\nconst name = data.assistantName || 'Your Assistant';\nconst emoji = data.assistantEmoji || ':robot_face:';\n\nif (r === 'help') {\n  // --- Conversation-first help ---\n  const u = data.userRecord || {};\n\n  // Build settings display\n  const scopeLabels = { 'my_deals': 'My Deals (IC)', 'team_deals': 'Team Deals (Manager)', 'top_pipeline': 'Top Pipeline (Exec)' };\n  const scopeVal = u.digest_scope || 'my_deals';\n  const scopeDisplay = scopeLabels[scopeVal] || scopeVal;\n\n  const digestOn = u.digest_enabled !== false;\n  const briefsOn = u.meeting_prep_enabled !== false;\n  const followupsOn = u.followup_enabled !== false;\n  const tipsOn = u.tips_enabled !== false;\n  const announcementsOn = u.announcements_enabled !== false;\n\n  const personaDisplay = u.assistant_persona ? u.assistant_persona : '_default_';\n  const focusDisplay = u.focus || '_none_';\n\n  const settingsBlock =\n    \"\\n\\n*Your Settings:* _current value_ \\u2014 _change command_\\n\" +\n    \"\\u2022 *Name:* \" + (u.assistant_name || 'Your Assistant') + \" \\u2014 `rename <name>`\\n\" +\n    \"\\u2022 *Icon:* \" + (u.assistant_emoji || ':robot_face:') + \" \\u2014 `emoji <emoji>`\\n\" +\n    \"\\u2022 *Persona:* \" + personaDisplay + \" \\u2014 `persona <style>`\\n\" +\n    \"\\u2022 *Scope:* \" + scopeDisplay + \" \\u2014 `scope my_deals | team_deals | top_pipeline`\\n\" +\n    \"\\u2022 *Focus:* \" + focusDisplay + \" \\u2014 `focus retention | revenue | technical | executive`\\n\" +\n    \"\\u2022 *Morning Digest:* \" + (digestOn ? ':white_check_mark: on' : ':no_entry_sign: paused') + \" \\u2014 `\" + (digestOn ? 'stop' : 'resume') + \" digest`\\n\" +\n    \"\\u2022 *Meeting Briefs:* \" + (briefsOn ? ':white_check_mark: on' : ':no_entry_sign: paused') + \" \\u2014 `\" + (briefsOn ? 'stop' : 'start') + \" briefs`\\n\" +\n    \"\\u2022 *Follow-ups:* \" + (followupsOn ? ':white_check_mark: on' : ':no_entry_sign: paused') + \" \\u2014 `\" + (followupsOn ? 'stop' : 'start') + \" followups`\\n\" +\n    \"\\u2022 *Tips:* \" + (tipsOn ? ':white_check_mark: on' : ':no_entry_sign: paused') + \" \\u2014 `\" + (tipsOn ? 'stop' : 'resume') + \" tips`\\n\" +\n    \"\\u2022 *Announcements:* \" + (announcementsOn ? ':white_check_mark: on' : ':no_entry_sign: paused') + \" \\u2014 `\" + (announcementsOn ? 'stop' : 'resume') + \" announcements`\";\n\n  text = \"*Just ask me anything* \\u2014 I have access to your People.ai CRM data and can answer questions about accounts, deals, engagement, and pipeline.\\n\\n\" +\n    \"Try things like:\\n\" +\n    \"\\u2022 _\\\"What's happening with AMD?\\\"_\\n\" +\n    \"\\u2022 _\\\"Who should I be talking to at Cisco?\\\"_\\n\" +\n    \"\\u2022 _\\\"Draft a follow-up for my Intel meeting\\\"_\\n\" +\n    \"\\u2022 _\\\"I need a presentation on Q1 results\\\"_\\n\\n\" +\n    \":thread: Reply in a thread to keep the conversation going.\\n\\n\" +\n    \"*Skills:*\\n\" +\n    \"`bbr` \\u00b7 `brief` \\u00b7 `followup` \\u00b7 `insights` \\u00b7 `meet` \\u00b7 `presentation` \\u00b7 `silence` \\u00b7 `stakeholders` \\u00b7 `tasks`\\n\" +\n    \"`announcements` \\u00b7 `emoji` \\u00b7 `focus` \\u00b7 `persona` \\u00b7 `rename` \\u00b7 `scope` \\u00b7 `tips`\\n\" +\n    \"`tips` \\u00b7 `announcements`\\n\\n\" +\n    \"Type `more <skill>` for details on any of my abilities (e.g. `more brief`).\" +\n    settingsBlock;\n\n} else if (r === 'more_help') {\n  // --- Detailed help for a specific shortcut ---\n  const target = (data.text || '').toLowerCase().replace(/^(more|help)\\s+/, '').trim();\n\n  const details = {\n    'tasks': \"*`tasks` \\u2014 Salesforce Task Manager*\\n\\n\" +\n      \"View, complete, and create Salesforce tasks for any account.\\n\\n\" +\n      \"*Usage:*\\n\" +\n      \"\\u2022 `tasks OpenAI` \\u2014 view open tasks for an account\\n\" +\n      \"\\u2022 `tasks Aidoc` \\u2014 view open tasks for Aidoc\\n\\n\" +\n      \"Each task shows the assignee, due date, category, and status indicator:\\n\" +\n      \"\\u2022 :red_circle: Overdue\\n\" +\n      \"\\u2022 :warning: Due this week\\n\" +\n      \"\\u2022 :white_check_mark: Future\\n\\n\" +\n      \"*Actions:*\\n\" +\n      \"\\u2022 Click *Complete* to mark a task done in Salesforce\\n\" +\n      \"\\u2022 Click *New Task* to create a task for the account\\n\\n\" +\n      \"_Links to PeopleGlass task sheets are included for the full view._\",\n\n    'silence': \"*`silence` \\u2014 Silence Contract Check*\\n\\n\" +\n      \"Check your accounts for engagement gaps right now.\\n\\n\" +\n      \"I'll scan your accounts (based on your ownership and CSM assignments) and report any that have gone quiet \\u2014 no emails, meetings, or calls in 5+ days.\\n\\n\" +\n      \"*Severity levels:*\\n\" +\n      \"\\u2022 :large_blue_circle: Getting quiet (5-9 days)\\n\" +\n      \"\\u2022 :warning: Gone silent (10-20 days)\\n\" +\n      \"\\u2022 :red_circle: Relationship at risk (21+ days)\\n\\n\" +\n      \"The daily cron also runs this automatically at 6:30am PT.\",\n    'brief': \"*`brief` \\u2014 On-Demand Sales Digest*\\n\\n\" +\n      \"Get an instant sales briefing, just like your morning digest.\\n\\n\" +\n      \"*Usage:*\\n\" +\n      \"\\u2022 `brief` \\u2014 today's themed digest\\n\" +\n      \"\\u2022 `brief risk` \\u2014 deals that need attention\\n\" +\n      \"\\u2022 `brief momentum` \\u2014 deals picking up speed\\n\" +\n      \"\\u2022 `brief engagement` \\u2014 engagement shifts\\n\" +\n      \"\\u2022 `brief full` \\u2014 full pipeline review\\n\" +\n      \"\\u2022 `brief review` \\u2014 weekly recap\\n\\n\" +\n      \"You can also use day names: `brief monday`, `brief friday`\\n\\n\" +\n      \"_Or just ask naturally: \\\"give me a briefing on at-risk deals\\\"_\",\n    'meet': \"*`meet` \\u2014 On-Demand Meeting Prep*\\n\\n\" +\n      \"Get an instant meeting brief for any account.\\n\\n\" +\n      \"*Usage:*\\n\" +\n      \"\\u2022 `meet Five9` \\u2014 prep for Five9\\n\" +\n      \"\\u2022 `prep Dataiku` \\u2014 same thing\\n\" +\n      \"\\u2022 `meeting brief IBM` \\u2014 longer form\\n\\n\" +\n      \"_Researches the account, contacts, engagement, and deals via People.ai._\",\n\n    'insights': \"*`insights` \\u2014 Pipeline Intelligence*\\n\\n\" +\n      \"Deep analysis of your pipeline with actionable recommendations.\\n\\n\" +\n      \"*Usage:*\\n\" +\n      \"\\u2022 `insights` \\u2014 full pipeline analysis\\n\" +\n      \"\\u2022 `insights stalled` \\u2014 deals that have gone quiet\\n\" +\n      \"\\u2022 `insights risk` \\u2014 deals showing warning signs\\n\" +\n      \"\\u2022 `insights hidden` \\u2014 ghost opportunities\\n\" +\n      \"\\u2022 `insights accelerating` \\u2014 fast-moving deals\\n\\n\" +\n      \"_Or just ask naturally: \\\"show me insights on stalled deals\\\"_\",\n\n    'presentation': \"*`presentation` \\u2014 Create a Presentation*\\n\\n\" +\n      \"Generate a Backstory-branded Google Slides deck on any topic.\\n\\n\" +\n      \"*Usage:*\\n\" +\n      \"\\u2022 `presentation Q1 engineering review for Cisco`\\n\" +\n      \"\\u2022 `presentation competitive landscape for AMD`\\n\" +\n      \"\\u2022 `presentation onboarding progress for Acme`\\n\\n\" +\n      \"I'll pull data from People.ai and build the slides. Takes about 2 minutes.\\n\\n\" +\n      \"_Or just ask naturally: \\\"I need a presentation on MCP for AMD\\\"_\",\n\n    'bbr': \"*`bbr` \\u2014 Business Review Presentation*\\n\\n\" +\n      \"Generate a complete Backstory Business Review (BBR) deck for a customer account.\\n\\n\" +\n      \"*Usage:*\\n\" +\n      \"\\u2022 `bbr AMD`\\n\" +\n      \"\\u2022 `pbr Cisco` (same thing)\\n\\n\" +\n      \"Includes: engagement scores, open opps, key contacts, activity trends, adoption signals, and a roadmap placeholder.\\n\\n\" +\n      \"_Or just ask naturally: \\\"create a business review for AMD\\\"_\",\n\n    'stakeholders': \"*`stakeholders` \\u2014 Stakeholder Map*\\n\\n\" +\n      \"See who you're engaging at an account, who's gone quiet, and where you have coverage gaps.\\n\\n\" +\n      \"*Usage:*\\n\" +\n      \"\\u2022 `stakeholders AMD`\\n\" +\n      \"\\u2022 `stakeholders Cisco`\\n\\n\" +\n      \"Shows: active contacts with engagement trends, silent contacts, missing roles, and a recommendation for who to re-engage.\\n\\n\" +\n      \"_Or just ask naturally: \\\"who should I be talking to at AMD?\\\"_\",\n\n    'followup': \"*`followup` \\u2014 Follow-ups*\\n\\n\" +\n      \"*On-demand:* Draft a follow-up email for any account.\\n\" +\n      \"\\u2022 `followup AMD`\\n\" +\n      \"\\u2022 `followup Cisco`\\n\" +\n      \"\\u2022 `follow-up Intel`\\n\\n\" +\n      \"I'll find your most recent meeting with the account, check the deal context, and draft a professional follow-up with next steps.\\n\\n\" +\n      \"_Or just ask naturally: \\\"draft a follow-up for my AMD meeting\\\"_\\n\\n\" +\n      \"*Automatic:* After customer meetings end, I'll proactively prompt you with a draft follow-up. You can approve, edit, or skip right from Slack.\\n\\n\" +\n      \"*Toggle:*\\n\" +\n      \"\\u2022 `stop followups` \\u2014 pause automatic follow-up prompts\\n\" +\n      \"\\u2022 `start followups` \\u2014 resume them\",\n\n    'tasks': \"*`tasks` \\u2014 Salesforce Tasks*\\n\\n\" +\n      \"View your Salesforce tasks for any account, with the ability to mark them complete directly from Slack.\\n\\n\" +\n      \"*Usage:*\\n\" +\n      \"\\u2022 `tasks AiDoc` \\u2014 see open tasks for AiDoc\\n\" +\n      \"\\u2022 `tasks` \\u2014 see all your tasks\\n\\n\" +\n      \"_Or just ask naturally: \\\"my tasks for AiDoc\\\"_\",\n    'recap': \"*`recap` \\u2014 Meeting Recap*\\n\\n\" +\n      \"Get an instant recap of your most recent meeting with any account.\\n\\n\" +\n      \"*Usage:*\\n\" +\n      \"\\u2022 `recap Redis` \\u2014 recap your last Redis meeting\\n\" +\n      \"\\u2022 `recap AMD` \\u2014 recap your last AMD meeting\\n\\n\" +\n      \"Includes: summary, sentiment, key decisions, action items, and a Draft Follow-up button.\\n\\n\" +\n      \"_Or just ask naturally: \\\"recap my Redis meeting\\\"_\",\n    'rename': \"*`rename` \\u2014 Change My Name*\\n\\n\" +\n      \"Give me a new name that appears on all my messages.\\n\\n\" +\n      \"*Usage:*\\n\" +\n      \"\\u2022 `rename Luna`\\n\" +\n      \"\\u2022 `rename ScottAI`\\n\" +\n      \"\\u2022 `rename Jarvis`\",\n\n    'emoji': \"*`emoji` \\u2014 Change My Icon*\\n\\n\" +\n      \"Pick a Slack emoji that appears next to my name.\\n\\n\" +\n      \"*Usage:*\\n\" +\n      \"\\u2022 `emoji :rocket:`\\n\" +\n      \"\\u2022 `emoji :star:`\\n\" +\n      \"\\u2022 `emoji :brain:`\",\n\n    'persona': \"*`persona` \\u2014 Change My Personality*\\n\\n\" +\n      \"Adjust how I communicate with you.\\n\\n\" +\n      \"*Usage:*\\n\" +\n      \"\\u2022 `persona friendly and uses sports metaphors`\\n\" +\n      \"\\u2022 `persona formal and data-driven`\\n\" +\n      \"\\u2022 `persona witty and casual`\\n\" +\n      \"\\u2022 `persona short responses for busy professionals`\",\n\n    'scope': \"*`scope` \\u2014 Change Briefing Scope*\\n\\n\" +\n      \"Control whose deals appear in your morning digest.\\n\\n\" +\n      \"*Usage:*\\n\" +\n      \"\\u2022 `scope my_deals` \\u2014 just your own opportunities (IC mode)\\n\" +\n      \"\\u2022 `scope team_deals` \\u2014 your direct reports' deals (Manager mode)\\n\" +\n      \"\\u2022 `scope top_pipeline` \\u2014 top pipeline deals across the org (Exec mode)\",\n\n    'focus': \"*`focus` \\u2014 Set Digest Focus Area*\\n\\n\" +\n      \"Prioritize a specific area in your morning briefings.\\n\\n\" +\n      \"*Usage:*\\n\" +\n      \"\\u2022 `focus retention` \\u2014 renewals and churn risk\\n\" +\n      \"\\u2022 `focus revenue` \\u2014 pipeline and revenue targets\\n\" +\n      \"\\u2022 `focus technical` \\u2014 technical adoption signals\\n\" +\n      \"\\u2022 `focus executive` \\u2014 strategic overview\",\n\n    'tips': \"*Feature Tips*\\n\\n\" +\n      \"I\\u2019ll share helpful tips about features you haven\\u2019t tried yet \\u2014 delivered at most twice a week.\\n\\n\" +\n      \"*Commands:*\\n\" +\n      \"\\u2022 `stop tips` \\u2014 pause feature tips\\n\" +\n      \"\\u2022 `resume tips` \\u2014 resume feature tips\",\n\n    'announcements': \"*Feature Announcements*\\n\\n\" +\n      \"I\\u2019ll let you know when I learn new capabilities.\\n\\n\" +\n      \"*Commands:*\\n\" +\n      \"\\u2022 `stop announcements` \\u2014 pause announcements\\n\" +\n      \"\\u2022 `resume announcements` \\u2014 resume announcements\",\n\n  };\n\n  // Also accept aliases\n  const aliases = { 'pbr': 'bbr', 'digest': 'brief',\n    'silent': 'silence', 'silent accounts': 'silence', 'silence check': 'silence', 'briefing': 'brief', 'slide': 'presentation', 'slides': 'presentation', 'deck': 'presentation', 'name': 'rename', 'icon': 'emoji', 'stop tips': 'tips', 'pause tips': 'tips', 'resume tips': 'tips', 'start tips': 'tips', 'stop announcements': 'announcements', 'resume announcements': 'announcements', 'start announcements': 'announcements', 'follow-up': 'followup', 'my tasks': 'tasks', 'sf tasks': 'tasks', 'task': 'tasks', 'followups': 'followup', 'follow-ups': 'followup', 'contacts': 'stakeholders', 'people': 'stakeholders', 'prep': 'meet', 'meeting brief': 'meet', 'meeting prep': 'meet', 'recaps': 'recap', 'meeting recap': 'recap', 'meeting recaps': 'recap', 'my tasks': 'tasks', 'task': 'tasks', 'sf tasks': 'tasks' };\n  const resolved = aliases[target] || target;\n\n  if (details[resolved]) {\n    text = details[resolved];\n  } else {\n    text = \"I don't have detailed help for `\" + target + \"`.\\n\\n\" +\n      \"Available shortcuts: `brief` \\u00b7 `meet` \\u00b7 `insights` \\u00b7 `presentation` \\u00b7 `bbr` \\u00b7 `stakeholders` \\u00b7 `followup`\\n\" +\n      \"`tasks` \\u00b7 `rename` \\u00b7 `emoji` \\u00b7 `persona` \\u00b7 `scope` \\u00b7 `focus` \\u00b7 `tips` \\u00b7 `announcements`\\n\\n\" +\n      \"Type `more <skill>` for details on any of these.\";\n  }\n\n} else if (r === 'stop_digest') {\n  text = \"Understood. I\\u2019ve paused your morning briefings.\\n\\nI\\u2019ll still prep you before meetings and flag urgent risks. Just type `resume digest` whenever you want them back.\";\n} else if (r === 'resume_digest') {\n  text = \"Morning briefings are back on. You\\u2019ll get the next one tomorrow at 6am.\";\n} else if (r === 'stop_tips') {\n  text = \"Tips paused \\u2014 I won\\u2019t send feature tips anymore. Type `resume tips` anytime to restart.\";\n} else if (r === 'resume_tips') {\n  text = \"Tips resumed! I\\u2019ll share helpful feature tips from time to time.\";\n} else if (r === 'stop_announcements') {\n  text = \"Announcements paused \\u2014 I won\\u2019t send new feature announcements. Type `resume announcements` anytime to restart.\";\n} else if (r === 'resume_announcements') {\n  text = \"Announcements resumed! I\\u2019ll let you know when I learn new tricks.\";\n} else if (r === 'stop_followups') {\n  text = \"Follow-ups paused \\u2014 I won\\u2019t send post-meeting follow-up prompts anymore. Type `start followups` anytime to resume.\";\n} else if (r === 'resume_followups') {\n  text = \"Follow-ups are back on! I\\u2019ll prompt you to follow up after customer meetings.\";\n} else if (r === 'stop_briefs') {\n  text = \"Meeting briefs paused \\u2014 I won\\u2019t send pre-meeting prep anymore. Type `start briefs` anytime to resume.\";\n} else if (r === 'resume_briefs') {\n  text = \"Meeting briefs are back on! I\\u2019ll prep you before upcoming customer meetings.\";\n} else {\n  text = \"I didn\\u2019t catch that. You can ask me anything about your accounts and deals, or try:\\n\\n\" +\n    \"`brief` \\u00b7 `meet` \\u00b7 `insights` \\u00b7 `presentation` \\u00b7 `bbr` \\u00b7 `stakeholders` \\u00b7 `followup` \\u00b7 `help`\";\n}\n\nconst needsUpdate = (r === 'stop_digest' || r === 'resume_digest');\nconst digestEnabled = (r === 'resume_digest');\n\n// Education preference updates (tips_enabled, announcements_enabled)\nconst needsBriefsUpdate = (r === 'stop_briefs' || r === 'resume_briefs');\nconst needsFollowupUpdate = (r === 'stop_followups' || r === 'resume_followups');\nconst followupEnabled = (r === 'resume_followups');\nconst meetingPrepEnabled = (r === 'resume_briefs');\nconst needsEducationUpdate = ['stop_tips', 'resume_tips', 'stop_announcements', 'resume_announcements'].includes(r);\nlet educationField = null;\nlet educationValue = null;\nif (r === 'stop_tips') { educationField = 'tips_enabled'; educationValue = false; }\nelse if (r === 'resume_tips') { educationField = 'tips_enabled'; educationValue = true; }\nelse if (r === 'stop_announcements') { educationField = 'announcements_enabled'; educationValue = false; }\nelse if (r === 'resume_announcements') { educationField = 'announcements_enabled'; educationValue = true; }\n\nreturn [{ json: { ...data, responseText: text, needsUpdate, digestEnabled, needsBriefsUpdate, meetingPrepEnabled, needsFollowupUpdate, followupEnabled, needsEducationUpdate, educationField, educationValue } }];\n"
+                "jsCode": "const data = $('Route by State').first().json;\nlet text = '';\nconst r = data.subRoute;\nconst name = data.assistantName || 'Your Assistant';\nconst emoji = data.assistantEmoji || ':robot_face:';\n\nif (r === 'help') {\n  // --- Conversation-first help ---\n  const u = data.userRecord || {};\n\n  // Build settings display\n  const scopeLabels = { 'my_deals': 'My Deals (IC)', 'team_deals': 'Team Deals (Manager)', 'top_pipeline': 'Top Pipeline (Exec)' };\n  const scopeVal = u.digest_scope || 'my_deals';\n  const scopeDisplay = scopeLabels[scopeVal] || scopeVal;\n\n  const digestOn = u.digest_enabled !== false;\n  const briefsOn = u.meeting_prep_enabled !== false;\n  const followupsOn = u.followup_enabled !== false;\n  const tipsOn = u.tips_enabled !== false;\n  const announcementsOn = u.announcements_enabled !== false;\n\n  const personaDisplay = u.assistant_persona ? u.assistant_persona : '_default_';\n  const focusDisplay = u.focus || '_none_';\n\n  const settingsBlock =\n    \"\\n\\n*My Character Settings:* _current value_ \\u2014 _change command_\\n\" +\n    \"\\u2022 *Name:* \" + (u.assistant_name || 'Your Assistant') + \" \\u2014 `rename <name>`\\n\" +\n    \"\\u2022 *Icon:* \" + (u.assistant_emoji || ':robot_face:') + \" \\u2014 `emoji <emoji>`\\n\" +\n    \"\\u2022 *Persona:* \" + personaDisplay + \" \\u2014 `persona <style>`\\n\" +\n    \"\\u2022 *Scope:* \" + scopeDisplay + \" \\u2014 `scope my_deals | team_deals | top_pipeline`\\n\" +\n    \"\\u2022 *Focus:* \" + focusDisplay + \" \\u2014 `focus retention | revenue | technical | executive`\\n\" +\n    \"\\u2022 *Morning Digest:* \" + (digestOn ? ':white_check_mark: on' : ':no_entry_sign: paused') + \" \\u2014 `\" + (digestOn ? 'stop' : 'resume') + \" digest`\\n\" +\n    \"\\u2022 *Meeting Briefs:* \" + (briefsOn ? ':white_check_mark: on' : ':no_entry_sign: paused') + \" \\u2014 `\" + (briefsOn ? 'stop' : 'start') + \" briefs`\\n\" +\n    \"\\u2022 *Follow-ups:* \" + (followupsOn ? ':white_check_mark: on' : ':no_entry_sign: paused') + \" \\u2014 `\" + (followupsOn ? 'stop' : 'start') + \" followups`\\n\" +\n    \"\\u2022 *Tips:* \" + (tipsOn ? ':white_check_mark: on' : ':no_entry_sign: paused') + \" \\u2014 `\" + (tipsOn ? 'stop' : 'resume') + \" tips`\\n\" +\n    \"\\u2022 *Announcements:* \" + (announcementsOn ? ':white_check_mark: on' : ':no_entry_sign: paused') + \" \\u2014 `\" + (announcementsOn ? 'stop' : 'resume') + \" announcements`\";\n\n  text = \"*I'm your personal assistant* \\u2014 I have access to the Backstory and can answer questions about accounts, deals, engagement, and pipeline.\\n\\n\" +\n    \"Try things like:\\n\" +\n    \"\\u2022 _\\\"What's happening with AMD?\\\"_\\n\" +\n    \"\\u2022 _\\\"Draft a follow-up for my Intel meeting\\\"_\\n\" +\n    \"\\u2022 _\\\"I need a presentation on Q1 results\\\"_\\n\\n\" +\n    \":thread: Reply in a thread to keep the conversation going.\\n\\n\" +\n    \"*My Special Skills:*\\n\" +\n    \"`bbr` \\u00b7 `brief` \\u00b7 `followup` \\u00b7 `icp` \\u00b7 `insights` \\u00b7 `meet` \\u00b7 `presentation` \\u00b7 `silence` \\u00b7 `stakeholders` \\u00b7 `tasks`\\n\" +\n    \"`announcements` \\u00b7 `emoji` \\u00b7 `focus` \\u00b7 `persona` \\u00b7 `rename` \\u00b7 `scope` \\u00b7 `tips`\\n\" +\n\n    \"Type `more <skill>` for details on any of my abilities (e.g. `more brief`).\" +\n    settingsBlock;\n\n} else if (r === 'more_help') {\n  // --- Detailed help for a specific shortcut ---\n  const target = (data.text || '').toLowerCase().replace(/^(more|help)\\s+/, '').trim();\n\n  const details = {\n    'tasks': \"*`tasks` \\u2014 Salesforce Task Manager*\\n\\n\" +\n      \"View, complete, and create Salesforce tasks for any account.\\n\\n\" +\n      \"*Usage:*\\n\" +\n      \"\\u2022 `tasks OpenAI` \\u2014 view open tasks for an account\\n\" +\n      \"\\u2022 `tasks Aidoc` \\u2014 view open tasks for Aidoc\\n\\n\" +\n      \"Each task shows the assignee, due date, category, and status indicator:\\n\" +\n      \"\\u2022 :red_circle: Overdue\\n\" +\n      \"\\u2022 :warning: Due this week\\n\" +\n      \"\\u2022 :white_check_mark: Future\\n\\n\" +\n      \"*Actions:*\\n\" +\n      \"\\u2022 Click *Complete* to mark a task done in Salesforce\\n\" +\n      \"\\u2022 Click *New Task* to create a task for the account\\n\\n\" +\n      \"_Links to PeopleGlass task sheets are included for the full view._\",\n\n    'silence': \"*`silence` \\u2014 Silence Contract Check*\\n\\n\" +\n      \"Check your accounts for engagement gaps right now.\\n\\n\" +\n      \"I'll scan your accounts (based on your ownership and CSM assignments) and report any that have gone quiet \\u2014 no emails, meetings, or calls in 5+ days.\\n\\n\" +\n      \"*Severity levels:*\\n\" +\n      \"\\u2022 :large_blue_circle: Getting quiet (5-9 days)\\n\" +\n      \"\\u2022 :warning: Gone silent (10-20 days)\\n\" +\n      \"\\u2022 :red_circle: Relationship at risk (21+ days)\\n\\n\" +\n      \"The daily cron also runs this automatically at 6:30am PT.\",\n    'brief': \"*`brief` \\u2014 On-Demand Sales Digest*\\n\\n\" +\n      \"Get an instant sales briefing, just like your morning digest.\\n\\n\" +\n      \"*Usage:*\\n\" +\n      \"\\u2022 `brief` \\u2014 today's themed digest\\n\" +\n      \"\\u2022 `brief risk` \\u2014 deals that need attention\\n\" +\n      \"\\u2022 `brief momentum` \\u2014 deals picking up speed\\n\" +\n      \"\\u2022 `brief engagement` \\u2014 engagement shifts\\n\" +\n      \"\\u2022 `brief full` \\u2014 full pipeline review\\n\" +\n      \"\\u2022 `brief review` \\u2014 weekly recap\\n\\n\" +\n      \"You can also use day names: `brief monday`, `brief friday`\\n\\n\" +\n      \"_Or just ask naturally: \\\"give me a briefing on at-risk deals\\\"_\",\n    'meet': \"*`meet` \\u2014 On-Demand Meeting Prep*\\n\\n\" +\n      \"Get an instant meeting brief for any account.\\n\\n\" +\n      \"*Usage:*\\n\" +\n      \"\\u2022 `meet Five9` \\u2014 prep for Five9\\n\" +\n      \"\\u2022 `prep Dataiku` \\u2014 same thing\\n\" +\n      \"\\u2022 `meeting brief IBM` \\u2014 longer form\\n\\n\" +\n      \"_Researches the account, contacts, engagement, and deals via People.ai._\",\n\n    'icp': \"*`icp` \u2014 ICP Analysis*\\n\\n\" +\n      \"Analyze your won vs lost patterns to build an Ideal Customer Profile.\\n\\n\" +\n      \"*Usage:*\\n\" +\n      \"\u2022 `icp` \u2014 Full ICP calibration (3-5 minutes)\\n\" +\n      \"\u2022 `icp targets` \u2014 Surface unengaged accounts matching your ICP\\n\" +\n      \"\u2022 `icp <company>` \u2014 Compare a specific account against your winning pattern\\n\\n\" +\n      \"Calibration analyzes your closed-won vs closed-lost accounts to find the engagement patterns that predict success.\",\n\n    'insights': \"*`insights` \\u2014 Pipeline Intelligence*\\n\\n\" +\n      \"Deep analysis of your pipeline with actionable recommendations.\\n\\n\" +\n      \"*Usage:*\\n\" +\n      \"\\u2022 `insights` \\u2014 full pipeline analysis\\n\" +\n      \"\\u2022 `insights stalled` \\u2014 deals that have gone quiet\\n\" +\n      \"\\u2022 `insights risk` \\u2014 deals showing warning signs\\n\" +\n      \"\\u2022 `insights hidden` \\u2014 ghost opportunities\\n\" +\n      \"\\u2022 `insights accelerating` \\u2014 fast-moving deals\\n\\n\" +\n      \"_Or just ask naturally: \\\"show me insights on stalled deals\\\"_\",\n\n    'presentation': \"*`presentation` \\u2014 Create a Presentation*\\n\\n\" +\n      \"Generate a Backstory-branded Google Slides deck on any topic.\\n\\n\" +\n      \"*Usage:*\\n\" +\n      \"\\u2022 `presentation Q1 engineering review for Cisco`\\n\" +\n      \"\\u2022 `presentation competitive landscape for AMD`\\n\" +\n      \"\\u2022 `presentation onboarding progress for Acme`\\n\\n\" +\n      \"I'll pull data from People.ai and build the slides. Takes about 2 minutes.\\n\\n\" +\n      \"_Or just ask naturally: \\\"I need a presentation on MCP for AMD\\\"_\",\n\n    'bbr': \"*`bbr` \\u2014 Business Review Presentation*\\n\\n\" +\n      \"Generate a complete Backstory Business Review (BBR) deck for a customer account.\\n\\n\" +\n      \"*Usage:*\\n\" +\n      \"\\u2022 `bbr AMD`\\n\" +\n      \"\\u2022 `pbr Cisco` (same thing)\\n\\n\" +\n      \"Includes: engagement scores, open opps, key contacts, activity trends, adoption signals, and a roadmap placeholder.\\n\\n\" +\n      \"_Or just ask naturally: \\\"create a business review for AMD\\\"_\",\n\n    'stakeholders': \"*`stakeholders` \\u2014 Stakeholder Map*\\n\\n\" +\n      \"See who you're engaging at an account, who's gone quiet, and where you have coverage gaps.\\n\\n\" +\n      \"*Usage:*\\n\" +\n      \"\\u2022 `stakeholders AMD`\\n\" +\n      \"\\u2022 `stakeholders Cisco`\\n\\n\" +\n      \"Shows: active contacts with engagement trends, silent contacts, missing roles, and a recommendation for who to re-engage.\\n\\n\" +\n      \"_Or just ask naturally: \\\"who should I be talking to at AMD?\\\"_\",\n\n    'followup': \"*`followup` \\u2014 Follow-ups*\\n\\n\" +\n      \"*On-demand:* Draft a follow-up email for any account.\\n\" +\n      \"\\u2022 `followup AMD`\\n\" +\n      \"\\u2022 `followup Cisco`\\n\" +\n      \"\\u2022 `follow-up Intel`\\n\\n\" +\n      \"I'll find your most recent meeting with the account, check the deal context, and draft a professional follow-up with next steps.\\n\\n\" +\n      \"_Or just ask naturally: \\\"draft a follow-up for my AMD meeting\\\"_\\n\\n\" +\n      \"*Automatic:* After customer meetings end, I'll proactively prompt you with a draft follow-up. You can approve, edit, or skip right from Slack.\\n\\n\" +\n      \"*Toggle:*\\n\" +\n      \"\\u2022 `stop followups` \\u2014 pause automatic follow-up prompts\\n\" +\n      \"\\u2022 `start followups` \\u2014 resume them\",\n\n    'tasks': \"*`tasks` \\u2014 Salesforce Tasks*\\n\\n\" +\n      \"View your Salesforce tasks for any account, with the ability to mark them complete directly from Slack.\\n\\n\" +\n      \"*Usage:*\\n\" +\n      \"\\u2022 `tasks AiDoc` \\u2014 see open tasks for AiDoc\\n\" +\n      \"\\u2022 `tasks` \\u2014 see all your tasks\\n\\n\" +\n      \"_Or just ask naturally: \\\"my tasks for AiDoc\\\"_\",\n    'recap': \"*`recap` \\u2014 Meeting Recap*\\n\\n\" +\n      \"Get an instant recap of your most recent meeting with any account.\\n\\n\" +\n      \"*Usage:*\\n\" +\n      \"\\u2022 `recap Redis` \\u2014 recap your last Redis meeting\\n\" +\n      \"\\u2022 `recap AMD` \\u2014 recap your last AMD meeting\\n\\n\" +\n      \"Includes: summary, sentiment, key decisions, action items, and a Draft Follow-up button.\\n\\n\" +\n      \"_Or just ask naturally: \\\"recap my Redis meeting\\\"_\",\n    'rename': \"*`rename` \\u2014 Change My Name*\\n\\n\" +\n      \"Give me a new name that appears on all my messages.\\n\\n\" +\n      \"*Usage:*\\n\" +\n      \"\\u2022 `rename Luna`\\n\" +\n      \"\\u2022 `rename ScottAI`\\n\" +\n      \"\\u2022 `rename Jarvis`\",\n\n    'emoji': \"*`emoji` \\u2014 Change My Icon*\\n\\n\" +\n      \"Pick a Slack emoji that appears next to my name.\\n\\n\" +\n      \"*Usage:*\\n\" +\n      \"\\u2022 `emoji :rocket:`\\n\" +\n      \"\\u2022 `emoji :star:`\\n\" +\n      \"\\u2022 `emoji :brain:`\",\n\n    'persona': \"*`persona` \\u2014 Change My Personality*\\n\\n\" +\n      \"Adjust how I communicate with you.\\n\\n\" +\n      \"*Usage:*\\n\" +\n      \"\\u2022 `persona friendly and uses sports metaphors`\\n\" +\n      \"\\u2022 `persona formal and data-driven`\\n\" +\n      \"\\u2022 `persona witty and casual`\\n\" +\n      \"\\u2022 `persona short responses for busy professionals`\",\n\n    'scope': \"*`scope` \\u2014 Change Briefing Scope*\\n\\n\" +\n      \"Control whose deals appear in your morning digest.\\n\\n\" +\n      \"*Usage:*\\n\" +\n      \"\\u2022 `scope my_deals` \\u2014 just your own opportunities (IC mode)\\n\" +\n      \"\\u2022 `scope team_deals` \\u2014 your direct reports' deals (Manager mode)\\n\" +\n      \"\\u2022 `scope top_pipeline` \\u2014 top pipeline deals across the org (Exec mode)\",\n\n    'focus': \"*`focus` \\u2014 Set Digest Focus Area*\\n\\n\" +\n      \"Prioritize a specific area in your morning briefings.\\n\\n\" +\n      \"*Usage:*\\n\" +\n      \"\\u2022 `focus retention` \\u2014 renewals and churn risk\\n\" +\n      \"\\u2022 `focus revenue` \\u2014 pipeline and revenue targets\\n\" +\n      \"\\u2022 `focus technical` \\u2014 technical adoption signals\\n\" +\n      \"\\u2022 `focus executive` \\u2014 strategic overview\",\n\n    'tips': \"*Feature Tips*\\n\\n\" +\n      \"I\\u2019ll share helpful tips about features you haven\\u2019t tried yet \\u2014 delivered at most twice a week.\\n\\n\" +\n      \"*Commands:*\\n\" +\n      \"\\u2022 `stop tips` \\u2014 pause feature tips\\n\" +\n      \"\\u2022 `resume tips` \\u2014 resume feature tips\",\n\n    'announcements': \"*Feature Announcements*\\n\\n\" +\n      \"I\\u2019ll let you know when I learn new capabilities.\\n\\n\" +\n      \"*Commands:*\\n\" +\n      \"\\u2022 `stop announcements` \\u2014 pause announcements\\n\" +\n      \"\\u2022 `resume announcements` \\u2014 resume announcements\",\n\n  };\n\n  // Also accept aliases\n  const aliases = { 'pbr': 'bbr', 'digest': 'brief',\n    'silent': 'silence', 'silent accounts': 'silence', 'silence check': 'silence', 'briefing': 'brief', 'slide': 'presentation', 'slides': 'presentation', 'deck': 'presentation', 'name': 'rename', 'icon': 'emoji', 'stop tips': 'tips', 'pause tips': 'tips', 'resume tips': 'tips', 'start tips': 'tips', 'stop announcements': 'announcements', 'resume announcements': 'announcements', 'start announcements': 'announcements', 'follow-up': 'followup', 'my tasks': 'tasks', 'sf tasks': 'tasks', 'task': 'tasks', 'followups': 'followup', 'follow-ups': 'followup', 'contacts': 'stakeholders', 'people': 'stakeholders', 'prep': 'meet', 'meeting brief': 'meet', 'meeting prep': 'meet', 'recaps': 'recap', 'meeting recap': 'recap', 'meeting recaps': 'recap', 'my tasks': 'tasks', 'task': 'tasks', 'sf tasks': 'tasks' };\n  const resolved = aliases[target] || target;\n\n  if (details[resolved]) {\n    text = details[resolved];\n  } else {\n    text = \"I don't have detailed help for `\" + target + \"`.\\n\\n\" +\n      \"Available shortcuts: `brief` \\u00b7 `meet` \\u00b7 `insights` \\u00b7 `presentation` \\u00b7 `bbr` \\u00b7 `stakeholders` \\u00b7 `followup`\\n\" +\n      \"`tasks` \\u00b7 `rename` \\u00b7 `emoji` \\u00b7 `persona` \\u00b7 `scope` \\u00b7 `focus` \\u00b7 `tips` \\u00b7 `announcements`\\n\\n\" +\n      \"Type `more <skill>` for details on any of these.\";\n  }\n\n} else if (r === 'stop_digest') {\n  text = \"Understood. I\\u2019ve paused your morning briefings.\\n\\nI\\u2019ll still prep you before meetings and flag urgent risks. Just type `resume digest` whenever you want them back.\";\n} else if (r === 'resume_digest') {\n  text = \"Morning briefings are back on. You\\u2019ll get the next one tomorrow at 6am.\";\n} else if (r === 'stop_tips') {\n  text = \"Tips paused \\u2014 I won\\u2019t send feature tips anymore. Type `resume tips` anytime to restart.\";\n} else if (r === 'resume_tips') {\n  text = \"Tips resumed! I\\u2019ll share helpful feature tips from time to time.\";\n} else if (r === 'stop_announcements') {\n  text = \"Announcements paused \\u2014 I won\\u2019t send new feature announcements. Type `resume announcements` anytime to restart.\";\n} else if (r === 'resume_announcements') {\n  text = \"Announcements resumed! I\\u2019ll let you know when I learn new tricks.\";\n} else if (r === 'stop_followups') {\n  text = \"Follow-ups paused \\u2014 I won\\u2019t send post-meeting follow-up prompts anymore. Type `start followups` anytime to resume.\";\n} else if (r === 'resume_followups') {\n  text = \"Follow-ups are back on! I\\u2019ll prompt you to follow up after customer meetings.\";\n} else if (r === 'stop_briefs') {\n  text = \"Meeting briefs paused \\u2014 I won\\u2019t send pre-meeting prep anymore. Type `start briefs` anytime to resume.\";\n} else if (r === 'resume_briefs') {\n  text = \"Meeting briefs are back on! I\\u2019ll prep you before upcoming customer meetings.\";\n} else {\n  text = \"I didn\\u2019t catch that. You can ask me anything about your accounts and deals, or try:\\n\\n\" +\n    \"`brief` \\u00b7 `meet` \\u00b7 `insights` \\u00b7 `presentation` \\u00b7 `bbr` \\u00b7 `stakeholders` \\u00b7 `followup` \\u00b7 `help`\";\n}\n\nconst needsUpdate = (r === 'stop_digest' || r === 'resume_digest');\nconst digestEnabled = (r === 'resume_digest');\n\n// Education preference updates (tips_enabled, announcements_enabled)\nconst needsBriefsUpdate = (r === 'stop_briefs' || r === 'resume_briefs');\nconst needsFollowupUpdate = (r === 'stop_followups' || r === 'resume_followups');\nconst followupEnabled = (r === 'resume_followups');\nconst meetingPrepEnabled = (r === 'resume_briefs');\nconst needsEducationUpdate = ['stop_tips', 'resume_tips', 'stop_announcements', 'resume_announcements'].includes(r);\nlet educationField = null;\nlet educationValue = null;\nif (r === 'stop_tips') { educationField = 'tips_enabled'; educationValue = false; }\nelse if (r === 'resume_tips') { educationField = 'tips_enabled'; educationValue = true; }\nelse if (r === 'stop_announcements') { educationField = 'announcements_enabled'; educationValue = false; }\nelse if (r === 'resume_announcements') { educationField = 'announcements_enabled'; educationValue = true; }\n\nreturn [{ json: { ...data, responseText: text, needsUpdate, digestEnabled, needsBriefsUpdate, meetingPrepEnabled, needsFollowupUpdate, followupEnabled, needsEducationUpdate, educationField, educationValue } }];\n"
             },
             "id": "2a67cc57-e741-49b0-989f-b0b041b5898a",
             "name": "Build Help Response",
@@ -1523,6 +1523,31 @@
                                     }
                                 ]
                             }
+                        },
+                        {
+                            "conditions": {
+                                "options": {
+                                    "version": 2,
+                                    "leftValue": "",
+                                    "caseSensitive": true,
+                                    "typeValidation": "strict"
+                                },
+                                "combinator": "and",
+                                "conditions": [
+                                    {
+                                        "id": "9df20bba-7f7a-42ce-a11f-b412012f7c49",
+                                        "operator": {
+                                            "name": "filter.operator.equals",
+                                            "type": "string",
+                                            "operation": "equals"
+                                        },
+                                        "leftValue": "={{ $json.route }}",
+                                        "rightValue": "cmd_icp"
+                                    }
+                                ]
+                            },
+                            "renameOutput": true,
+                            "outputKey": "cmd_icp"
                         }
                     ]
                 },
@@ -3320,7 +3345,7 @@
         },
         {
             "parameters": {
-                "jsCode": "// Parse People.ai participant CSV and enrich meetInput\nconst data = $('Parse Meet Account').first().json;\nconst meetInput = { ...data.meetInput };\nconst accountName = (data.accountName || '').toLowerCase();\n\n// Get the CSV from Fetch Meet Participants\nconst raw = $('Fetch Meet Participants').first().json;\nconst csvData = typeof raw === 'string' ? raw : (raw.data || raw.body || '');\n\nif (!csvData || typeof csvData !== 'string') {\n  // No participant data \u2014 proceed without it\n  return [{ json: meetInput }];\n}\n\nfunction parseCsvLine(line) {\n  const result = [];\n  let current = '';\n  let inQuotes = false;\n  let inBrackets = 0;\n  for (let i = 0; i < line.length; i++) {\n    const ch = line[i];\n    if (ch === '[') inBrackets++;\n    else if (ch === ']') inBrackets--;\n    if (ch === '\"') {\n      if (inQuotes && i + 1 < line.length && line[i + 1] === '\"') {\n        current += '\"'; i++;\n      } else {\n        inQuotes = !inQuotes;\n      }\n    } else if (ch === ',' && !inQuotes && inBrackets === 0) {\n      result.push(current.trim());\n      current = '';\n    } else {\n      current += ch;\n    }\n  }\n  result.push(current.trim());\n  return result;\n}\n\nfunction parseList(val) {\n  if (!val) return [];\n  return val.replace(/^\\[/, '').replace(/\\]$/, '').trim().split(';').map(s => s.trim());\n}\n\nconst lines = csvData.split(/\\r?\\n/).filter(l => l.trim());\nif (lines.length < 2) {\n  return [{ json: meetInput }];\n}\n\nconst headers = parseCsvLine(lines[0]);\nconst headerMap = {};\nheaders.forEach((h, i) => { headerMap[h.toLowerCase()] = i; });\n\nfunction getField(row, ...names) {\n  for (const name of names) {\n    const idx = headerMap[name.toLowerCase()];\n    if (idx !== undefined && row[idx]) return row[idx];\n  }\n  return '';\n}\n\n// Find meetings matching this account\nconst now = Date.now();\nlet bestMatch = null;\nlet bestDiff = Infinity;\n\nfor (let i = 1; i < lines.length; i++) {\n  const row = parseCsvLine(lines[i]);\n  if (row.length < 2) continue;\n  \n  const acct = getField(row, 'Account (name)', 'Account');\n  if (!acct) continue;\n  \n  // Fuzzy account matching\n  const acctLower = acct.toLowerCase();\n  const inputLower = accountName.toLowerCase();\n  \n  let isMatch = false;\n  if (acctLower === inputLower) isMatch = true;\n  else if (acctLower.startsWith(inputLower)) isMatch = true;\n  else if (inputLower.startsWith(acctLower)) isMatch = true;\n  else if (new RegExp('\\\\b' + inputLower.replace(/[.*+?^${}()|[\\]\\\\]/g, '\\\\$&') + '\\\\b', 'i').test(acct)) isMatch = true;\n  else if (acctLower.includes(inputLower)) isMatch = true;\n  else {\n    const inputWords = inputLower.split(/\\s+/);\n    const matched = inputWords.filter(w => acctLower.includes(w));\n    if (matched.length > 0 && matched.length >= inputWords.length * 0.5) isMatch = true;\n  }\n  \n  if (!isMatch) continue;\n  \n  const timestampStr = getField(row, 'Activity date');\n  const ts = timestampStr ? new Date(timestampStr).getTime() : 0;\n  \n  // Prefer the nearest upcoming meeting\n  const diff = ts - now;\n  if (diff > -3600000 && diff < bestDiff) { // Allow 1hr past meetings too\n    bestDiff = diff;\n    bestMatch = {\n      subject: getField(row, 'Subject') || 'Customer Meeting',\n      timestamp: ts,\n      timestampStr,\n      activityUid: getField(row, 'Activity'),\n      emails: parseList(getField(row, 'Activity Participants (Email)')),\n      names: parseList(getField(row, 'Activity Participants (Name)')),\n      externals: parseList(getField(row, 'Activity Participants (External)')),\n      titles: parseList(getField(row, 'Activity Participants (Job Title)')),\n      oppName: getField(row, 'Opportunity (name)', 'Opportunity'),\n      accountName: getField(row, 'Account (name)', 'Account'),\n    };\n  }\n}\n\nif (bestMatch) {\n  // Build a formatted participant string with Slack @mentions for internal users\n  // Get the requesting user's data (has slack_user_id)\n  const requestingUser = data.meetInput || {};\n  const requestingEmail = (requestingUser.email || '').toLowerCase();\n  const requestingSlackId = requestingUser.slackUserId || '';\n  \n  const parts = [];\n  for (let p = 0; p < bestMatch.emails.length; p++) {\n    const isExternal = (bestMatch.externals[p] || '').toLowerCase() === 'true';\n    const name = bestMatch.names[p] || bestMatch.emails[p];\n    const title = bestMatch.titles[p] || '';\n    const pEmail = (bestMatch.emails[p] || '').toLowerCase();\n    if (isExternal) {\n      parts.push(`${name} (external${title ? ', ' + title : ''}) <${bestMatch.emails[p]}>`);\n    } else {\n      // Check if this is the requesting user\n      if (pEmail === requestingEmail && requestingSlackId) {\n        parts.push(`<@${requestingSlackId}> :backstory: <${bestMatch.emails[p]}>`);\n      } else {\n        parts.push(`${name} :backstory: <${bestMatch.emails[p]}>`);\n      }\n    }\n  }\n  \n  meetInput.participants = parts.join('; ');\n  meetInput.meetingSubject = bestMatch.subject;\n  meetInput.meetingTime = String(bestMatch.timestamp);\n  meetInput.accountName = bestMatch.accountName || data.accountName;\n  if (bestMatch.oppName) meetInput.opportunityName = bestMatch.oppName;\n  if (bestMatch.activityUid) meetInput.activityUid = bestMatch.activityUid;\n}\n\nreturn [{ json: meetInput }];\n"
+                "jsCode": "// Parse People.ai participant CSV and enrich meetInput\nconst data = $('Parse Meet Account').first().json;\nconst meetInput = { ...data.meetInput };\nconst accountName = (data.accountName || '').toLowerCase();\n\n// Get the CSV from Fetch Meet Participants\nconst raw = $('Fetch Meet Participants').first().json;\nconst csvData = typeof raw === 'string' ? raw : (raw.data || raw.body || '');\n\nif (!csvData || typeof csvData !== 'string') {\n  // No participant data \u2014 proceed without it\n  return [{ json: meetInput }];\n}\n\nfunction parseCsvLine(line) {\n  const result = [];\n  let current = '';\n  let inQuotes = false;\n  let inBrackets = 0;\n  for (let i = 0; i < line.length; i++) {\n    const ch = line[i];\n    if (ch === '[') inBrackets++;\n    else if (ch === ']') inBrackets--;\n    if (ch === '\"') {\n      if (inQuotes && i + 1 < line.length && line[i + 1] === '\"') {\n        current += '\"'; i++;\n      } else {\n        inQuotes = !inQuotes;\n      }\n    } else if (ch === ',' && !inQuotes && inBrackets === 0) {\n      result.push(current.trim());\n      current = '';\n    } else {\n      current += ch;\n    }\n  }\n  result.push(current.trim());\n  return result;\n}\n\nfunction parseList(val) {\n  if (!val) return [];\n  return val.replace(/^\\[/, '').replace(/\\]$/, '').trim().split(';').map(s => s.trim());\n}\n\nconst lines = csvData.split(/\\r?\\n/).filter(l => l.trim());\nif (lines.length < 2) {\n  return [{ json: meetInput }];\n}\n\nconst headers = parseCsvLine(lines[0]);\nconst headerMap = {};\nheaders.forEach((h, i) => { headerMap[h.toLowerCase()] = i; });\n\nfunction getField(row, ...names) {\n  for (const name of names) {\n    const idx = headerMap[name.toLowerCase()];\n    if (idx !== undefined && row[idx]) return row[idx];\n  }\n  return '';\n}\n\n// Find meetings matching this account\nconst now = Date.now();\nlet bestMatch = null;\nlet bestDiff = Infinity;\n\nfor (let i = 1; i < lines.length; i++) {\n  const row = parseCsvLine(lines[i]);\n  if (row.length < 2) continue;\n  \n  const acct = getField(row, 'Account (name)', 'Account');\n  if (!acct) continue;\n  \n  // Fuzzy account matching\n  const acctLower = acct.toLowerCase();\n  const inputLower = accountName.toLowerCase();\n  \n  let isMatch = false;\n  if (acctLower === inputLower) isMatch = true;\n  else if (acctLower.startsWith(inputLower)) isMatch = true;\n  else if (inputLower.startsWith(acctLower)) isMatch = true;\n  else if (new RegExp('\\\\b' + inputLower.replace(/[.*+?^${}()|[\\]\\\\]/g, '\\\\$&') + '\\\\b', 'i').test(acct)) isMatch = true;\n  else if (acctLower.includes(inputLower)) isMatch = true;\n  else {\n    const inputWords = inputLower.split(/\\s+/);\n    const matched = inputWords.filter(w => acctLower.includes(w));\n    if (matched.length > 0 && matched.length >= inputWords.length * 0.5) isMatch = true;\n  }\n  \n  if (!isMatch) continue;\n  \n  const timestampStr = getField(row, 'Activity date');\n  const ts = timestampStr ? new Date(timestampStr).getTime() : 0;\n  \n  // Prefer the nearest upcoming meeting\n  const diff = ts - now;\n  if (diff > -43200000 && diff < bestDiff) { // Allow 12hr past meetings for on-demand\n    bestDiff = diff;\n    bestMatch = {\n      subject: getField(row, 'Subject') || 'Customer Meeting',\n      timestamp: ts,\n      timestampStr,\n      activityUid: getField(row, 'Activity'),\n      emails: parseList(getField(row, 'Activity Participants (Email)')),\n      names: parseList(getField(row, 'Activity Participants (Name)')),\n      externals: parseList(getField(row, 'Activity Participants (External)')),\n      titles: parseList(getField(row, 'Activity Participants (Job Title)')),\n      oppName: getField(row, 'Opportunity (name)', 'Opportunity'),\n      accountName: getField(row, 'Account (name)', 'Account'),\n    };\n  }\n}\n\nif (bestMatch) {\n  // Build a formatted participant string with Slack @mentions for internal users\n  // Get the requesting user's data (has slack_user_id)\n  const requestingUser = data.meetInput || {};\n  const requestingEmail = (requestingUser.email || '').toLowerCase();\n  const requestingSlackId = requestingUser.slackUserId || '';\n  \n  const parts = [];\n  for (let p = 0; p < bestMatch.emails.length; p++) {\n    const isExternal = (bestMatch.externals[p] || '').toLowerCase() === 'true';\n    const name = bestMatch.names[p] || bestMatch.emails[p];\n    const title = bestMatch.titles[p] || '';\n    const pEmail = (bestMatch.emails[p] || '').toLowerCase();\n    if (isExternal) {\n      parts.push(`${name} (external${title ? ', ' + title : ''}) <${bestMatch.emails[p]}>`);\n    } else {\n      // Check if this is the requesting user\n      if (pEmail === requestingEmail && requestingSlackId) {\n        parts.push(`<@${requestingSlackId}> :backstory: <${bestMatch.emails[p]}>`);\n      } else {\n        parts.push(`${name} :backstory: <${bestMatch.emails[p]}>`);\n      }\n    }\n  }\n  \n  meetInput.participants = parts.join('; ');\n  meetInput.meetingSubject = bestMatch.subject;\n  meetInput.meetingTime = String(bestMatch.timestamp);\n  meetInput.accountName = bestMatch.accountName || data.accountName;\n  if (bestMatch.oppName) meetInput.opportunityName = bestMatch.oppName;\n  if (bestMatch.activityUid) meetInput.activityUid = bestMatch.activityUid;\n}\n\nreturn [{ json: meetInput }];\n"
             },
             "id": "c21ed3bf-46ef-43c0-888a-0ae62274d62c",
             "name": "Prepare Meet Input",
@@ -4589,7 +4614,7 @@
         },
         {
             "parameters": {
-                "jsCode": "// Compact top-level card \u2014 just meeting info + action buttons\n// Full recap details go in the thread\nconst data = $('Recap Parse Output OD').first().json;\nconst recap = data.recap;\nconst m = data.meeting;\nconst assistantName = data.assistantName || 'Aria';\nconst assistantEmoji = data.assistantEmoji || ':robot_face:';\nconst genMsg = $('Send Recap Generating').first().json;\n\nconst subjectLine = m.subject || 'Customer Meeting';\nconst hoursAgo = m.hoursAgo || '';\nconst timeInfo = hoursAgo ? ` | ${hoursAgo}h ago` : '';\n\nconst taskCount = (recap.tasks || []).length;\nconst blocks = [];\n\nblocks.push({\n  type: \"section\",\n  text: { type: \"mrkdwn\", text: `:clipboard: *${m.accountName}* \u00b7 ${m.dayStr} ${m.timeStr} \u2014 ${subjectLine}` }\n});\n\n// Action buttons\nconst truncContext = (recap.followUpContext || '').substring(0, 500);\nconst draftPayload = JSON.stringify({\n  action: 'draft_followup',\n  account_name: m.accountName,\n  account_id: m.accountId || '',\n  activity_uid: m.activityUid,\n  meeting_subject: m.subject,\n  participants: m.participants || '',\n  follow_up_context: truncContext,\n  user_id: data.dbUserId,\n  db_user_id: data.dbUserId,\n  slack_user_id: data.userId,\n  organization_id: data.organizationId || '',\n  assistant_name: assistantName,\n  assistant_emoji: assistantEmoji,\n  rep_name: data.repName,\n});\n\nconst savePayload = JSON.stringify({\n  action: 'save_activity',\n  account_name: m.accountName,\n  account_id: m.accountId || '',\n  activity_uid: m.activityUid,\n  meeting_subject: m.subject,\n  meeting_date: m.dayStr || '',\n  meeting_time: m.timeStr || '',\n  summary: (recap.summary || '').substring(0, 300),\n  key_decisions: (recap.keyDecisions || []).map(d => d.substring(0, 80)),\n  tasks: (recap.tasks || []).map(t => ({ description: (t.description || '').substring(0, 80), owner: t.owner || '' })),\n  sentiment: recap.sentiment,\n  meeting_category: recap.meetingCategory || '',\n  user_id: data.dbUserId,\n  slack_user_id: data.userId,\n  rep_name: data.repName,\n  rep_email: data.email || '',\n  assistant_name: assistantName,\n  assistant_emoji: assistantEmoji,\n});\n\nblocks.push({\n  type: \"actions\",\n  elements: [\n    {\n      type: \"button\",\n      text: { type: \"plain_text\", text: \":salesforce: Review & Log\", emoji: true },\n      style: \"primary\",\n      action_id: \"recap_save_activity\",\n      value: savePayload\n    },\n    {\n      type: \"button\",\n      text: { type: \"plain_text\", text: \":email: Draft Follow-up\", emoji: true },\n      action_id: \"recap_draft_followup\",\n      value: draftPayload\n    },\n    ...(taskCount > 0 ? [{\n      type: \"button\",\n      text: { type: \"plain_text\", text: `:memo: Tasks (${taskCount})`, emoji: true },\n      action_id: \"recap_view_tasks\",\n      value: JSON.stringify({\n        account_name: m.accountName,\n        meeting_subject: m.subject,\n        tasks: (recap.tasks || []).slice(0, 5).map(t => ({\n          d: (t.description || '').substring(0, 100),\n          o: (t.owner || '').substring(0, 30),\n          e: (t.owner_email || '').substring(0, 40),\n          r: t.assignee_role || '',\n          m: t.duration_minutes || 30,\n          h: (t.due_hint || '').substring(0, 20),\n          c: (t.task_category || '').substring(0, 40),\n        })),\n        assistant_name: assistantName,\n        assistant_emoji: assistantEmoji,\n      }).substring(0, 1999)\n    }] : [])\n  ]\n});\n\nconst promptText = `Meeting Recap \u2014 ${m.accountName}: ${subjectLine}`;\n\nreturn [{ json: {\n  ...data,\n  blocks: JSON.stringify(blocks),\n  promptText,\n  assistantName,\n  assistantEmoji,\n  generatingTs: genMsg.ts,\n  generatingChannel: genMsg.channel,\n}}];"
+                "jsCode": "const SKILL_REGISTRY = [\n  { id: 'draft_email', label: 'Draft Email',\n    keywords: ['send email', 'follow up', 'follow-up', 'email', 'reach out', 'share with', 'send to', 'write to', 'notify', 'update via email', 'loop in'],\n    buttonText: ':email: Want me to draft that email?', actionId: 'task_assist_draft_email' },\n  { id: 'presentation', label: 'Create Presentation',\n    keywords: ['create deck', 'build slides', 'presentation', 'qbr', 'prepare deck', 'slide deck', 'google slides'],\n    buttonText: ':bar_chart: Want me to build that deck?', actionId: 'task_assist_presentation' },\n  { id: 'stakeholder_map', label: 'Stakeholder Map',\n    keywords: ['map contacts', 'stakeholder', 'decision maker', 'identify contacts', 'org chart', 'key contacts', 'champion'],\n    buttonText: ':busts_in_silhouette: Want me to map the stakeholders?', actionId: 'task_assist_stakeholders' },\n  { id: 'meeting_prep', label: 'Meeting Prep',\n    keywords: ['prepare for meeting', 'prep for call', 'research before', 'meeting brief', 'pre-meeting', 'talking points'],\n    buttonText: ':clipboard: Want me to prep you for that meeting?', actionId: 'task_assist_meeting_prep' },\n];\n\nfunction matchTaskToSkill(taskSubject, taskDescription) {\n  const text = (taskSubject + ' ' + (taskDescription || '')).toLowerCase();\n  for (const skill of SKILL_REGISTRY) {\n    for (const kw of skill.keywords) {\n      if (text.includes(kw)) return skill;\n    }\n  }\n  return null;\n}\n\nconst data = $('Build Auto-Save OD').first().json;\nconst recap = data.recap;\nconst m = data.meeting;\nconst assistantName = data.assistantName || 'Aria';\nconst assistantEmoji = data.assistantEmoji || ':robot_face:';\nconst taskCount = data.taskCount || 0;\n\nconst subjectLine = m.subject || 'Customer Meeting';\nconst blocks = [];\n\n// Header: account + time + subject\nblocks.push({\n  type: \"section\",\n  text: { type: \"mrkdwn\", text: `:clipboard: *${m.accountName}* \\u00b7 ${m.dayStr}, ${m.timeStr} \\u2014 ${subjectLine}` }\n});\n\n// Tight confirmation line\nconst taskPart = taskCount > 0 ? ` \\u00b7 ${taskCount} task${taskCount === 1 ? '' : 's'} created` : '';\nblocks.push({\n  type: \"section\",\n  text: { type: \"mrkdwn\", text: `:white_check_mark: Saved to CRM${taskPart}` }\n});\n\n// Summary teaser \u2014 first sentence or first 120 chars\nconst summary = recap.summary || '';\nif (summary) {\n  let teaser = summary;\n  const firstSentence = summary.match(/^[^.!?]+[.!?]/);\n  if (firstSentence && firstSentence[0].length <= 150) {\n    teaser = firstSentence[0];\n  } else {\n    teaser = summary.substring(0, 120);\n    if (summary.length > 120) teaser += '...';\n  }\n  blocks.push({\n    type: \"section\",\n    text: { type: \"mrkdwn\", text: `\\u{1f4ac} _\"${teaser}\"_` }\n  });\n}\n\n// Primary action: Draft Follow-up\nconst truncContext = (recap.followUpContext || '').substring(0, 500);\nconst draftPayload = JSON.stringify({\n  action: 'draft_followup',\n  account_name: m.accountName,\n  account_id: m.accountId || '',\n  activity_uid: m.activityUid,\n  meeting_subject: m.subject,\n  participants: m.participants || '',\n  follow_up_context: truncContext,\n  user_id: data.userId,\n  db_user_id: data.userId,\n  slack_user_id: data.slackUserId,\n  organization_id: data.organizationId || '',\n  assistant_name: assistantName,\n  assistant_emoji: assistantEmoji,\n  rep_name: data.repName,\n});\n\nblocks.push({\n  type: \"actions\",\n  elements: [{\n    type: \"button\",\n    text: { type: \"plain_text\", text: \":email: Want me to draft your follow-up?\", emoji: true },\n    action_id: \"recap_draft_followup\",\n    value: draftPayload\n  }]\n});\n\n// Task Assist: keyword match freshly created tasks\nconst assistable = [];\nfor (const t of (recap.tasks || [])) {\n  const skill = matchTaskToSkill(t.description, '');\n  if (skill) {\n    assistable.push({ task: t, skill });\n  }\n}\n\nif (assistable.length > 0) {\n  for (const a of assistable.slice(0, 3)) {\n    blocks.push({\n      type: \"actions\",\n      elements: [{\n        type: \"button\",\n        text: { type: \"plain_text\", text: a.skill.buttonText, emoji: true },\n        action_id: a.skill.actionId,\n        value: JSON.stringify({\n          action: 'task_assist',\n          skill: a.skill.id,\n          task_subject: a.task.description,\n          account_name: m.accountName,\n          account_id: m.accountId || '',\n          user_id: data.userId,\n          slack_user_id: data.slackUserId,\n          organization_id: data.organizationId || '',\n          assistant_name: assistantName,\n          assistant_emoji: assistantEmoji,\n          rep_name: data.repName,\n        })\n      }]\n    });\n  }\n}\n\n// Footer links as context block\nblocks.push({\n  type: \"context\",\n  elements: [{\n    type: \"mrkdwn\",\n    text: \":date: <https://glass.people.ai/sheet/294e924a-d11a-46b7-a373-aae4182c4a61|My Events Today> \\u00b7 :clipboard: <https://glass.people.ai/sheet/0250d214-84ba-48e4-b272-6839c03462f5|All Tasks Today>\"\n  }]\n});\n\nconst promptText = `Meeting Recap \\u2014 ${m.accountName}: ${subjectLine}`;\n\nreturn [{ json: {\n  ...data,\n  blocks: JSON.stringify(blocks),\n  promptText,\n  assistantName,\n  assistantEmoji,\n  activityUids: [m.activityUid],\n}}];"
             },
             "id": "5a900570-9908-45d0-8e26-96da56a0d27a",
             "name": "Recap Build Card OD",
@@ -4637,7 +4662,7 @@
         },
         {
             "parameters": {
-                "jsCode": "// Build detailed thread reply with decisions + tasks\nconst data = $('Recap Parse Output OD').first().json;\nconst recap = data.recap;\nconst m = data.meeting;\nconst sendResult = $('Recap Send Card OD').first().json;\nconst assistantName = data.assistantName || 'Aria';\nconst assistantEmoji = data.assistantEmoji || ':robot_face:';\n\nconst blocks = [];\n\n// Summary + sentiment\nconst sentLine = `${recap.sentimentEmoji} ${recap.sentimentSignal || recap.sentiment}`;\nblocks.push({\n  type: \"section\",\n  text: { type: \"mrkdwn\", text: `${sentLine}\\n\\n${recap.summary}` }\n});\n\nblocks.push({ type: \"divider\" });\n\n// Key Decisions\nif (recap.keyDecisions && recap.keyDecisions.length > 0) {\n  const decisionText = recap.keyDecisions.map(d => `\\u2022 ${d}`).join('\\n');\n  blocks.push({\n    type: \"section\",\n    text: { type: \"mrkdwn\", text: `*Key Decisions*\\n${decisionText}` }\n  });\n  blocks.push({ type: \"divider\" });\n}\n\n// Action Items with Create Task buttons\nif (recap.tasks && recap.tasks.length > 0) {\n  blocks.push({\n    type: \"section\",\n    text: { type: \"mrkdwn\", text: \"*Action Items*\" }\n  });\n\n  for (let i = 0; i < recap.tasks.length; i++) {\n    const task = recap.tasks[i];\n    const roleBadge = task.assignee_role ? ` (${task.assignee_role})` : '';\n    const durationBadge = task.duration_minutes ? ` \\u00b7 ${task.duration_minutes} min` : '';\n    const taskText = `\\u2022 ${task.description}` +\n      (task.owner ? ` \\u2014 _${task.owner}_` + roleBadge : '') +\n      durationBadge +\n      (task.due_hint ? ` \\u00b7 ${task.due_hint}` : '');\n\n    const taskPayload = JSON.stringify({\n      action: 'create_task',\n      task_index: i,\n      task_description: task.description,\n      task_owner: task.owner || '',\n      task_owner_email: task.owner_email || '',\n      task_due_hint: task.due_hint || '',\n      account_name: m.accountName,\n      account_id: m.accountId || '',\n      activity_uid: m.activityUid,\n      meeting_subject: m.subject,\n      user_id: data.dbUserId,\n      slack_user_id: data.userId,\n      rep_name: data.repName,\n      rep_email: (data.userRecord || {}).email || '',\n      assignee_role: task.assignee_role || '',\n      duration_minutes: task.duration_minutes || 30,\n      task_category: task.task_category || '',\n      assistant_name: data.assistantName || 'Aria',\n      assistant_emoji: data.assistantEmoji || ':robot_face:',\n    });\n\n    blocks.push({\n      type: \"section\",\n      text: { type: \"mrkdwn\", text: taskText },\n      accessory: {\n        type: \"button\",\n        text: { type: \"plain_text\", text: \":salesforce: Create Task\", emoji: true },\n        action_id: `recap_create_task_${i}`,\n        value: taskPayload\n      }\n    });\n  }\n}\n\n// If no decisions and no tasks\nif ((!recap.keyDecisions || recap.keyDecisions.length === 0) &&\n    (!recap.tasks || recap.tasks.length === 0)) {\n  blocks.push({\n    type: \"section\",\n    text: { type: \"mrkdwn\", text: \"_No key decisions or action items were captured for this meeting._\" }\n  });\n}\n\n// Thread footer\nblocks.push({\n  type: \"context\",\n  elements: [\n    { type: \"mrkdwn\", text: \"Reply in this thread to discuss this meeting\" }\n  ]\n});\n\nreturn [{ json: {\n  threadBlocks: JSON.stringify(blocks),\n  threadTs: sendResult.ts,\n  channelId: sendResult.channel,\n  assistantName,\n  assistantEmoji,\n  generatingTs: $('Recap Build Card OD').first().json.generatingTs,\n  generatingChannel: $('Recap Build Card OD').first().json.generatingChannel,\n}}];"
+                "jsCode": "\nconst data = $('Build Auto-Save OD').first().json;\nconst recap = data.recap;\nconst m = data.meeting;\nconst sendResult = $('Recap Send Card OD').first().json;\nconst assistantName = data.assistantName || 'Aria';\nconst assistantEmoji = data.assistantEmoji || ':robot_face:';\n\nconst blocks = [];\nconst sentLine = `${recap.sentimentEmoji} ${recap.sentimentSignal || recap.sentiment}`;\nblocks.push({ type: \"section\", text: { type: \"mrkdwn\", text: `${sentLine}\\n\\n${recap.summary}` } });\nblocks.push({ type: \"divider\" });\n\nif (recap.keyDecisions && recap.keyDecisions.length > 0) {\n  blocks.push({ type: \"section\", text: { type: \"mrkdwn\", text: `*Key Decisions*\\n${recap.keyDecisions.map(d => `\\u2022 ${d}`).join('\\n')}` } });\n  blocks.push({ type: \"divider\" });\n}\n\nif (recap.tasks && recap.tasks.length > 0) {\n  const taskText = recap.tasks.map(t => {\n    const roleBadge = t.assignee_role ? ` (${t.assignee_role})` : '';\n    const durationBadge = t.duration_minutes ? ` \\u00b7 ${t.duration_minutes} min` : '';\n    return `\\u2022 ${t.description}` + (t.owner ? ` \\u2014 _${t.owner}_` + roleBadge : '') + durationBadge + (t.due_hint ? ` \\u00b7 ${t.due_hint}` : '');\n  }).join('\\n');\n  blocks.push({ type: \"section\", text: { type: \"mrkdwn\", text: `*Action Items* (saved to CRM)\\n${taskText}` } });\n}\n\nif ((!recap.keyDecisions || recap.keyDecisions.length === 0) && (!recap.tasks || recap.tasks.length === 0)) {\n  blocks.push({ type: \"section\", text: { type: \"mrkdwn\", text: \"_No key decisions or action items were captured for this meeting._\" } });\n}\n\nblocks.push({ type: \"context\", elements: [{ type: \"mrkdwn\", text: \"Tasks and recap saved to CRM \\u2022 Use PeopleGlass to review or modify \\u2022 Reply in this thread to discuss\" }] });\n\nreturn [{ json: { threadBlocks: JSON.stringify(blocks), threadTs: sendResult.ts, channelId: sendResult.channel, assistantName, assistantEmoji } }];\n"
             },
             "id": "1a0a984c-a73e-427b-9180-6a0fd09d56d7",
             "name": "Recap Build Thread OD",
@@ -4968,6 +4993,293 @@
                     "name": "Slackbot Auth Token"
                 }
             }
+        },
+        {
+            "parameters": {
+                "method": "POST",
+                "url": "https://slack.com/api/conversations.open",
+                "authentication": "genericCredentialType",
+                "genericAuthType": "httpHeaderAuth",
+                "sendHeaders": true,
+                "headerParameters": {
+                    "parameters": [
+                        {
+                            "name": "Content-Type",
+                            "value": "application/json"
+                        }
+                    ]
+                },
+                "sendBody": true,
+                "specifyBody": "json",
+                "jsonBody": "={{ JSON.stringify({ users: $json.userId }) }}",
+                "options": {}
+            },
+            "id": "a42a709a-ee56-4e56-91b8-660ab3509fae",
+            "name": "Open Bot DM (ICP)",
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4.2,
+            "position": [
+                2180,
+                3200
+            ],
+            "credentials": {
+                "httpHeaderAuth": {
+                    "id": "LluVuiMJ8NUbAiG7",
+                    "name": "Slackbot Auth Token"
+                }
+            }
+        },
+        {
+            "parameters": {
+                "jsCode": "const data = $('Route by State').first().json;\nconst dmChannel = $json.channel?.id || $json.channel;\nconst sub = data.subRoute || 'calibrate';\nconst companyName = data.companyName || '';\nconst name = data.assistantName || data.assistant_name || 'Aria';\nconst emoji = data.assistantEmoji || data.assistant_emoji || ':robot_face:';\nlet text = '';\nif (sub === 'calibrate') {\n  text = ':mag: Running ICP calibration \\u2014 analyzing won vs lost patterns... this takes 3-5 minutes.';\n} else if (sub === 'targets') {\n  text = ':mag: Finding target accounts matching your ICP... give me about 30 seconds.';\n} else {\n  text = ':mag: Comparing *' + companyName + '* against your winning pattern... give me about 30 seconds.';\n}\nreturn [{ json: { channel: dmChannel, text, username: name, icon_emoji: emoji } }];"
+            },
+            "id": "c7c0c7dc-c0df-4a84-93ef-388f4c7fbaec",
+            "name": "Build ICP Thinking",
+            "type": "n8n-nodes-base.code",
+            "typeVersion": 2,
+            "position": [
+                2420,
+                3200
+            ]
+        },
+        {
+            "parameters": {
+                "method": "POST",
+                "url": "https://slack.com/api/chat.postMessage",
+                "authentication": "genericCredentialType",
+                "genericAuthType": "httpHeaderAuth",
+                "sendHeaders": true,
+                "headerParameters": {
+                    "parameters": [
+                        {
+                            "name": "Content-Type",
+                            "value": "application/json"
+                        }
+                    ]
+                },
+                "sendBody": true,
+                "specifyBody": "json",
+                "jsonBody": "={{ JSON.stringify({ channel: $json.channel, text: $json.text, username: $json.username, icon_emoji: $json.icon_emoji, unfurl_links: false, unfurl_media: false }) }}",
+                "options": {}
+            },
+            "id": "1d5d816f-6667-48f4-ac36-9915d08dc76a",
+            "name": "Send ICP Thinking",
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4.2,
+            "position": [
+                2660,
+                3200
+            ],
+            "credentials": {
+                "httpHeaderAuth": {
+                    "id": "LluVuiMJ8NUbAiG7",
+                    "name": "Slackbot Auth Token"
+                }
+            }
+        },
+        {
+            "parameters": {
+                "jsCode": "const data = $('Route by State').first().json;\nconst user = $('Lookup User').first().json;\nconst dmChannel = $('Open Bot DM (ICP)').first().json.channel?.id || $('Open Bot DM (ICP)').first().json.channel;\nconst sub = data.subRoute || 'calibrate';\nlet mode = sub === 'targets' ? 'targets' : sub === 'compare' ? 'compare' : 'calibrate';\nlet companyName = data.companyName || '';\nconst repName = (user.email || '').split('@')[0].replace(/\\./g, ' ').replace(/\\b\\w/g, c => c.toUpperCase());\nreturn [{ json: {\n  mode, companyName, userId: user.id,\n  slackUserId: user.slack_user_id || data.userId,\n  email: user.email, channelId: dmChannel,\n  assistantName: user.assistant_name || 'Aria',\n  assistantEmoji: user.assistant_emoji || ':robot_face:',\n  assistantPersona: user.assistant_persona || '',\n  digestScope: user.digest_scope || 'my_deals',\n  repName,\n} }];"
+            },
+            "id": "f93d53d9-b762-4c70-8377-417179aa2c24",
+            "name": "Prepare ICP Input",
+            "type": "n8n-nodes-base.code",
+            "typeVersion": 2,
+            "position": [
+                2900,
+                3200
+            ]
+        },
+        {
+            "parameters": {
+                "workflowId": {
+                    "__rl": true,
+                    "mode": "id",
+                    "value": "2lWTeRVCrjx1NtmJ"
+                },
+                "options": {
+                    "waitForSubWorkflow": false
+                }
+            },
+            "id": "5feac4cb-d013-4abf-abc9-afced5cbc07b",
+            "name": "Execute ICP Workflow",
+            "type": "n8n-nodes-base.executeWorkflow",
+            "typeVersion": 1.2,
+            "position": [
+                3140,
+                3200
+            ]
+        },
+        {
+            "id": "7aa02352-ec51-4c30-a869-54cdaf06abaa",
+            "name": "Build Auto-Save OD",
+            "type": "n8n-nodes-base.code",
+            "typeVersion": 2,
+            "position": [
+                6800,
+                2000
+            ],
+            "parameters": {
+                "jsCode": "\nconst data = $('Recap Parse Output OD').first().json;\nconst recap = data.recap;\nconst m = data.meeting;\n\nconst description = [\n  'Summary:', recap.summary, '',\n  recap.keyDecisions && recap.keyDecisions.length > 0\n    ? 'Key Decisions:\\n' + recap.keyDecisions.map(d => '\\u2022 ' + d).join('\\n') : '',\n  '',\n  recap.tasks && recap.tasks.length > 0\n    ? 'Action Items:\\n' + recap.tasks.map(t =>\n        '\\u2022 ' + t.description + (t.owner ? ' \\u2014 ' + t.owner : '') +\n        (t.due_hint ? ' \\u00b7 ' + t.due_hint : '')\n      ).join('\\n') : '',\n].filter(Boolean).join('\\n');\n\nconst activityPayload = {\n  action: 'log_activity',\n  salesforce_object: 'Event',\n  fields: {\n    Subject: m.subject || 'Customer Meeting',\n    Description: description,\n    ActivityDate: new Date().toLocaleDateString('en-CA', { timeZone: 'America/Los_Angeles' }),\n    meeting_category: recap.meetingCategory || null,\n    cs_category: recap.csCategory || null,\n  },\n  context: {\n    user_email: data.email || '',\n    account_name: m.accountName || '',\n    activity_uid: m.activityUid || '',\n    prepend_description: true,\n  }\n};\n\nconst now = new Date();\nconst ptNow = new Date(now.toLocaleString('en-US', { timeZone: 'America/Los_Angeles' }));\nfunction parseDueDate(hint) {\n  const h = (hint || '').toLowerCase();\n  if (h.includes('today') || h.includes('asap')) return ptNow.toISOString().split('T')[0];\n  if (h.includes('tomorrow')) { const d = new Date(ptNow.getTime() + 86400000); return d.toISOString().split('T')[0]; }\n  if (h.includes('friday') || h.includes('this week') || h.includes('end of week')) {\n    const d = new Date(ptNow); d.setDate(d.getDate() + ((5 - d.getDay() + 7) % 7 || 7)); return d.toISOString().split('T')[0];\n  }\n  if (h.includes('next week')) { const d = new Date(ptNow.getTime() + 7 * 86400000); return d.toISOString().split('T')[0]; }\n  const dateMatch = (hint || '').match(/(\\w+ \\d{1,2}(?:,? \\d{4})?)/);\n  if (dateMatch) { const parsed = new Date(dateMatch[1]); if (!isNaN(parsed.getTime())) return parsed.toISOString().split('T')[0]; }\n  const d = new Date(ptNow.getTime() + 7 * 86400000); return d.toISOString().split('T')[0];\n}\n\nconst taskPayloads = (recap.tasks || []).slice(0, 5).map(t => ({\n  action: 'create_task', salesforce_object: 'Task',\n  fields: {\n    Subject: (t.description || '').substring(0, 255),\n    Description: 'From meeting: ' + (m.subject || '') + ' with ' + (m.accountName || '') +\n      '\\nAssigned to: ' + (t.owner || '') + (t.assignee_role ? ' (' + t.assignee_role + ')' : '') +\n      '\\nEstimated duration: ' + (t.duration_minutes || 30) + ' minutes',\n    ActivityDate: parseDueDate(t.due_hint),\n    Status: 'Not Started', Priority: 'Normal',\n    TaskDuration: parseInt(t.duration_minutes) || 30,\n    Category: t.task_category || '',\n  },\n  context: {\n    user_email: '', account_name: m.accountName || '',\n    meeting_subject: m.subject || '',\n    assignee_name: t.owner || '', assignee_email: t.owner_email || '',\n    assignee_role: t.assignee_role || '',\n  }\n}));\n\nreturn [{ json: { ...data, activityPayload, taskPayloads, taskCount: taskPayloads.length } }];\n"
+            }
+        },
+        {
+            "id": "b0100a63-c581-46e7-b3ab-6269465f6af1",
+            "name": "Send Recap to CRM OD",
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4.2,
+            "position": [
+                7000,
+                1900
+            ],
+            "parameters": {
+                "method": "POST",
+                "url": "https://webhooks.workato.com/webhooks/rest/cfff4d3a-6f27-4ba4-9754-ac22c759ecaa/assistant_sf_write",
+                "sendHeaders": true,
+                "headerParameters": {
+                    "parameters": [
+                        {
+                            "name": "Content-Type",
+                            "value": "application/json"
+                        }
+                    ]
+                },
+                "sendBody": true,
+                "specifyBody": "json",
+                "jsonBody": "={{ JSON.stringify($json.activityPayload) }}",
+                "options": {
+                    "timeout": 15000
+                }
+            },
+            "continueOnFail": true
+        },
+        {
+            "id": "6f99aa8e-e17e-49c7-8a6e-47deca5044e7",
+            "name": "Prepare Task Payloads OD",
+            "type": "n8n-nodes-base.code",
+            "typeVersion": 2,
+            "position": [
+                7000,
+                2100
+            ],
+            "parameters": {
+                "jsCode": "\nconst data = $('Build Auto-Save OD').first().json;\nconst payloads = data.taskPayloads || [];\nif (payloads.length === 0) return [{ json: { skip: true } }];\nreturn payloads.map(p => ({ json: { webhook_payload: p } }));\n"
+            },
+            "continueOnFail": true
+        },
+        {
+            "id": "e40662e3-29db-4894-8c2a-5a924973fc7b",
+            "name": "Send Tasks to CRM OD",
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4.2,
+            "position": [
+                7200,
+                2100
+            ],
+            "parameters": {
+                "method": "POST",
+                "url": "https://webhooks.workato.com/webhooks/rest/cfff4d3a-6f27-4ba4-9754-ac22c759ecaa/assistant_sf_write",
+                "sendHeaders": true,
+                "headerParameters": {
+                    "parameters": [
+                        {
+                            "name": "Content-Type",
+                            "value": "application/json"
+                        }
+                    ]
+                },
+                "sendBody": true,
+                "specifyBody": "json",
+                "jsonBody": "={{ JSON.stringify($json.webhook_payload) }}",
+                "options": {
+                    "timeout": 15000
+                }
+            },
+            "continueOnFail": true
+        },
+        {
+            "parameters": {
+                "jsCode": "const data = $('Recap Parse Output OD').first().json;\nconst m = data.meeting || {};\nconst requestId = 'res_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);\n\nreturn [{ json: {\n  ...data,\n  resolutionRequestId: requestId,\n  resolutionPayload: {\n    action: 'get_tasks_resolution',\n    account_name: m.accountName || '',\n    user_email: data.email || '',\n    callback_url: 'https://scottai.trackslife.com/webhook/task-resolution-callback',\n    request_id: requestId,\n  },\n  resolutionContext: {\n    channel_id: data.channelId || '',\n    assistant_name: data.assistantName || 'Aria',\n    assistant_emoji: data.assistantEmoji || ':robot_face:',\n    mode: 'recap',\n    account_name: m.accountName || '',\n  }\n}}];"
+            },
+            "id": "3ff0050a-e7c3-41e5-a2e8-cc80be49c73f",
+            "name": "Fire Task Resolution OD",
+            "type": "n8n-nodes-base.code",
+            "typeVersion": 2,
+            "position": [
+                7000,
+                2300
+            ],
+            "continueOnFail": true
+        },
+        {
+            "parameters": {
+                "method": "POST",
+                "url": "https://rhrlnkbphxntxxxcrgvv.supabase.co/rest/v1/pending_actions",
+                "authentication": "predefinedCredentialType",
+                "nodeCredentialType": "supabaseApi",
+                "sendHeaders": true,
+                "headerParameters": {
+                    "parameters": [
+                        {
+                            "name": "Content-Type",
+                            "value": "application/json"
+                        },
+                        {
+                            "name": "Prefer",
+                            "value": "return=representation"
+                        }
+                    ]
+                },
+                "sendBody": true,
+                "specifyBody": "json",
+                "jsonBody": "={{ JSON.stringify({ opportunity_id: $json.resolutionRequestId, action_type: 'resolution_request', draft_content: '{}', context: JSON.stringify($json.resolutionContext), status: 'pending' }) }}",
+                "options": {}
+            },
+            "id": "d7811908-1184-4a0c-a4ea-aacee3054d24",
+            "name": "Store Resolution Request OD",
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4.2,
+            "position": [
+                7200,
+                2300
+            ],
+            "credentials": {
+                "supabaseApi": {
+                    "id": "ASRWWkQ0RSMOpNF1",
+                    "name": "Supabase account"
+                }
+            },
+            "continueOnFail": true
+        },
+        {
+            "parameters": {
+                "method": "POST",
+                "url": "https://webhooks.workato.com/webhooks/rest/cfff4d3a-6f27-4ba4-9754-ac22c759ecaa/assistant_sf_read",
+                "sendHeaders": true,
+                "headerParameters": {
+                    "parameters": [
+                        {
+                            "name": "Content-Type",
+                            "value": "application/json"
+                        }
+                    ]
+                },
+                "sendBody": true,
+                "specifyBody": "json",
+                "jsonBody": "={{ JSON.stringify($json.resolutionPayload) }}",
+                "options": {
+                    "timeout": 15000
+                }
+            },
+            "id": "441384d8-804e-4d4e-99c0-6f3ccf32f3de",
+            "name": "Send Resolution to Workato OD",
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4.2,
+            "position": [
+                7400,
+                2300
+            ],
+            "continueOnFail": true
         }
     ],
     "connections": {
@@ -5408,6 +5720,13 @@
                 [
                     {
                         "node": "Prepare Tasks Input",
+                        "type": "main",
+                        "index": 0
+                    }
+                ],
+                [
+                    {
+                        "node": "Open Bot DM (ICP)",
                         "type": "main",
                         "index": 0
                     }
@@ -6546,7 +6865,7 @@
             "main": [
                 [
                     {
-                        "node": "Recap Build Card OD",
+                        "node": "Build Auto-Save OD",
                         "type": "main",
                         "index": 0
                     }
@@ -6647,6 +6966,120 @@
                     }
                 ]
             ]
+        },
+        "Open Bot DM (ICP)": {
+            "main": [
+                [
+                    {
+                        "node": "Build ICP Thinking",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Build ICP Thinking": {
+            "main": [
+                [
+                    {
+                        "node": "Send ICP Thinking",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Send ICP Thinking": {
+            "main": [
+                [
+                    {
+                        "node": "Prepare ICP Input",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Prepare ICP Input": {
+            "main": [
+                [
+                    {
+                        "node": "Execute ICP Workflow",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Build Auto-Save OD": {
+            "main": [
+                [
+                    {
+                        "node": "Send Recap to CRM OD",
+                        "type": "main",
+                        "index": 0
+                    },
+                    {
+                        "node": "Prepare Task Payloads OD",
+                        "type": "main",
+                        "index": 0
+                    },
+                    {
+                        "node": "Fire Task Resolution OD",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Send Recap to CRM OD": {
+            "main": [
+                [
+                    {
+                        "node": "Recap Build Card OD",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Prepare Task Payloads OD": {
+            "main": [
+                [
+                    {
+                        "node": "Send Tasks to CRM OD",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Fire Task Resolution OD": {
+            "main": [
+                [
+                    {
+                        "node": "Store Resolution Request OD",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Store Resolution Request OD": {
+            "main": [
+                [
+                    {
+                        "node": "Send Resolution to Workato OD",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Send Resolution to Workato OD": {
+            "main": [
+                []
+            ]
         }
     },
     "settings": {
@@ -6657,15 +7090,34 @@
     "staticData": null,
     "meta": null,
     "pinData": {},
-    "versionId": "20e735ef-232d-4ff7-b48b-f9b7a6e2364d",
-    "activeVersionId": "20e735ef-232d-4ff7-b48b-f9b7a6e2364d",
-    "versionCounter": 528,
+    "versionId": "b3a41061-2057-45c2-8373-c9a279f764c5",
+    "activeVersionId": "b3a41061-2057-45c2-8373-c9a279f764c5",
+    "versionCounter": 621,
     "triggerCount": 1,
+    "shared": [
+        {
+            "updatedAt": "2026-02-24T05:08:17.761Z",
+            "createdAt": "2026-02-24T05:08:17.761Z",
+            "role": "workflow:owner",
+            "workflowId": "QuQbIaWetunUOFUW",
+            "projectId": "85jtzrEPriGDXgHV",
+            "project": {
+                "updatedAt": "2025-11-24T07:01:19.205Z",
+                "createdAt": "2025-11-24T06:56:53.862Z",
+                "id": "85jtzrEPriGDXgHV",
+                "name": "Scott Metcalf <metcalf.scott@gmail.com>",
+                "type": "personal",
+                "icon": null,
+                "description": null,
+                "creatorId": "bfa163c1-bd53-4c0f-b0ba-8dc3626f7c79"
+            }
+        }
+    ],
     "tags": [],
     "activeVersion": {
-        "updatedAt": "2026-03-29T15:02:51.846Z",
-        "createdAt": "2026-03-29T15:02:51.846Z",
-        "versionId": "20e735ef-232d-4ff7-b48b-f9b7a6e2364d",
+        "updatedAt": "2026-04-03T14:03:48.909Z",
+        "createdAt": "2026-04-03T14:03:48.909Z",
+        "versionId": "b3a41061-2057-45c2-8373-c9a279f764c5",
         "workflowId": "QuQbIaWetunUOFUW",
         "nodes": [
             {
@@ -6847,7 +7299,7 @@
             },
             {
                 "parameters": {
-                    "jsCode": "const event = $('Extract Event Data').first().json;\nconst user = $('Lookup User').first().json;\nconst text = event.text;\nconst userId = event.userId;\n\nlet userExists = !!(user && user.id);\nlet state = userExists ? (user.onboarding_state || 'new') : null;\nlet route = 'unknown';\nlet subRoute = 'help';\n\nif (!userExists) {\n  route = 'new_user';\n} else if (state === 'new') {\n  route = 'send_greeting';\n} else if (state === 'awaiting_name') {\n  route = 'capture_name';\n} else if (state === 'awaiting_emoji') {\n  route = 'capture_emoji';\n} else if (state === 'complete') {\n  const lower = text.toLowerCase();\n\n  \n  // --- Pending action routing (announcement confirmation) ---\n  const pendingRaw = $('Check Pending Action').first().json;\n  const hasPending = Array.isArray(pendingRaw)\n    ? pendingRaw.length > 0 && pendingRaw[0].id\n    : (pendingRaw && pendingRaw.id);\n\n  if (hasPending) {\n    if (lower === 'send') route = 'confirm_announce';\n    else if (lower === 'cancel') route = 'cancel_announce';\n    else if (lower.startsWith('announce:') || lower.startsWith('announce ')) route = 'cmd_announce';\n    else route = 'expire_pending';\n  }\n\n  // --- Pass 1/2/3 only run if no route set by pending action check ---\n  if (route === 'unknown') {\n  // --- Pass 1: Exact command matching (keyword at start of text) ---\n  if (lower.startsWith('announce:') || lower.startsWith('announce ')) route = 'cmd_announce';\n  else if (lower.startsWith('rename ')) route = 'cmd_rename';\n  else if (lower.startsWith('emoji ')) route = 'cmd_emoji';\n  else if (lower.startsWith('persona ')) route = 'cmd_persona';\n  else if (lower === 'scope' || lower.startsWith('scope ')) route = 'cmd_scope';\n  else if (lower === 'focus' || lower.startsWith('focus ')) route = 'cmd_focus';\n  else if (lower === 'silence' || lower === 'silent' || lower === 'silent accounts' || lower.startsWith('silence check')) {\n      route = 'cmd_silence';\n    } else if (lower === 'brief' || lower.startsWith('brief ')) route = 'cmd_brief';\n  else if (lower === 'meet' || lower.startsWith('meet ') || lower.startsWith('meeting brief ') || lower.startsWith('prep ')) route = 'cmd_meet';\n  else if (lower === 'insights' || lower.startsWith('insights ')) route = 'cmd_insights';\n  else if (/\\b(bbr|pbr)\\b/i.test(lower)) route = 'cmd_bbr';\n  else if (lower === 'presentation' || lower.startsWith('presentation ')) route = 'cmd_presentation';\n  else if (lower === 'stakeholders' || lower.startsWith('stakeholders ')) {\n    route = 'cmd_other'; subRoute = 'stakeholders';\n  }\n  else if (lower === 'followup' || lower.startsWith('followup ') || lower.startsWith('follow-up ') || lower.startsWith('follow up ')) {\n    route = 'cmd_recap';\n  }\n  else if (lower === 'tasks' || lower === 'task' || lower.startsWith('tasks ')) route = 'cmd_tasks';\n  else if (lower === 'recap' || lower.startsWith('recap ')) route = 'cmd_recap';\n  else if (lower.startsWith('more ') || (lower.startsWith('help ') && lower !== 'help')) {\n    route = 'cmd_other'; subRoute = 'more_help';\n  } else {\n    // --- Pass 2: Fuzzy keyword matching (keyword anywhere in text) ---\n    if (/\\b(presentation|slide|slides|deck)\\b/.test(lower)) route = 'cmd_presentation';\n    else if (/\\b(business\\s+review)\\b/.test(lower)) route = 'cmd_bbr';\n    else if (/\\b(brief|briefing|digest)\\b/.test(lower)) route = 'cmd_brief';\n    else if (/\\b(meet(?:ing)?\\s+(?:brief|prep)|prep\\s+(?:me|for))\\b/i.test(lower)) route = 'cmd_meet';\n    else if (/\\binsights?\\b/.test(lower)) route = 'cmd_insights';\n    else if (/\\b(stakeholder|stakeholders|who\\s+(should|am|are)\\s+I?\\s*(be\\s+)?talk)/i.test(lower)) {\n      route = 'cmd_other'; subRoute = 'stakeholders';\n    }\n    else if (/\\b(follow[\\s-]?up|draft\\s+(a\\s+)?(email|message|note))\\b/i.test(lower)) {\n      route = 'cmd_recap';\n    }\n    else if (/\\bmy tasks\\b/i.test(lower)) route = 'cmd_tasks';\n    else if (/\\b(recap|meeting\\s+recap)\\b/i.test(lower)) route = 'cmd_recap';\n    else {\n      // --- Pass 3: Meta commands and fallback ---\n      route = 'cmd_other';\n      if (lower === 'stop digest' || lower === 'pause digest') subRoute = 'stop_digest';\n      else if (lower === 'resume digest' || lower === 'start digest') subRoute = 'resume_digest';\n      else if (lower === 'stop briefs' || lower === 'pause briefs' || lower === 'stop meeting briefs') subRoute = 'stop_briefs';\n      else if (lower === 'start briefs' || lower === 'resume briefs' || lower === 'start meeting briefs') subRoute = 'resume_briefs';\n      else if (lower === 'stop followups' || lower === 'pause followups' || lower === 'stop follow-ups') subRoute = 'stop_followups';\n      else if (lower === 'start followups' || lower === 'resume followups' || lower === 'start follow-ups') subRoute = 'resume_followups';\n      else if (lower === 'stop tips' || lower === 'pause tips') subRoute = 'stop_tips';\n      else if (lower === 'resume tips' || lower === 'start tips') subRoute = 'resume_tips';\n      else if (lower === 'stop announcements') subRoute = 'stop_announcements';\n      else if (lower === 'resume announcements' || lower === 'start announcements') subRoute = 'resume_announcements';\n      else if (lower === 'help') subRoute = 'help';\n      else subRoute = 'unrecognized';\n    }\n  }\n  } // end route === 'unknown' guard\n}\n\nlet assistantName = (userExists && user.assistant_name) ? user.assistant_name : 'Your Assistant';\nlet assistantEmoji = (userExists && user.assistant_emoji) ? user.assistant_emoji : ':robot_face:';\n\nreturn [{\n  json: {\n    route, subRoute, userId, text,\n    channelId: event.channelId,\n    teamId: event.teamId,\n    userRecord: userExists ? user : null,\n    dbUserId: userExists ? user.id : null,\n    organizationId: userExists ? user.organization_id : null,\n    assistantName, assistantEmoji, state\n  }\n}];\n"
+                    "jsCode": "const event = $('Extract Event Data').first().json;\nconst user = $('Lookup User').first().json;\nconst text = event.text;\nconst userId = event.userId;\n\nlet userExists = !!(user && user.id);\nlet state = userExists ? (user.onboarding_state || 'new') : null;\nlet route = 'unknown';\nlet subRoute = 'help';\n\nif (!userExists) {\n  route = 'new_user';\n} else if (state === 'new') {\n  route = 'send_greeting';\n} else if (state === 'awaiting_name') {\n  route = 'capture_name';\n} else if (state === 'awaiting_emoji') {\n  route = 'capture_emoji';\n} else if (state === 'complete') {\n  const lower = text.toLowerCase();\n\n  \n  // --- Pending action routing (announcement confirmation) ---\n  const pendingRaw = $('Check Pending Action').first().json;\n  const hasPending = Array.isArray(pendingRaw)\n    ? pendingRaw.length > 0 && pendingRaw[0].id\n    : (pendingRaw && pendingRaw.id);\n\n  if (hasPending) {\n    if (lower === 'send') route = 'confirm_announce';\n    else if (lower === 'cancel') route = 'cancel_announce';\n    else if (lower.startsWith('announce:') || lower.startsWith('announce ')) route = 'cmd_announce';\n    else route = 'expire_pending';\n  }\n\n  // --- Pass 1/2/3 only run if no route set by pending action check ---\n  if (route === 'unknown') {\n  // --- Pass 1: Exact command matching (keyword at start of text) ---\n  if (lower.startsWith('announce:') || lower.startsWith('announce ')) route = 'cmd_announce';\n  else if (lower.startsWith('rename ')) route = 'cmd_rename';\n  else if (lower.startsWith('emoji ')) route = 'cmd_emoji';\n  else if (lower.startsWith('persona ')) route = 'cmd_persona';\n  else if (lower === 'scope' || lower.startsWith('scope ')) route = 'cmd_scope';\n  else if (lower === 'focus' || lower.startsWith('focus ')) route = 'cmd_focus';\n  else if (lower === 'silence' || lower === 'silent' || lower === 'silent accounts' || lower.startsWith('silence check')) {\n      route = 'cmd_silence';\n    } else if (lower === 'brief' || lower.startsWith('brief ')) route = 'cmd_brief';\n  else if (lower === 'meet' || lower.startsWith('meet ') || lower.startsWith('meeting brief ') || lower.startsWith('prep ')) route = 'cmd_meet';\n  else if (lower === 'icp') { route = 'cmd_icp'; subRoute = 'calibrate'; }\n  else if (lower === 'icp targets') { route = 'cmd_icp'; subRoute = 'targets'; }\n  else if (lower.startsWith('icp ')) { route = 'cmd_icp'; subRoute = 'compare'; }\n  else if (lower === 'insights' || lower.startsWith('insights ')) route = 'cmd_insights';\n  else if (/\\b(bbr|pbr)\\b/i.test(lower)) route = 'cmd_bbr';\n  else if (lower === 'presentation' || lower.startsWith('presentation ')) route = 'cmd_presentation';\n  else if (lower === 'stakeholders' || lower.startsWith('stakeholders ')) {\n    route = 'cmd_other'; subRoute = 'stakeholders';\n  }\n  else if (lower === 'followup' || lower.startsWith('followup ') || lower.startsWith('follow-up ') || lower.startsWith('follow up ')) {\n    route = 'cmd_recap';\n  }\n  else if (lower === 'tasks' || lower === 'task' || lower.startsWith('tasks ')) route = 'cmd_tasks';\n  else if (lower === 'recap' || lower.startsWith('recap ')) route = 'cmd_recap';\n  else if (lower.startsWith('more ') || (lower.startsWith('help ') && lower !== 'help')) {\n    route = 'cmd_other'; subRoute = 'more_help';\n  } else {\n    // --- Pass 2: Fuzzy keyword matching (keyword anywhere in text) ---\n    if (/\\b(presentation|slide|slides|deck)\\b/.test(lower)) route = 'cmd_presentation';\n    else if (/\\b(business\\s+review)\\b/.test(lower)) route = 'cmd_bbr';\n    else if (/\\b(brief|briefing|digest)\\b/.test(lower)) route = 'cmd_brief';\n    else if (/\\b(meet(?:ing)?\\s+(?:brief|prep)|prep\\s+(?:me|for))\\b/i.test(lower)) route = 'cmd_meet';\n    else if (/\\binsights?\\b/.test(lower)) route = 'cmd_insights';\n    else if (/\\b(stakeholder|stakeholders|who\\s+(should|am|are)\\s+I?\\s*(be\\s+)?talk)/i.test(lower)) {\n      route = 'cmd_other'; subRoute = 'stakeholders';\n    }\n    else if (/\\b(follow[\\s-]?up|draft\\s+(a\\s+)?(email|message|note))\\b/i.test(lower)) {\n      route = 'cmd_recap';\n    }\n    else if (/\\bmy tasks\\b/i.test(lower)) route = 'cmd_tasks';\n    else if (/\\b(recap|meeting\\s+recap)\\b/i.test(lower)) route = 'cmd_recap';\n    else {\n      // --- Pass 3: Meta commands and fallback ---\n      route = 'cmd_other';\n      if (lower === 'stop digest' || lower === 'pause digest') subRoute = 'stop_digest';\n      else if (lower === 'resume digest' || lower === 'start digest') subRoute = 'resume_digest';\n      else if (lower === 'stop briefs' || lower === 'pause briefs' || lower === 'stop meeting briefs') subRoute = 'stop_briefs';\n      else if (lower === 'start briefs' || lower === 'resume briefs' || lower === 'start meeting briefs') subRoute = 'resume_briefs';\n      else if (lower === 'stop followups' || lower === 'pause followups' || lower === 'stop follow-ups') subRoute = 'stop_followups';\n      else if (lower === 'start followups' || lower === 'resume followups' || lower === 'start follow-ups') subRoute = 'resume_followups';\n      else if (lower === 'stop tips' || lower === 'pause tips') subRoute = 'stop_tips';\n      else if (lower === 'resume tips' || lower === 'start tips') subRoute = 'resume_tips';\n      else if (lower === 'stop announcements') subRoute = 'stop_announcements';\n      else if (lower === 'resume announcements' || lower === 'start announcements') subRoute = 'resume_announcements';\n      else if (lower === 'help') subRoute = 'help';\n      else subRoute = 'unrecognized';\n    }\n  }\n  } // end route === 'unknown' guard\n}\n\nlet assistantName = (userExists && user.assistant_name) ? user.assistant_name : 'Your Assistant';\nlet assistantEmoji = (userExists && user.assistant_emoji) ? user.assistant_emoji : ':robot_face:';\n\nreturn [{\n  json: {\n    route, subRoute, userId, text,\n    companyName: (text || '').toLowerCase().startsWith('icp ') && subRoute === 'compare' ? text.replace(/^icp\\s+/i, '').trim() : '',\n    channelId: event.channelId,\n    teamId: event.teamId,\n    userRecord: userExists ? user : null,\n    dbUserId: userExists ? user.id : null,\n    organizationId: userExists ? user.organization_id : null,\n    assistantName, assistantEmoji, state\n  }\n}];\n"
                 },
                 "id": "78d5c4a9-ed4b-437d-8988-8e8492248677",
                 "name": "Route by State",
@@ -7482,7 +7934,7 @@
             },
             {
                 "parameters": {
-                    "jsCode": "const data = $('Route by State').first().json;\nlet text = '';\nconst r = data.subRoute;\nconst name = data.assistantName || 'Your Assistant';\nconst emoji = data.assistantEmoji || ':robot_face:';\n\nif (r === 'help') {\n  // --- Conversation-first help ---\n  const u = data.userRecord || {};\n\n  // Build settings display\n  const scopeLabels = { 'my_deals': 'My Deals (IC)', 'team_deals': 'Team Deals (Manager)', 'top_pipeline': 'Top Pipeline (Exec)' };\n  const scopeVal = u.digest_scope || 'my_deals';\n  const scopeDisplay = scopeLabels[scopeVal] || scopeVal;\n\n  const digestOn = u.digest_enabled !== false;\n  const briefsOn = u.meeting_prep_enabled !== false;\n  const followupsOn = u.followup_enabled !== false;\n  const tipsOn = u.tips_enabled !== false;\n  const announcementsOn = u.announcements_enabled !== false;\n\n  const personaDisplay = u.assistant_persona ? u.assistant_persona : '_default_';\n  const focusDisplay = u.focus || '_none_';\n\n  const settingsBlock =\n    \"\\n\\n*Your Settings:* _current value_ \\u2014 _change command_\\n\" +\n    \"\\u2022 *Name:* \" + (u.assistant_name || 'Your Assistant') + \" \\u2014 `rename <name>`\\n\" +\n    \"\\u2022 *Icon:* \" + (u.assistant_emoji || ':robot_face:') + \" \\u2014 `emoji <emoji>`\\n\" +\n    \"\\u2022 *Persona:* \" + personaDisplay + \" \\u2014 `persona <style>`\\n\" +\n    \"\\u2022 *Scope:* \" + scopeDisplay + \" \\u2014 `scope my_deals | team_deals | top_pipeline`\\n\" +\n    \"\\u2022 *Focus:* \" + focusDisplay + \" \\u2014 `focus retention | revenue | technical | executive`\\n\" +\n    \"\\u2022 *Morning Digest:* \" + (digestOn ? ':white_check_mark: on' : ':no_entry_sign: paused') + \" \\u2014 `\" + (digestOn ? 'stop' : 'resume') + \" digest`\\n\" +\n    \"\\u2022 *Meeting Briefs:* \" + (briefsOn ? ':white_check_mark: on' : ':no_entry_sign: paused') + \" \\u2014 `\" + (briefsOn ? 'stop' : 'start') + \" briefs`\\n\" +\n    \"\\u2022 *Follow-ups:* \" + (followupsOn ? ':white_check_mark: on' : ':no_entry_sign: paused') + \" \\u2014 `\" + (followupsOn ? 'stop' : 'start') + \" followups`\\n\" +\n    \"\\u2022 *Tips:* \" + (tipsOn ? ':white_check_mark: on' : ':no_entry_sign: paused') + \" \\u2014 `\" + (tipsOn ? 'stop' : 'resume') + \" tips`\\n\" +\n    \"\\u2022 *Announcements:* \" + (announcementsOn ? ':white_check_mark: on' : ':no_entry_sign: paused') + \" \\u2014 `\" + (announcementsOn ? 'stop' : 'resume') + \" announcements`\";\n\n  text = \"*Just ask me anything* \\u2014 I have access to your People.ai CRM data and can answer questions about accounts, deals, engagement, and pipeline.\\n\\n\" +\n    \"Try things like:\\n\" +\n    \"\\u2022 _\\\"What's happening with AMD?\\\"_\\n\" +\n    \"\\u2022 _\\\"Who should I be talking to at Cisco?\\\"_\\n\" +\n    \"\\u2022 _\\\"Draft a follow-up for my Intel meeting\\\"_\\n\" +\n    \"\\u2022 _\\\"I need a presentation on Q1 results\\\"_\\n\\n\" +\n    \":thread: Reply in a thread to keep the conversation going.\\n\\n\" +\n    \"*Skills:*\\n\" +\n    \"`bbr` \\u00b7 `brief` \\u00b7 `followup` \\u00b7 `insights` \\u00b7 `meet` \\u00b7 `presentation` \\u00b7 `silence` \\u00b7 `stakeholders` \\u00b7 `tasks`\\n\" +\n    \"`announcements` \\u00b7 `emoji` \\u00b7 `focus` \\u00b7 `persona` \\u00b7 `rename` \\u00b7 `scope` \\u00b7 `tips`\\n\" +\n    \"`tips` \\u00b7 `announcements`\\n\\n\" +\n    \"Type `more <skill>` for details on any of my abilities (e.g. `more brief`).\" +\n    settingsBlock;\n\n} else if (r === 'more_help') {\n  // --- Detailed help for a specific shortcut ---\n  const target = (data.text || '').toLowerCase().replace(/^(more|help)\\s+/, '').trim();\n\n  const details = {\n    'tasks': \"*`tasks` \\u2014 Salesforce Task Manager*\\n\\n\" +\n      \"View, complete, and create Salesforce tasks for any account.\\n\\n\" +\n      \"*Usage:*\\n\" +\n      \"\\u2022 `tasks OpenAI` \\u2014 view open tasks for an account\\n\" +\n      \"\\u2022 `tasks Aidoc` \\u2014 view open tasks for Aidoc\\n\\n\" +\n      \"Each task shows the assignee, due date, category, and status indicator:\\n\" +\n      \"\\u2022 :red_circle: Overdue\\n\" +\n      \"\\u2022 :warning: Due this week\\n\" +\n      \"\\u2022 :white_check_mark: Future\\n\\n\" +\n      \"*Actions:*\\n\" +\n      \"\\u2022 Click *Complete* to mark a task done in Salesforce\\n\" +\n      \"\\u2022 Click *New Task* to create a task for the account\\n\\n\" +\n      \"_Links to PeopleGlass task sheets are included for the full view._\",\n\n    'silence': \"*`silence` \\u2014 Silence Contract Check*\\n\\n\" +\n      \"Check your accounts for engagement gaps right now.\\n\\n\" +\n      \"I'll scan your accounts (based on your ownership and CSM assignments) and report any that have gone quiet \\u2014 no emails, meetings, or calls in 5+ days.\\n\\n\" +\n      \"*Severity levels:*\\n\" +\n      \"\\u2022 :large_blue_circle: Getting quiet (5-9 days)\\n\" +\n      \"\\u2022 :warning: Gone silent (10-20 days)\\n\" +\n      \"\\u2022 :red_circle: Relationship at risk (21+ days)\\n\\n\" +\n      \"The daily cron also runs this automatically at 6:30am PT.\",\n    'brief': \"*`brief` \\u2014 On-Demand Sales Digest*\\n\\n\" +\n      \"Get an instant sales briefing, just like your morning digest.\\n\\n\" +\n      \"*Usage:*\\n\" +\n      \"\\u2022 `brief` \\u2014 today's themed digest\\n\" +\n      \"\\u2022 `brief risk` \\u2014 deals that need attention\\n\" +\n      \"\\u2022 `brief momentum` \\u2014 deals picking up speed\\n\" +\n      \"\\u2022 `brief engagement` \\u2014 engagement shifts\\n\" +\n      \"\\u2022 `brief full` \\u2014 full pipeline review\\n\" +\n      \"\\u2022 `brief review` \\u2014 weekly recap\\n\\n\" +\n      \"You can also use day names: `brief monday`, `brief friday`\\n\\n\" +\n      \"_Or just ask naturally: \\\"give me a briefing on at-risk deals\\\"_\",\n    'meet': \"*`meet` \\u2014 On-Demand Meeting Prep*\\n\\n\" +\n      \"Get an instant meeting brief for any account.\\n\\n\" +\n      \"*Usage:*\\n\" +\n      \"\\u2022 `meet Five9` \\u2014 prep for Five9\\n\" +\n      \"\\u2022 `prep Dataiku` \\u2014 same thing\\n\" +\n      \"\\u2022 `meeting brief IBM` \\u2014 longer form\\n\\n\" +\n      \"_Researches the account, contacts, engagement, and deals via People.ai._\",\n\n    'insights': \"*`insights` \\u2014 Pipeline Intelligence*\\n\\n\" +\n      \"Deep analysis of your pipeline with actionable recommendations.\\n\\n\" +\n      \"*Usage:*\\n\" +\n      \"\\u2022 `insights` \\u2014 full pipeline analysis\\n\" +\n      \"\\u2022 `insights stalled` \\u2014 deals that have gone quiet\\n\" +\n      \"\\u2022 `insights risk` \\u2014 deals showing warning signs\\n\" +\n      \"\\u2022 `insights hidden` \\u2014 ghost opportunities\\n\" +\n      \"\\u2022 `insights accelerating` \\u2014 fast-moving deals\\n\\n\" +\n      \"_Or just ask naturally: \\\"show me insights on stalled deals\\\"_\",\n\n    'presentation': \"*`presentation` \\u2014 Create a Presentation*\\n\\n\" +\n      \"Generate a Backstory-branded Google Slides deck on any topic.\\n\\n\" +\n      \"*Usage:*\\n\" +\n      \"\\u2022 `presentation Q1 engineering review for Cisco`\\n\" +\n      \"\\u2022 `presentation competitive landscape for AMD`\\n\" +\n      \"\\u2022 `presentation onboarding progress for Acme`\\n\\n\" +\n      \"I'll pull data from People.ai and build the slides. Takes about 2 minutes.\\n\\n\" +\n      \"_Or just ask naturally: \\\"I need a presentation on MCP for AMD\\\"_\",\n\n    'bbr': \"*`bbr` \\u2014 Business Review Presentation*\\n\\n\" +\n      \"Generate a complete Backstory Business Review (BBR) deck for a customer account.\\n\\n\" +\n      \"*Usage:*\\n\" +\n      \"\\u2022 `bbr AMD`\\n\" +\n      \"\\u2022 `pbr Cisco` (same thing)\\n\\n\" +\n      \"Includes: engagement scores, open opps, key contacts, activity trends, adoption signals, and a roadmap placeholder.\\n\\n\" +\n      \"_Or just ask naturally: \\\"create a business review for AMD\\\"_\",\n\n    'stakeholders': \"*`stakeholders` \\u2014 Stakeholder Map*\\n\\n\" +\n      \"See who you're engaging at an account, who's gone quiet, and where you have coverage gaps.\\n\\n\" +\n      \"*Usage:*\\n\" +\n      \"\\u2022 `stakeholders AMD`\\n\" +\n      \"\\u2022 `stakeholders Cisco`\\n\\n\" +\n      \"Shows: active contacts with engagement trends, silent contacts, missing roles, and a recommendation for who to re-engage.\\n\\n\" +\n      \"_Or just ask naturally: \\\"who should I be talking to at AMD?\\\"_\",\n\n    'followup': \"*`followup` \\u2014 Follow-ups*\\n\\n\" +\n      \"*On-demand:* Draft a follow-up email for any account.\\n\" +\n      \"\\u2022 `followup AMD`\\n\" +\n      \"\\u2022 `followup Cisco`\\n\" +\n      \"\\u2022 `follow-up Intel`\\n\\n\" +\n      \"I'll find your most recent meeting with the account, check the deal context, and draft a professional follow-up with next steps.\\n\\n\" +\n      \"_Or just ask naturally: \\\"draft a follow-up for my AMD meeting\\\"_\\n\\n\" +\n      \"*Automatic:* After customer meetings end, I'll proactively prompt you with a draft follow-up. You can approve, edit, or skip right from Slack.\\n\\n\" +\n      \"*Toggle:*\\n\" +\n      \"\\u2022 `stop followups` \\u2014 pause automatic follow-up prompts\\n\" +\n      \"\\u2022 `start followups` \\u2014 resume them\",\n\n    'tasks': \"*`tasks` \\u2014 Salesforce Tasks*\\n\\n\" +\n      \"View your Salesforce tasks for any account, with the ability to mark them complete directly from Slack.\\n\\n\" +\n      \"*Usage:*\\n\" +\n      \"\\u2022 `tasks AiDoc` \\u2014 see open tasks for AiDoc\\n\" +\n      \"\\u2022 `tasks` \\u2014 see all your tasks\\n\\n\" +\n      \"_Or just ask naturally: \\\"my tasks for AiDoc\\\"_\",\n    'recap': \"*`recap` \\u2014 Meeting Recap*\\n\\n\" +\n      \"Get an instant recap of your most recent meeting with any account.\\n\\n\" +\n      \"*Usage:*\\n\" +\n      \"\\u2022 `recap Redis` \\u2014 recap your last Redis meeting\\n\" +\n      \"\\u2022 `recap AMD` \\u2014 recap your last AMD meeting\\n\\n\" +\n      \"Includes: summary, sentiment, key decisions, action items, and a Draft Follow-up button.\\n\\n\" +\n      \"_Or just ask naturally: \\\"recap my Redis meeting\\\"_\",\n    'rename': \"*`rename` \\u2014 Change My Name*\\n\\n\" +\n      \"Give me a new name that appears on all my messages.\\n\\n\" +\n      \"*Usage:*\\n\" +\n      \"\\u2022 `rename Luna`\\n\" +\n      \"\\u2022 `rename ScottAI`\\n\" +\n      \"\\u2022 `rename Jarvis`\",\n\n    'emoji': \"*`emoji` \\u2014 Change My Icon*\\n\\n\" +\n      \"Pick a Slack emoji that appears next to my name.\\n\\n\" +\n      \"*Usage:*\\n\" +\n      \"\\u2022 `emoji :rocket:`\\n\" +\n      \"\\u2022 `emoji :star:`\\n\" +\n      \"\\u2022 `emoji :brain:`\",\n\n    'persona': \"*`persona` \\u2014 Change My Personality*\\n\\n\" +\n      \"Adjust how I communicate with you.\\n\\n\" +\n      \"*Usage:*\\n\" +\n      \"\\u2022 `persona friendly and uses sports metaphors`\\n\" +\n      \"\\u2022 `persona formal and data-driven`\\n\" +\n      \"\\u2022 `persona witty and casual`\\n\" +\n      \"\\u2022 `persona short responses for busy professionals`\",\n\n    'scope': \"*`scope` \\u2014 Change Briefing Scope*\\n\\n\" +\n      \"Control whose deals appear in your morning digest.\\n\\n\" +\n      \"*Usage:*\\n\" +\n      \"\\u2022 `scope my_deals` \\u2014 just your own opportunities (IC mode)\\n\" +\n      \"\\u2022 `scope team_deals` \\u2014 your direct reports' deals (Manager mode)\\n\" +\n      \"\\u2022 `scope top_pipeline` \\u2014 top pipeline deals across the org (Exec mode)\",\n\n    'focus': \"*`focus` \\u2014 Set Digest Focus Area*\\n\\n\" +\n      \"Prioritize a specific area in your morning briefings.\\n\\n\" +\n      \"*Usage:*\\n\" +\n      \"\\u2022 `focus retention` \\u2014 renewals and churn risk\\n\" +\n      \"\\u2022 `focus revenue` \\u2014 pipeline and revenue targets\\n\" +\n      \"\\u2022 `focus technical` \\u2014 technical adoption signals\\n\" +\n      \"\\u2022 `focus executive` \\u2014 strategic overview\",\n\n    'tips': \"*Feature Tips*\\n\\n\" +\n      \"I\\u2019ll share helpful tips about features you haven\\u2019t tried yet \\u2014 delivered at most twice a week.\\n\\n\" +\n      \"*Commands:*\\n\" +\n      \"\\u2022 `stop tips` \\u2014 pause feature tips\\n\" +\n      \"\\u2022 `resume tips` \\u2014 resume feature tips\",\n\n    'announcements': \"*Feature Announcements*\\n\\n\" +\n      \"I\\u2019ll let you know when I learn new capabilities.\\n\\n\" +\n      \"*Commands:*\\n\" +\n      \"\\u2022 `stop announcements` \\u2014 pause announcements\\n\" +\n      \"\\u2022 `resume announcements` \\u2014 resume announcements\",\n\n  };\n\n  // Also accept aliases\n  const aliases = { 'pbr': 'bbr', 'digest': 'brief',\n    'silent': 'silence', 'silent accounts': 'silence', 'silence check': 'silence', 'briefing': 'brief', 'slide': 'presentation', 'slides': 'presentation', 'deck': 'presentation', 'name': 'rename', 'icon': 'emoji', 'stop tips': 'tips', 'pause tips': 'tips', 'resume tips': 'tips', 'start tips': 'tips', 'stop announcements': 'announcements', 'resume announcements': 'announcements', 'start announcements': 'announcements', 'follow-up': 'followup', 'my tasks': 'tasks', 'sf tasks': 'tasks', 'task': 'tasks', 'followups': 'followup', 'follow-ups': 'followup', 'contacts': 'stakeholders', 'people': 'stakeholders', 'prep': 'meet', 'meeting brief': 'meet', 'meeting prep': 'meet', 'recaps': 'recap', 'meeting recap': 'recap', 'meeting recaps': 'recap', 'my tasks': 'tasks', 'task': 'tasks', 'sf tasks': 'tasks' };\n  const resolved = aliases[target] || target;\n\n  if (details[resolved]) {\n    text = details[resolved];\n  } else {\n    text = \"I don't have detailed help for `\" + target + \"`.\\n\\n\" +\n      \"Available shortcuts: `brief` \\u00b7 `meet` \\u00b7 `insights` \\u00b7 `presentation` \\u00b7 `bbr` \\u00b7 `stakeholders` \\u00b7 `followup`\\n\" +\n      \"`tasks` \\u00b7 `rename` \\u00b7 `emoji` \\u00b7 `persona` \\u00b7 `scope` \\u00b7 `focus` \\u00b7 `tips` \\u00b7 `announcements`\\n\\n\" +\n      \"Type `more <skill>` for details on any of these.\";\n  }\n\n} else if (r === 'stop_digest') {\n  text = \"Understood. I\\u2019ve paused your morning briefings.\\n\\nI\\u2019ll still prep you before meetings and flag urgent risks. Just type `resume digest` whenever you want them back.\";\n} else if (r === 'resume_digest') {\n  text = \"Morning briefings are back on. You\\u2019ll get the next one tomorrow at 6am.\";\n} else if (r === 'stop_tips') {\n  text = \"Tips paused \\u2014 I won\\u2019t send feature tips anymore. Type `resume tips` anytime to restart.\";\n} else if (r === 'resume_tips') {\n  text = \"Tips resumed! I\\u2019ll share helpful feature tips from time to time.\";\n} else if (r === 'stop_announcements') {\n  text = \"Announcements paused \\u2014 I won\\u2019t send new feature announcements. Type `resume announcements` anytime to restart.\";\n} else if (r === 'resume_announcements') {\n  text = \"Announcements resumed! I\\u2019ll let you know when I learn new tricks.\";\n} else if (r === 'stop_followups') {\n  text = \"Follow-ups paused \\u2014 I won\\u2019t send post-meeting follow-up prompts anymore. Type `start followups` anytime to resume.\";\n} else if (r === 'resume_followups') {\n  text = \"Follow-ups are back on! I\\u2019ll prompt you to follow up after customer meetings.\";\n} else if (r === 'stop_briefs') {\n  text = \"Meeting briefs paused \\u2014 I won\\u2019t send pre-meeting prep anymore. Type `start briefs` anytime to resume.\";\n} else if (r === 'resume_briefs') {\n  text = \"Meeting briefs are back on! I\\u2019ll prep you before upcoming customer meetings.\";\n} else {\n  text = \"I didn\\u2019t catch that. You can ask me anything about your accounts and deals, or try:\\n\\n\" +\n    \"`brief` \\u00b7 `meet` \\u00b7 `insights` \\u00b7 `presentation` \\u00b7 `bbr` \\u00b7 `stakeholders` \\u00b7 `followup` \\u00b7 `help`\";\n}\n\nconst needsUpdate = (r === 'stop_digest' || r === 'resume_digest');\nconst digestEnabled = (r === 'resume_digest');\n\n// Education preference updates (tips_enabled, announcements_enabled)\nconst needsBriefsUpdate = (r === 'stop_briefs' || r === 'resume_briefs');\nconst needsFollowupUpdate = (r === 'stop_followups' || r === 'resume_followups');\nconst followupEnabled = (r === 'resume_followups');\nconst meetingPrepEnabled = (r === 'resume_briefs');\nconst needsEducationUpdate = ['stop_tips', 'resume_tips', 'stop_announcements', 'resume_announcements'].includes(r);\nlet educationField = null;\nlet educationValue = null;\nif (r === 'stop_tips') { educationField = 'tips_enabled'; educationValue = false; }\nelse if (r === 'resume_tips') { educationField = 'tips_enabled'; educationValue = true; }\nelse if (r === 'stop_announcements') { educationField = 'announcements_enabled'; educationValue = false; }\nelse if (r === 'resume_announcements') { educationField = 'announcements_enabled'; educationValue = true; }\n\nreturn [{ json: { ...data, responseText: text, needsUpdate, digestEnabled, needsBriefsUpdate, meetingPrepEnabled, needsFollowupUpdate, followupEnabled, needsEducationUpdate, educationField, educationValue } }];\n"
+                    "jsCode": "const data = $('Route by State').first().json;\nlet text = '';\nconst r = data.subRoute;\nconst name = data.assistantName || 'Your Assistant';\nconst emoji = data.assistantEmoji || ':robot_face:';\n\nif (r === 'help') {\n  // --- Conversation-first help ---\n  const u = data.userRecord || {};\n\n  // Build settings display\n  const scopeLabels = { 'my_deals': 'My Deals (IC)', 'team_deals': 'Team Deals (Manager)', 'top_pipeline': 'Top Pipeline (Exec)' };\n  const scopeVal = u.digest_scope || 'my_deals';\n  const scopeDisplay = scopeLabels[scopeVal] || scopeVal;\n\n  const digestOn = u.digest_enabled !== false;\n  const briefsOn = u.meeting_prep_enabled !== false;\n  const followupsOn = u.followup_enabled !== false;\n  const tipsOn = u.tips_enabled !== false;\n  const announcementsOn = u.announcements_enabled !== false;\n\n  const personaDisplay = u.assistant_persona ? u.assistant_persona : '_default_';\n  const focusDisplay = u.focus || '_none_';\n\n  const settingsBlock =\n    \"\\n\\n*My Character Settings:* _current value_ \\u2014 _change command_\\n\" +\n    \"\\u2022 *Name:* \" + (u.assistant_name || 'Your Assistant') + \" \\u2014 `rename <name>`\\n\" +\n    \"\\u2022 *Icon:* \" + (u.assistant_emoji || ':robot_face:') + \" \\u2014 `emoji <emoji>`\\n\" +\n    \"\\u2022 *Persona:* \" + personaDisplay + \" \\u2014 `persona <style>`\\n\" +\n    \"\\u2022 *Scope:* \" + scopeDisplay + \" \\u2014 `scope my_deals | team_deals | top_pipeline`\\n\" +\n    \"\\u2022 *Focus:* \" + focusDisplay + \" \\u2014 `focus retention | revenue | technical | executive`\\n\" +\n    \"\\u2022 *Morning Digest:* \" + (digestOn ? ':white_check_mark: on' : ':no_entry_sign: paused') + \" \\u2014 `\" + (digestOn ? 'stop' : 'resume') + \" digest`\\n\" +\n    \"\\u2022 *Meeting Briefs:* \" + (briefsOn ? ':white_check_mark: on' : ':no_entry_sign: paused') + \" \\u2014 `\" + (briefsOn ? 'stop' : 'start') + \" briefs`\\n\" +\n    \"\\u2022 *Follow-ups:* \" + (followupsOn ? ':white_check_mark: on' : ':no_entry_sign: paused') + \" \\u2014 `\" + (followupsOn ? 'stop' : 'start') + \" followups`\\n\" +\n    \"\\u2022 *Tips:* \" + (tipsOn ? ':white_check_mark: on' : ':no_entry_sign: paused') + \" \\u2014 `\" + (tipsOn ? 'stop' : 'resume') + \" tips`\\n\" +\n    \"\\u2022 *Announcements:* \" + (announcementsOn ? ':white_check_mark: on' : ':no_entry_sign: paused') + \" \\u2014 `\" + (announcementsOn ? 'stop' : 'resume') + \" announcements`\";\n\n  text = \"*I'm your personal assistant* \\u2014 I have access to the Backstory and can answer questions about accounts, deals, engagement, and pipeline.\\n\\n\" +\n    \"Try things like:\\n\" +\n    \"\\u2022 _\\\"What's happening with AMD?\\\"_\\n\" +\n    \"\\u2022 _\\\"Draft a follow-up for my Intel meeting\\\"_\\n\" +\n    \"\\u2022 _\\\"I need a presentation on Q1 results\\\"_\\n\\n\" +\n    \":thread: Reply in a thread to keep the conversation going.\\n\\n\" +\n    \"*My Special Skills:*\\n\" +\n    \"`bbr` \\u00b7 `brief` \\u00b7 `followup` \\u00b7 `icp` \\u00b7 `insights` \\u00b7 `meet` \\u00b7 `presentation` \\u00b7 `silence` \\u00b7 `stakeholders` \\u00b7 `tasks`\\n\" +\n    \"`announcements` \\u00b7 `emoji` \\u00b7 `focus` \\u00b7 `persona` \\u00b7 `rename` \\u00b7 `scope` \\u00b7 `tips`\\n\" +\n\n    \"Type `more <skill>` for details on any of my abilities (e.g. `more brief`).\" +\n    settingsBlock;\n\n} else if (r === 'more_help') {\n  // --- Detailed help for a specific shortcut ---\n  const target = (data.text || '').toLowerCase().replace(/^(more|help)\\s+/, '').trim();\n\n  const details = {\n    'tasks': \"*`tasks` \\u2014 Salesforce Task Manager*\\n\\n\" +\n      \"View, complete, and create Salesforce tasks for any account.\\n\\n\" +\n      \"*Usage:*\\n\" +\n      \"\\u2022 `tasks OpenAI` \\u2014 view open tasks for an account\\n\" +\n      \"\\u2022 `tasks Aidoc` \\u2014 view open tasks for Aidoc\\n\\n\" +\n      \"Each task shows the assignee, due date, category, and status indicator:\\n\" +\n      \"\\u2022 :red_circle: Overdue\\n\" +\n      \"\\u2022 :warning: Due this week\\n\" +\n      \"\\u2022 :white_check_mark: Future\\n\\n\" +\n      \"*Actions:*\\n\" +\n      \"\\u2022 Click *Complete* to mark a task done in Salesforce\\n\" +\n      \"\\u2022 Click *New Task* to create a task for the account\\n\\n\" +\n      \"_Links to PeopleGlass task sheets are included for the full view._\",\n\n    'silence': \"*`silence` \\u2014 Silence Contract Check*\\n\\n\" +\n      \"Check your accounts for engagement gaps right now.\\n\\n\" +\n      \"I'll scan your accounts (based on your ownership and CSM assignments) and report any that have gone quiet \\u2014 no emails, meetings, or calls in 5+ days.\\n\\n\" +\n      \"*Severity levels:*\\n\" +\n      \"\\u2022 :large_blue_circle: Getting quiet (5-9 days)\\n\" +\n      \"\\u2022 :warning: Gone silent (10-20 days)\\n\" +\n      \"\\u2022 :red_circle: Relationship at risk (21+ days)\\n\\n\" +\n      \"The daily cron also runs this automatically at 6:30am PT.\",\n    'brief': \"*`brief` \\u2014 On-Demand Sales Digest*\\n\\n\" +\n      \"Get an instant sales briefing, just like your morning digest.\\n\\n\" +\n      \"*Usage:*\\n\" +\n      \"\\u2022 `brief` \\u2014 today's themed digest\\n\" +\n      \"\\u2022 `brief risk` \\u2014 deals that need attention\\n\" +\n      \"\\u2022 `brief momentum` \\u2014 deals picking up speed\\n\" +\n      \"\\u2022 `brief engagement` \\u2014 engagement shifts\\n\" +\n      \"\\u2022 `brief full` \\u2014 full pipeline review\\n\" +\n      \"\\u2022 `brief review` \\u2014 weekly recap\\n\\n\" +\n      \"You can also use day names: `brief monday`, `brief friday`\\n\\n\" +\n      \"_Or just ask naturally: \\\"give me a briefing on at-risk deals\\\"_\",\n    'meet': \"*`meet` \\u2014 On-Demand Meeting Prep*\\n\\n\" +\n      \"Get an instant meeting brief for any account.\\n\\n\" +\n      \"*Usage:*\\n\" +\n      \"\\u2022 `meet Five9` \\u2014 prep for Five9\\n\" +\n      \"\\u2022 `prep Dataiku` \\u2014 same thing\\n\" +\n      \"\\u2022 `meeting brief IBM` \\u2014 longer form\\n\\n\" +\n      \"_Researches the account, contacts, engagement, and deals via People.ai._\",\n\n    'icp': \"*`icp` \u2014 ICP Analysis*\\n\\n\" +\n      \"Analyze your won vs lost patterns to build an Ideal Customer Profile.\\n\\n\" +\n      \"*Usage:*\\n\" +\n      \"\u2022 `icp` \u2014 Full ICP calibration (3-5 minutes)\\n\" +\n      \"\u2022 `icp targets` \u2014 Surface unengaged accounts matching your ICP\\n\" +\n      \"\u2022 `icp <company>` \u2014 Compare a specific account against your winning pattern\\n\\n\" +\n      \"Calibration analyzes your closed-won vs closed-lost accounts to find the engagement patterns that predict success.\",\n\n    'insights': \"*`insights` \\u2014 Pipeline Intelligence*\\n\\n\" +\n      \"Deep analysis of your pipeline with actionable recommendations.\\n\\n\" +\n      \"*Usage:*\\n\" +\n      \"\\u2022 `insights` \\u2014 full pipeline analysis\\n\" +\n      \"\\u2022 `insights stalled` \\u2014 deals that have gone quiet\\n\" +\n      \"\\u2022 `insights risk` \\u2014 deals showing warning signs\\n\" +\n      \"\\u2022 `insights hidden` \\u2014 ghost opportunities\\n\" +\n      \"\\u2022 `insights accelerating` \\u2014 fast-moving deals\\n\\n\" +\n      \"_Or just ask naturally: \\\"show me insights on stalled deals\\\"_\",\n\n    'presentation': \"*`presentation` \\u2014 Create a Presentation*\\n\\n\" +\n      \"Generate a Backstory-branded Google Slides deck on any topic.\\n\\n\" +\n      \"*Usage:*\\n\" +\n      \"\\u2022 `presentation Q1 engineering review for Cisco`\\n\" +\n      \"\\u2022 `presentation competitive landscape for AMD`\\n\" +\n      \"\\u2022 `presentation onboarding progress for Acme`\\n\\n\" +\n      \"I'll pull data from People.ai and build the slides. Takes about 2 minutes.\\n\\n\" +\n      \"_Or just ask naturally: \\\"I need a presentation on MCP for AMD\\\"_\",\n\n    'bbr': \"*`bbr` \\u2014 Business Review Presentation*\\n\\n\" +\n      \"Generate a complete Backstory Business Review (BBR) deck for a customer account.\\n\\n\" +\n      \"*Usage:*\\n\" +\n      \"\\u2022 `bbr AMD`\\n\" +\n      \"\\u2022 `pbr Cisco` (same thing)\\n\\n\" +\n      \"Includes: engagement scores, open opps, key contacts, activity trends, adoption signals, and a roadmap placeholder.\\n\\n\" +\n      \"_Or just ask naturally: \\\"create a business review for AMD\\\"_\",\n\n    'stakeholders': \"*`stakeholders` \\u2014 Stakeholder Map*\\n\\n\" +\n      \"See who you're engaging at an account, who's gone quiet, and where you have coverage gaps.\\n\\n\" +\n      \"*Usage:*\\n\" +\n      \"\\u2022 `stakeholders AMD`\\n\" +\n      \"\\u2022 `stakeholders Cisco`\\n\\n\" +\n      \"Shows: active contacts with engagement trends, silent contacts, missing roles, and a recommendation for who to re-engage.\\n\\n\" +\n      \"_Or just ask naturally: \\\"who should I be talking to at AMD?\\\"_\",\n\n    'followup': \"*`followup` \\u2014 Follow-ups*\\n\\n\" +\n      \"*On-demand:* Draft a follow-up email for any account.\\n\" +\n      \"\\u2022 `followup AMD`\\n\" +\n      \"\\u2022 `followup Cisco`\\n\" +\n      \"\\u2022 `follow-up Intel`\\n\\n\" +\n      \"I'll find your most recent meeting with the account, check the deal context, and draft a professional follow-up with next steps.\\n\\n\" +\n      \"_Or just ask naturally: \\\"draft a follow-up for my AMD meeting\\\"_\\n\\n\" +\n      \"*Automatic:* After customer meetings end, I'll proactively prompt you with a draft follow-up. You can approve, edit, or skip right from Slack.\\n\\n\" +\n      \"*Toggle:*\\n\" +\n      \"\\u2022 `stop followups` \\u2014 pause automatic follow-up prompts\\n\" +\n      \"\\u2022 `start followups` \\u2014 resume them\",\n\n    'tasks': \"*`tasks` \\u2014 Salesforce Tasks*\\n\\n\" +\n      \"View your Salesforce tasks for any account, with the ability to mark them complete directly from Slack.\\n\\n\" +\n      \"*Usage:*\\n\" +\n      \"\\u2022 `tasks AiDoc` \\u2014 see open tasks for AiDoc\\n\" +\n      \"\\u2022 `tasks` \\u2014 see all your tasks\\n\\n\" +\n      \"_Or just ask naturally: \\\"my tasks for AiDoc\\\"_\",\n    'recap': \"*`recap` \\u2014 Meeting Recap*\\n\\n\" +\n      \"Get an instant recap of your most recent meeting with any account.\\n\\n\" +\n      \"*Usage:*\\n\" +\n      \"\\u2022 `recap Redis` \\u2014 recap your last Redis meeting\\n\" +\n      \"\\u2022 `recap AMD` \\u2014 recap your last AMD meeting\\n\\n\" +\n      \"Includes: summary, sentiment, key decisions, action items, and a Draft Follow-up button.\\n\\n\" +\n      \"_Or just ask naturally: \\\"recap my Redis meeting\\\"_\",\n    'rename': \"*`rename` \\u2014 Change My Name*\\n\\n\" +\n      \"Give me a new name that appears on all my messages.\\n\\n\" +\n      \"*Usage:*\\n\" +\n      \"\\u2022 `rename Luna`\\n\" +\n      \"\\u2022 `rename ScottAI`\\n\" +\n      \"\\u2022 `rename Jarvis`\",\n\n    'emoji': \"*`emoji` \\u2014 Change My Icon*\\n\\n\" +\n      \"Pick a Slack emoji that appears next to my name.\\n\\n\" +\n      \"*Usage:*\\n\" +\n      \"\\u2022 `emoji :rocket:`\\n\" +\n      \"\\u2022 `emoji :star:`\\n\" +\n      \"\\u2022 `emoji :brain:`\",\n\n    'persona': \"*`persona` \\u2014 Change My Personality*\\n\\n\" +\n      \"Adjust how I communicate with you.\\n\\n\" +\n      \"*Usage:*\\n\" +\n      \"\\u2022 `persona friendly and uses sports metaphors`\\n\" +\n      \"\\u2022 `persona formal and data-driven`\\n\" +\n      \"\\u2022 `persona witty and casual`\\n\" +\n      \"\\u2022 `persona short responses for busy professionals`\",\n\n    'scope': \"*`scope` \\u2014 Change Briefing Scope*\\n\\n\" +\n      \"Control whose deals appear in your morning digest.\\n\\n\" +\n      \"*Usage:*\\n\" +\n      \"\\u2022 `scope my_deals` \\u2014 just your own opportunities (IC mode)\\n\" +\n      \"\\u2022 `scope team_deals` \\u2014 your direct reports' deals (Manager mode)\\n\" +\n      \"\\u2022 `scope top_pipeline` \\u2014 top pipeline deals across the org (Exec mode)\",\n\n    'focus': \"*`focus` \\u2014 Set Digest Focus Area*\\n\\n\" +\n      \"Prioritize a specific area in your morning briefings.\\n\\n\" +\n      \"*Usage:*\\n\" +\n      \"\\u2022 `focus retention` \\u2014 renewals and churn risk\\n\" +\n      \"\\u2022 `focus revenue` \\u2014 pipeline and revenue targets\\n\" +\n      \"\\u2022 `focus technical` \\u2014 technical adoption signals\\n\" +\n      \"\\u2022 `focus executive` \\u2014 strategic overview\",\n\n    'tips': \"*Feature Tips*\\n\\n\" +\n      \"I\\u2019ll share helpful tips about features you haven\\u2019t tried yet \\u2014 delivered at most twice a week.\\n\\n\" +\n      \"*Commands:*\\n\" +\n      \"\\u2022 `stop tips` \\u2014 pause feature tips\\n\" +\n      \"\\u2022 `resume tips` \\u2014 resume feature tips\",\n\n    'announcements': \"*Feature Announcements*\\n\\n\" +\n      \"I\\u2019ll let you know when I learn new capabilities.\\n\\n\" +\n      \"*Commands:*\\n\" +\n      \"\\u2022 `stop announcements` \\u2014 pause announcements\\n\" +\n      \"\\u2022 `resume announcements` \\u2014 resume announcements\",\n\n  };\n\n  // Also accept aliases\n  const aliases = { 'pbr': 'bbr', 'digest': 'brief',\n    'silent': 'silence', 'silent accounts': 'silence', 'silence check': 'silence', 'briefing': 'brief', 'slide': 'presentation', 'slides': 'presentation', 'deck': 'presentation', 'name': 'rename', 'icon': 'emoji', 'stop tips': 'tips', 'pause tips': 'tips', 'resume tips': 'tips', 'start tips': 'tips', 'stop announcements': 'announcements', 'resume announcements': 'announcements', 'start announcements': 'announcements', 'follow-up': 'followup', 'my tasks': 'tasks', 'sf tasks': 'tasks', 'task': 'tasks', 'followups': 'followup', 'follow-ups': 'followup', 'contacts': 'stakeholders', 'people': 'stakeholders', 'prep': 'meet', 'meeting brief': 'meet', 'meeting prep': 'meet', 'recaps': 'recap', 'meeting recap': 'recap', 'meeting recaps': 'recap', 'my tasks': 'tasks', 'task': 'tasks', 'sf tasks': 'tasks' };\n  const resolved = aliases[target] || target;\n\n  if (details[resolved]) {\n    text = details[resolved];\n  } else {\n    text = \"I don't have detailed help for `\" + target + \"`.\\n\\n\" +\n      \"Available shortcuts: `brief` \\u00b7 `meet` \\u00b7 `insights` \\u00b7 `presentation` \\u00b7 `bbr` \\u00b7 `stakeholders` \\u00b7 `followup`\\n\" +\n      \"`tasks` \\u00b7 `rename` \\u00b7 `emoji` \\u00b7 `persona` \\u00b7 `scope` \\u00b7 `focus` \\u00b7 `tips` \\u00b7 `announcements`\\n\\n\" +\n      \"Type `more <skill>` for details on any of these.\";\n  }\n\n} else if (r === 'stop_digest') {\n  text = \"Understood. I\\u2019ve paused your morning briefings.\\n\\nI\\u2019ll still prep you before meetings and flag urgent risks. Just type `resume digest` whenever you want them back.\";\n} else if (r === 'resume_digest') {\n  text = \"Morning briefings are back on. You\\u2019ll get the next one tomorrow at 6am.\";\n} else if (r === 'stop_tips') {\n  text = \"Tips paused \\u2014 I won\\u2019t send feature tips anymore. Type `resume tips` anytime to restart.\";\n} else if (r === 'resume_tips') {\n  text = \"Tips resumed! I\\u2019ll share helpful feature tips from time to time.\";\n} else if (r === 'stop_announcements') {\n  text = \"Announcements paused \\u2014 I won\\u2019t send new feature announcements. Type `resume announcements` anytime to restart.\";\n} else if (r === 'resume_announcements') {\n  text = \"Announcements resumed! I\\u2019ll let you know when I learn new tricks.\";\n} else if (r === 'stop_followups') {\n  text = \"Follow-ups paused \\u2014 I won\\u2019t send post-meeting follow-up prompts anymore. Type `start followups` anytime to resume.\";\n} else if (r === 'resume_followups') {\n  text = \"Follow-ups are back on! I\\u2019ll prompt you to follow up after customer meetings.\";\n} else if (r === 'stop_briefs') {\n  text = \"Meeting briefs paused \\u2014 I won\\u2019t send pre-meeting prep anymore. Type `start briefs` anytime to resume.\";\n} else if (r === 'resume_briefs') {\n  text = \"Meeting briefs are back on! I\\u2019ll prep you before upcoming customer meetings.\";\n} else {\n  text = \"I didn\\u2019t catch that. You can ask me anything about your accounts and deals, or try:\\n\\n\" +\n    \"`brief` \\u00b7 `meet` \\u00b7 `insights` \\u00b7 `presentation` \\u00b7 `bbr` \\u00b7 `stakeholders` \\u00b7 `followup` \\u00b7 `help`\";\n}\n\nconst needsUpdate = (r === 'stop_digest' || r === 'resume_digest');\nconst digestEnabled = (r === 'resume_digest');\n\n// Education preference updates (tips_enabled, announcements_enabled)\nconst needsBriefsUpdate = (r === 'stop_briefs' || r === 'resume_briefs');\nconst needsFollowupUpdate = (r === 'stop_followups' || r === 'resume_followups');\nconst followupEnabled = (r === 'resume_followups');\nconst meetingPrepEnabled = (r === 'resume_briefs');\nconst needsEducationUpdate = ['stop_tips', 'resume_tips', 'stop_announcements', 'resume_announcements'].includes(r);\nlet educationField = null;\nlet educationValue = null;\nif (r === 'stop_tips') { educationField = 'tips_enabled'; educationValue = false; }\nelse if (r === 'resume_tips') { educationField = 'tips_enabled'; educationValue = true; }\nelse if (r === 'stop_announcements') { educationField = 'announcements_enabled'; educationValue = false; }\nelse if (r === 'resume_announcements') { educationField = 'announcements_enabled'; educationValue = true; }\n\nreturn [{ json: { ...data, responseText: text, needsUpdate, digestEnabled, needsBriefsUpdate, meetingPrepEnabled, needsFollowupUpdate, followupEnabled, needsEducationUpdate, educationField, educationValue } }];\n"
                 },
                 "id": "2a67cc57-e741-49b0-989f-b0b041b5898a",
                 "name": "Build Help Response",
@@ -8184,6 +8636,31 @@
                                         }
                                     ]
                                 }
+                            },
+                            {
+                                "conditions": {
+                                    "options": {
+                                        "version": 2,
+                                        "leftValue": "",
+                                        "caseSensitive": true,
+                                        "typeValidation": "strict"
+                                    },
+                                    "combinator": "and",
+                                    "conditions": [
+                                        {
+                                            "id": "9df20bba-7f7a-42ce-a11f-b412012f7c49",
+                                            "operator": {
+                                                "name": "filter.operator.equals",
+                                                "type": "string",
+                                                "operation": "equals"
+                                            },
+                                            "leftValue": "={{ $json.route }}",
+                                            "rightValue": "cmd_icp"
+                                        }
+                                    ]
+                                },
+                                "renameOutput": true,
+                                "outputKey": "cmd_icp"
                             }
                         ]
                     },
@@ -9981,7 +10458,7 @@
             },
             {
                 "parameters": {
-                    "jsCode": "// Parse People.ai participant CSV and enrich meetInput\nconst data = $('Parse Meet Account').first().json;\nconst meetInput = { ...data.meetInput };\nconst accountName = (data.accountName || '').toLowerCase();\n\n// Get the CSV from Fetch Meet Participants\nconst raw = $('Fetch Meet Participants').first().json;\nconst csvData = typeof raw === 'string' ? raw : (raw.data || raw.body || '');\n\nif (!csvData || typeof csvData !== 'string') {\n  // No participant data \u2014 proceed without it\n  return [{ json: meetInput }];\n}\n\nfunction parseCsvLine(line) {\n  const result = [];\n  let current = '';\n  let inQuotes = false;\n  let inBrackets = 0;\n  for (let i = 0; i < line.length; i++) {\n    const ch = line[i];\n    if (ch === '[') inBrackets++;\n    else if (ch === ']') inBrackets--;\n    if (ch === '\"') {\n      if (inQuotes && i + 1 < line.length && line[i + 1] === '\"') {\n        current += '\"'; i++;\n      } else {\n        inQuotes = !inQuotes;\n      }\n    } else if (ch === ',' && !inQuotes && inBrackets === 0) {\n      result.push(current.trim());\n      current = '';\n    } else {\n      current += ch;\n    }\n  }\n  result.push(current.trim());\n  return result;\n}\n\nfunction parseList(val) {\n  if (!val) return [];\n  return val.replace(/^\\[/, '').replace(/\\]$/, '').trim().split(';').map(s => s.trim());\n}\n\nconst lines = csvData.split(/\\r?\\n/).filter(l => l.trim());\nif (lines.length < 2) {\n  return [{ json: meetInput }];\n}\n\nconst headers = parseCsvLine(lines[0]);\nconst headerMap = {};\nheaders.forEach((h, i) => { headerMap[h.toLowerCase()] = i; });\n\nfunction getField(row, ...names) {\n  for (const name of names) {\n    const idx = headerMap[name.toLowerCase()];\n    if (idx !== undefined && row[idx]) return row[idx];\n  }\n  return '';\n}\n\n// Find meetings matching this account\nconst now = Date.now();\nlet bestMatch = null;\nlet bestDiff = Infinity;\n\nfor (let i = 1; i < lines.length; i++) {\n  const row = parseCsvLine(lines[i]);\n  if (row.length < 2) continue;\n  \n  const acct = getField(row, 'Account (name)', 'Account');\n  if (!acct) continue;\n  \n  // Fuzzy account matching\n  const acctLower = acct.toLowerCase();\n  const inputLower = accountName.toLowerCase();\n  \n  let isMatch = false;\n  if (acctLower === inputLower) isMatch = true;\n  else if (acctLower.startsWith(inputLower)) isMatch = true;\n  else if (inputLower.startsWith(acctLower)) isMatch = true;\n  else if (new RegExp('\\\\b' + inputLower.replace(/[.*+?^${}()|[\\]\\\\]/g, '\\\\$&') + '\\\\b', 'i').test(acct)) isMatch = true;\n  else if (acctLower.includes(inputLower)) isMatch = true;\n  else {\n    const inputWords = inputLower.split(/\\s+/);\n    const matched = inputWords.filter(w => acctLower.includes(w));\n    if (matched.length > 0 && matched.length >= inputWords.length * 0.5) isMatch = true;\n  }\n  \n  if (!isMatch) continue;\n  \n  const timestampStr = getField(row, 'Activity date');\n  const ts = timestampStr ? new Date(timestampStr).getTime() : 0;\n  \n  // Prefer the nearest upcoming meeting\n  const diff = ts - now;\n  if (diff > -3600000 && diff < bestDiff) { // Allow 1hr past meetings too\n    bestDiff = diff;\n    bestMatch = {\n      subject: getField(row, 'Subject') || 'Customer Meeting',\n      timestamp: ts,\n      timestampStr,\n      activityUid: getField(row, 'Activity'),\n      emails: parseList(getField(row, 'Activity Participants (Email)')),\n      names: parseList(getField(row, 'Activity Participants (Name)')),\n      externals: parseList(getField(row, 'Activity Participants (External)')),\n      titles: parseList(getField(row, 'Activity Participants (Job Title)')),\n      oppName: getField(row, 'Opportunity (name)', 'Opportunity'),\n      accountName: getField(row, 'Account (name)', 'Account'),\n    };\n  }\n}\n\nif (bestMatch) {\n  // Build a formatted participant string with Slack @mentions for internal users\n  // Get the requesting user's data (has slack_user_id)\n  const requestingUser = data.meetInput || {};\n  const requestingEmail = (requestingUser.email || '').toLowerCase();\n  const requestingSlackId = requestingUser.slackUserId || '';\n  \n  const parts = [];\n  for (let p = 0; p < bestMatch.emails.length; p++) {\n    const isExternal = (bestMatch.externals[p] || '').toLowerCase() === 'true';\n    const name = bestMatch.names[p] || bestMatch.emails[p];\n    const title = bestMatch.titles[p] || '';\n    const pEmail = (bestMatch.emails[p] || '').toLowerCase();\n    if (isExternal) {\n      parts.push(`${name} (external${title ? ', ' + title : ''}) <${bestMatch.emails[p]}>`);\n    } else {\n      // Check if this is the requesting user\n      if (pEmail === requestingEmail && requestingSlackId) {\n        parts.push(`<@${requestingSlackId}> :backstory: <${bestMatch.emails[p]}>`);\n      } else {\n        parts.push(`${name} :backstory: <${bestMatch.emails[p]}>`);\n      }\n    }\n  }\n  \n  meetInput.participants = parts.join('; ');\n  meetInput.meetingSubject = bestMatch.subject;\n  meetInput.meetingTime = String(bestMatch.timestamp);\n  meetInput.accountName = bestMatch.accountName || data.accountName;\n  if (bestMatch.oppName) meetInput.opportunityName = bestMatch.oppName;\n  if (bestMatch.activityUid) meetInput.activityUid = bestMatch.activityUid;\n}\n\nreturn [{ json: meetInput }];\n"
+                    "jsCode": "// Parse People.ai participant CSV and enrich meetInput\nconst data = $('Parse Meet Account').first().json;\nconst meetInput = { ...data.meetInput };\nconst accountName = (data.accountName || '').toLowerCase();\n\n// Get the CSV from Fetch Meet Participants\nconst raw = $('Fetch Meet Participants').first().json;\nconst csvData = typeof raw === 'string' ? raw : (raw.data || raw.body || '');\n\nif (!csvData || typeof csvData !== 'string') {\n  // No participant data \u2014 proceed without it\n  return [{ json: meetInput }];\n}\n\nfunction parseCsvLine(line) {\n  const result = [];\n  let current = '';\n  let inQuotes = false;\n  let inBrackets = 0;\n  for (let i = 0; i < line.length; i++) {\n    const ch = line[i];\n    if (ch === '[') inBrackets++;\n    else if (ch === ']') inBrackets--;\n    if (ch === '\"') {\n      if (inQuotes && i + 1 < line.length && line[i + 1] === '\"') {\n        current += '\"'; i++;\n      } else {\n        inQuotes = !inQuotes;\n      }\n    } else if (ch === ',' && !inQuotes && inBrackets === 0) {\n      result.push(current.trim());\n      current = '';\n    } else {\n      current += ch;\n    }\n  }\n  result.push(current.trim());\n  return result;\n}\n\nfunction parseList(val) {\n  if (!val) return [];\n  return val.replace(/^\\[/, '').replace(/\\]$/, '').trim().split(';').map(s => s.trim());\n}\n\nconst lines = csvData.split(/\\r?\\n/).filter(l => l.trim());\nif (lines.length < 2) {\n  return [{ json: meetInput }];\n}\n\nconst headers = parseCsvLine(lines[0]);\nconst headerMap = {};\nheaders.forEach((h, i) => { headerMap[h.toLowerCase()] = i; });\n\nfunction getField(row, ...names) {\n  for (const name of names) {\n    const idx = headerMap[name.toLowerCase()];\n    if (idx !== undefined && row[idx]) return row[idx];\n  }\n  return '';\n}\n\n// Find meetings matching this account\nconst now = Date.now();\nlet bestMatch = null;\nlet bestDiff = Infinity;\n\nfor (let i = 1; i < lines.length; i++) {\n  const row = parseCsvLine(lines[i]);\n  if (row.length < 2) continue;\n  \n  const acct = getField(row, 'Account (name)', 'Account');\n  if (!acct) continue;\n  \n  // Fuzzy account matching\n  const acctLower = acct.toLowerCase();\n  const inputLower = accountName.toLowerCase();\n  \n  let isMatch = false;\n  if (acctLower === inputLower) isMatch = true;\n  else if (acctLower.startsWith(inputLower)) isMatch = true;\n  else if (inputLower.startsWith(acctLower)) isMatch = true;\n  else if (new RegExp('\\\\b' + inputLower.replace(/[.*+?^${}()|[\\]\\\\]/g, '\\\\$&') + '\\\\b', 'i').test(acct)) isMatch = true;\n  else if (acctLower.includes(inputLower)) isMatch = true;\n  else {\n    const inputWords = inputLower.split(/\\s+/);\n    const matched = inputWords.filter(w => acctLower.includes(w));\n    if (matched.length > 0 && matched.length >= inputWords.length * 0.5) isMatch = true;\n  }\n  \n  if (!isMatch) continue;\n  \n  const timestampStr = getField(row, 'Activity date');\n  const ts = timestampStr ? new Date(timestampStr).getTime() : 0;\n  \n  // Prefer the nearest upcoming meeting\n  const diff = ts - now;\n  if (diff > -43200000 && diff < bestDiff) { // Allow 12hr past meetings for on-demand\n    bestDiff = diff;\n    bestMatch = {\n      subject: getField(row, 'Subject') || 'Customer Meeting',\n      timestamp: ts,\n      timestampStr,\n      activityUid: getField(row, 'Activity'),\n      emails: parseList(getField(row, 'Activity Participants (Email)')),\n      names: parseList(getField(row, 'Activity Participants (Name)')),\n      externals: parseList(getField(row, 'Activity Participants (External)')),\n      titles: parseList(getField(row, 'Activity Participants (Job Title)')),\n      oppName: getField(row, 'Opportunity (name)', 'Opportunity'),\n      accountName: getField(row, 'Account (name)', 'Account'),\n    };\n  }\n}\n\nif (bestMatch) {\n  // Build a formatted participant string with Slack @mentions for internal users\n  // Get the requesting user's data (has slack_user_id)\n  const requestingUser = data.meetInput || {};\n  const requestingEmail = (requestingUser.email || '').toLowerCase();\n  const requestingSlackId = requestingUser.slackUserId || '';\n  \n  const parts = [];\n  for (let p = 0; p < bestMatch.emails.length; p++) {\n    const isExternal = (bestMatch.externals[p] || '').toLowerCase() === 'true';\n    const name = bestMatch.names[p] || bestMatch.emails[p];\n    const title = bestMatch.titles[p] || '';\n    const pEmail = (bestMatch.emails[p] || '').toLowerCase();\n    if (isExternal) {\n      parts.push(`${name} (external${title ? ', ' + title : ''}) <${bestMatch.emails[p]}>`);\n    } else {\n      // Check if this is the requesting user\n      if (pEmail === requestingEmail && requestingSlackId) {\n        parts.push(`<@${requestingSlackId}> :backstory: <${bestMatch.emails[p]}>`);\n      } else {\n        parts.push(`${name} :backstory: <${bestMatch.emails[p]}>`);\n      }\n    }\n  }\n  \n  meetInput.participants = parts.join('; ');\n  meetInput.meetingSubject = bestMatch.subject;\n  meetInput.meetingTime = String(bestMatch.timestamp);\n  meetInput.accountName = bestMatch.accountName || data.accountName;\n  if (bestMatch.oppName) meetInput.opportunityName = bestMatch.oppName;\n  if (bestMatch.activityUid) meetInput.activityUid = bestMatch.activityUid;\n}\n\nreturn [{ json: meetInput }];\n"
                 },
                 "id": "c21ed3bf-46ef-43c0-888a-0ae62274d62c",
                 "name": "Prepare Meet Input",
@@ -11250,7 +11727,7 @@
             },
             {
                 "parameters": {
-                    "jsCode": "// Compact top-level card \u2014 just meeting info + action buttons\n// Full recap details go in the thread\nconst data = $('Recap Parse Output OD').first().json;\nconst recap = data.recap;\nconst m = data.meeting;\nconst assistantName = data.assistantName || 'Aria';\nconst assistantEmoji = data.assistantEmoji || ':robot_face:';\nconst genMsg = $('Send Recap Generating').first().json;\n\nconst subjectLine = m.subject || 'Customer Meeting';\nconst hoursAgo = m.hoursAgo || '';\nconst timeInfo = hoursAgo ? ` | ${hoursAgo}h ago` : '';\n\nconst taskCount = (recap.tasks || []).length;\nconst blocks = [];\n\nblocks.push({\n  type: \"section\",\n  text: { type: \"mrkdwn\", text: `:clipboard: *${m.accountName}* \u00b7 ${m.dayStr} ${m.timeStr} \u2014 ${subjectLine}` }\n});\n\n// Action buttons\nconst truncContext = (recap.followUpContext || '').substring(0, 500);\nconst draftPayload = JSON.stringify({\n  action: 'draft_followup',\n  account_name: m.accountName,\n  account_id: m.accountId || '',\n  activity_uid: m.activityUid,\n  meeting_subject: m.subject,\n  participants: m.participants || '',\n  follow_up_context: truncContext,\n  user_id: data.dbUserId,\n  db_user_id: data.dbUserId,\n  slack_user_id: data.userId,\n  organization_id: data.organizationId || '',\n  assistant_name: assistantName,\n  assistant_emoji: assistantEmoji,\n  rep_name: data.repName,\n});\n\nconst savePayload = JSON.stringify({\n  action: 'save_activity',\n  account_name: m.accountName,\n  account_id: m.accountId || '',\n  activity_uid: m.activityUid,\n  meeting_subject: m.subject,\n  meeting_date: m.dayStr || '',\n  meeting_time: m.timeStr || '',\n  summary: (recap.summary || '').substring(0, 300),\n  key_decisions: (recap.keyDecisions || []).map(d => d.substring(0, 80)),\n  tasks: (recap.tasks || []).map(t => ({ description: (t.description || '').substring(0, 80), owner: t.owner || '' })),\n  sentiment: recap.sentiment,\n  meeting_category: recap.meetingCategory || '',\n  user_id: data.dbUserId,\n  slack_user_id: data.userId,\n  rep_name: data.repName,\n  rep_email: data.email || '',\n  assistant_name: assistantName,\n  assistant_emoji: assistantEmoji,\n});\n\nblocks.push({\n  type: \"actions\",\n  elements: [\n    {\n      type: \"button\",\n      text: { type: \"plain_text\", text: \":salesforce: Review & Log\", emoji: true },\n      style: \"primary\",\n      action_id: \"recap_save_activity\",\n      value: savePayload\n    },\n    {\n      type: \"button\",\n      text: { type: \"plain_text\", text: \":email: Draft Follow-up\", emoji: true },\n      action_id: \"recap_draft_followup\",\n      value: draftPayload\n    },\n    ...(taskCount > 0 ? [{\n      type: \"button\",\n      text: { type: \"plain_text\", text: `:memo: Tasks (${taskCount})`, emoji: true },\n      action_id: \"recap_view_tasks\",\n      value: JSON.stringify({\n        account_name: m.accountName,\n        meeting_subject: m.subject,\n        tasks: (recap.tasks || []).slice(0, 5).map(t => ({\n          d: (t.description || '').substring(0, 100),\n          o: (t.owner || '').substring(0, 30),\n          e: (t.owner_email || '').substring(0, 40),\n          r: t.assignee_role || '',\n          m: t.duration_minutes || 30,\n          h: (t.due_hint || '').substring(0, 20),\n          c: (t.task_category || '').substring(0, 40),\n        })),\n        assistant_name: assistantName,\n        assistant_emoji: assistantEmoji,\n      }).substring(0, 1999)\n    }] : [])\n  ]\n});\n\nconst promptText = `Meeting Recap \u2014 ${m.accountName}: ${subjectLine}`;\n\nreturn [{ json: {\n  ...data,\n  blocks: JSON.stringify(blocks),\n  promptText,\n  assistantName,\n  assistantEmoji,\n  generatingTs: genMsg.ts,\n  generatingChannel: genMsg.channel,\n}}];"
+                    "jsCode": "const SKILL_REGISTRY = [\n  { id: 'draft_email', label: 'Draft Email',\n    keywords: ['send email', 'follow up', 'follow-up', 'email', 'reach out', 'share with', 'send to', 'write to', 'notify', 'update via email', 'loop in'],\n    buttonText: ':email: Want me to draft that email?', actionId: 'task_assist_draft_email' },\n  { id: 'presentation', label: 'Create Presentation',\n    keywords: ['create deck', 'build slides', 'presentation', 'qbr', 'prepare deck', 'slide deck', 'google slides'],\n    buttonText: ':bar_chart: Want me to build that deck?', actionId: 'task_assist_presentation' },\n  { id: 'stakeholder_map', label: 'Stakeholder Map',\n    keywords: ['map contacts', 'stakeholder', 'decision maker', 'identify contacts', 'org chart', 'key contacts', 'champion'],\n    buttonText: ':busts_in_silhouette: Want me to map the stakeholders?', actionId: 'task_assist_stakeholders' },\n  { id: 'meeting_prep', label: 'Meeting Prep',\n    keywords: ['prepare for meeting', 'prep for call', 'research before', 'meeting brief', 'pre-meeting', 'talking points'],\n    buttonText: ':clipboard: Want me to prep you for that meeting?', actionId: 'task_assist_meeting_prep' },\n];\n\nfunction matchTaskToSkill(taskSubject, taskDescription) {\n  const text = (taskSubject + ' ' + (taskDescription || '')).toLowerCase();\n  for (const skill of SKILL_REGISTRY) {\n    for (const kw of skill.keywords) {\n      if (text.includes(kw)) return skill;\n    }\n  }\n  return null;\n}\n\nconst data = $('Build Auto-Save OD').first().json;\nconst recap = data.recap;\nconst m = data.meeting;\nconst assistantName = data.assistantName || 'Aria';\nconst assistantEmoji = data.assistantEmoji || ':robot_face:';\nconst taskCount = data.taskCount || 0;\n\nconst subjectLine = m.subject || 'Customer Meeting';\nconst blocks = [];\n\n// Header: account + time + subject\nblocks.push({\n  type: \"section\",\n  text: { type: \"mrkdwn\", text: `:clipboard: *${m.accountName}* \\u00b7 ${m.dayStr}, ${m.timeStr} \\u2014 ${subjectLine}` }\n});\n\n// Tight confirmation line\nconst taskPart = taskCount > 0 ? ` \\u00b7 ${taskCount} task${taskCount === 1 ? '' : 's'} created` : '';\nblocks.push({\n  type: \"section\",\n  text: { type: \"mrkdwn\", text: `:white_check_mark: Saved to CRM${taskPart}` }\n});\n\n// Summary teaser \u2014 first sentence or first 120 chars\nconst summary = recap.summary || '';\nif (summary) {\n  let teaser = summary;\n  const firstSentence = summary.match(/^[^.!?]+[.!?]/);\n  if (firstSentence && firstSentence[0].length <= 150) {\n    teaser = firstSentence[0];\n  } else {\n    teaser = summary.substring(0, 120);\n    if (summary.length > 120) teaser += '...';\n  }\n  blocks.push({\n    type: \"section\",\n    text: { type: \"mrkdwn\", text: `\\u{1f4ac} _\"${teaser}\"_` }\n  });\n}\n\n// Primary action: Draft Follow-up\nconst truncContext = (recap.followUpContext || '').substring(0, 500);\nconst draftPayload = JSON.stringify({\n  action: 'draft_followup',\n  account_name: m.accountName,\n  account_id: m.accountId || '',\n  activity_uid: m.activityUid,\n  meeting_subject: m.subject,\n  participants: m.participants || '',\n  follow_up_context: truncContext,\n  user_id: data.userId,\n  db_user_id: data.userId,\n  slack_user_id: data.slackUserId,\n  organization_id: data.organizationId || '',\n  assistant_name: assistantName,\n  assistant_emoji: assistantEmoji,\n  rep_name: data.repName,\n});\n\nblocks.push({\n  type: \"actions\",\n  elements: [{\n    type: \"button\",\n    text: { type: \"plain_text\", text: \":email: Want me to draft your follow-up?\", emoji: true },\n    action_id: \"recap_draft_followup\",\n    value: draftPayload\n  }]\n});\n\n// Task Assist: keyword match freshly created tasks\nconst assistable = [];\nfor (const t of (recap.tasks || [])) {\n  const skill = matchTaskToSkill(t.description, '');\n  if (skill) {\n    assistable.push({ task: t, skill });\n  }\n}\n\nif (assistable.length > 0) {\n  for (const a of assistable.slice(0, 3)) {\n    blocks.push({\n      type: \"actions\",\n      elements: [{\n        type: \"button\",\n        text: { type: \"plain_text\", text: a.skill.buttonText, emoji: true },\n        action_id: a.skill.actionId,\n        value: JSON.stringify({\n          action: 'task_assist',\n          skill: a.skill.id,\n          task_subject: a.task.description,\n          account_name: m.accountName,\n          account_id: m.accountId || '',\n          user_id: data.userId,\n          slack_user_id: data.slackUserId,\n          organization_id: data.organizationId || '',\n          assistant_name: assistantName,\n          assistant_emoji: assistantEmoji,\n          rep_name: data.repName,\n        })\n      }]\n    });\n  }\n}\n\n// Footer links as context block\nblocks.push({\n  type: \"context\",\n  elements: [{\n    type: \"mrkdwn\",\n    text: \":date: <https://glass.people.ai/sheet/294e924a-d11a-46b7-a373-aae4182c4a61|My Events Today> \\u00b7 :clipboard: <https://glass.people.ai/sheet/0250d214-84ba-48e4-b272-6839c03462f5|All Tasks Today>\"\n  }]\n});\n\nconst promptText = `Meeting Recap \\u2014 ${m.accountName}: ${subjectLine}`;\n\nreturn [{ json: {\n  ...data,\n  blocks: JSON.stringify(blocks),\n  promptText,\n  assistantName,\n  assistantEmoji,\n  activityUids: [m.activityUid],\n}}];"
                 },
                 "id": "5a900570-9908-45d0-8e26-96da56a0d27a",
                 "name": "Recap Build Card OD",
@@ -11298,7 +11775,7 @@
             },
             {
                 "parameters": {
-                    "jsCode": "// Build detailed thread reply with decisions + tasks\nconst data = $('Recap Parse Output OD').first().json;\nconst recap = data.recap;\nconst m = data.meeting;\nconst sendResult = $('Recap Send Card OD').first().json;\nconst assistantName = data.assistantName || 'Aria';\nconst assistantEmoji = data.assistantEmoji || ':robot_face:';\n\nconst blocks = [];\n\n// Summary + sentiment\nconst sentLine = `${recap.sentimentEmoji} ${recap.sentimentSignal || recap.sentiment}`;\nblocks.push({\n  type: \"section\",\n  text: { type: \"mrkdwn\", text: `${sentLine}\\n\\n${recap.summary}` }\n});\n\nblocks.push({ type: \"divider\" });\n\n// Key Decisions\nif (recap.keyDecisions && recap.keyDecisions.length > 0) {\n  const decisionText = recap.keyDecisions.map(d => `\\u2022 ${d}`).join('\\n');\n  blocks.push({\n    type: \"section\",\n    text: { type: \"mrkdwn\", text: `*Key Decisions*\\n${decisionText}` }\n  });\n  blocks.push({ type: \"divider\" });\n}\n\n// Action Items with Create Task buttons\nif (recap.tasks && recap.tasks.length > 0) {\n  blocks.push({\n    type: \"section\",\n    text: { type: \"mrkdwn\", text: \"*Action Items*\" }\n  });\n\n  for (let i = 0; i < recap.tasks.length; i++) {\n    const task = recap.tasks[i];\n    const roleBadge = task.assignee_role ? ` (${task.assignee_role})` : '';\n    const durationBadge = task.duration_minutes ? ` \\u00b7 ${task.duration_minutes} min` : '';\n    const taskText = `\\u2022 ${task.description}` +\n      (task.owner ? ` \\u2014 _${task.owner}_` + roleBadge : '') +\n      durationBadge +\n      (task.due_hint ? ` \\u00b7 ${task.due_hint}` : '');\n\n    const taskPayload = JSON.stringify({\n      action: 'create_task',\n      task_index: i,\n      task_description: task.description,\n      task_owner: task.owner || '',\n      task_owner_email: task.owner_email || '',\n      task_due_hint: task.due_hint || '',\n      account_name: m.accountName,\n      account_id: m.accountId || '',\n      activity_uid: m.activityUid,\n      meeting_subject: m.subject,\n      user_id: data.dbUserId,\n      slack_user_id: data.userId,\n      rep_name: data.repName,\n      rep_email: (data.userRecord || {}).email || '',\n      assignee_role: task.assignee_role || '',\n      duration_minutes: task.duration_minutes || 30,\n      task_category: task.task_category || '',\n      assistant_name: data.assistantName || 'Aria',\n      assistant_emoji: data.assistantEmoji || ':robot_face:',\n    });\n\n    blocks.push({\n      type: \"section\",\n      text: { type: \"mrkdwn\", text: taskText },\n      accessory: {\n        type: \"button\",\n        text: { type: \"plain_text\", text: \":salesforce: Create Task\", emoji: true },\n        action_id: `recap_create_task_${i}`,\n        value: taskPayload\n      }\n    });\n  }\n}\n\n// If no decisions and no tasks\nif ((!recap.keyDecisions || recap.keyDecisions.length === 0) &&\n    (!recap.tasks || recap.tasks.length === 0)) {\n  blocks.push({\n    type: \"section\",\n    text: { type: \"mrkdwn\", text: \"_No key decisions or action items were captured for this meeting._\" }\n  });\n}\n\n// Thread footer\nblocks.push({\n  type: \"context\",\n  elements: [\n    { type: \"mrkdwn\", text: \"Reply in this thread to discuss this meeting\" }\n  ]\n});\n\nreturn [{ json: {\n  threadBlocks: JSON.stringify(blocks),\n  threadTs: sendResult.ts,\n  channelId: sendResult.channel,\n  assistantName,\n  assistantEmoji,\n  generatingTs: $('Recap Build Card OD').first().json.generatingTs,\n  generatingChannel: $('Recap Build Card OD').first().json.generatingChannel,\n}}];"
+                    "jsCode": "\nconst data = $('Build Auto-Save OD').first().json;\nconst recap = data.recap;\nconst m = data.meeting;\nconst sendResult = $('Recap Send Card OD').first().json;\nconst assistantName = data.assistantName || 'Aria';\nconst assistantEmoji = data.assistantEmoji || ':robot_face:';\n\nconst blocks = [];\nconst sentLine = `${recap.sentimentEmoji} ${recap.sentimentSignal || recap.sentiment}`;\nblocks.push({ type: \"section\", text: { type: \"mrkdwn\", text: `${sentLine}\\n\\n${recap.summary}` } });\nblocks.push({ type: \"divider\" });\n\nif (recap.keyDecisions && recap.keyDecisions.length > 0) {\n  blocks.push({ type: \"section\", text: { type: \"mrkdwn\", text: `*Key Decisions*\\n${recap.keyDecisions.map(d => `\\u2022 ${d}`).join('\\n')}` } });\n  blocks.push({ type: \"divider\" });\n}\n\nif (recap.tasks && recap.tasks.length > 0) {\n  const taskText = recap.tasks.map(t => {\n    const roleBadge = t.assignee_role ? ` (${t.assignee_role})` : '';\n    const durationBadge = t.duration_minutes ? ` \\u00b7 ${t.duration_minutes} min` : '';\n    return `\\u2022 ${t.description}` + (t.owner ? ` \\u2014 _${t.owner}_` + roleBadge : '') + durationBadge + (t.due_hint ? ` \\u00b7 ${t.due_hint}` : '');\n  }).join('\\n');\n  blocks.push({ type: \"section\", text: { type: \"mrkdwn\", text: `*Action Items* (saved to CRM)\\n${taskText}` } });\n}\n\nif ((!recap.keyDecisions || recap.keyDecisions.length === 0) && (!recap.tasks || recap.tasks.length === 0)) {\n  blocks.push({ type: \"section\", text: { type: \"mrkdwn\", text: \"_No key decisions or action items were captured for this meeting._\" } });\n}\n\nblocks.push({ type: \"context\", elements: [{ type: \"mrkdwn\", text: \"Tasks and recap saved to CRM \\u2022 Use PeopleGlass to review or modify \\u2022 Reply in this thread to discuss\" }] });\n\nreturn [{ json: { threadBlocks: JSON.stringify(blocks), threadTs: sendResult.ts, channelId: sendResult.channel, assistantName, assistantEmoji } }];\n"
                 },
                 "id": "1a0a984c-a73e-427b-9180-6a0fd09d56d7",
                 "name": "Recap Build Thread OD",
@@ -11629,6 +12106,293 @@
                         "name": "Slackbot Auth Token"
                     }
                 }
+            },
+            {
+                "parameters": {
+                    "method": "POST",
+                    "url": "https://slack.com/api/conversations.open",
+                    "authentication": "genericCredentialType",
+                    "genericAuthType": "httpHeaderAuth",
+                    "sendHeaders": true,
+                    "headerParameters": {
+                        "parameters": [
+                            {
+                                "name": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ]
+                    },
+                    "sendBody": true,
+                    "specifyBody": "json",
+                    "jsonBody": "={{ JSON.stringify({ users: $json.userId }) }}",
+                    "options": {}
+                },
+                "id": "a42a709a-ee56-4e56-91b8-660ab3509fae",
+                "name": "Open Bot DM (ICP)",
+                "type": "n8n-nodes-base.httpRequest",
+                "typeVersion": 4.2,
+                "position": [
+                    2180,
+                    3200
+                ],
+                "credentials": {
+                    "httpHeaderAuth": {
+                        "id": "LluVuiMJ8NUbAiG7",
+                        "name": "Slackbot Auth Token"
+                    }
+                }
+            },
+            {
+                "parameters": {
+                    "jsCode": "const data = $('Route by State').first().json;\nconst dmChannel = $json.channel?.id || $json.channel;\nconst sub = data.subRoute || 'calibrate';\nconst companyName = data.companyName || '';\nconst name = data.assistantName || data.assistant_name || 'Aria';\nconst emoji = data.assistantEmoji || data.assistant_emoji || ':robot_face:';\nlet text = '';\nif (sub === 'calibrate') {\n  text = ':mag: Running ICP calibration \\u2014 analyzing won vs lost patterns... this takes 3-5 minutes.';\n} else if (sub === 'targets') {\n  text = ':mag: Finding target accounts matching your ICP... give me about 30 seconds.';\n} else {\n  text = ':mag: Comparing *' + companyName + '* against your winning pattern... give me about 30 seconds.';\n}\nreturn [{ json: { channel: dmChannel, text, username: name, icon_emoji: emoji } }];"
+                },
+                "id": "c7c0c7dc-c0df-4a84-93ef-388f4c7fbaec",
+                "name": "Build ICP Thinking",
+                "type": "n8n-nodes-base.code",
+                "typeVersion": 2,
+                "position": [
+                    2420,
+                    3200
+                ]
+            },
+            {
+                "parameters": {
+                    "method": "POST",
+                    "url": "https://slack.com/api/chat.postMessage",
+                    "authentication": "genericCredentialType",
+                    "genericAuthType": "httpHeaderAuth",
+                    "sendHeaders": true,
+                    "headerParameters": {
+                        "parameters": [
+                            {
+                                "name": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ]
+                    },
+                    "sendBody": true,
+                    "specifyBody": "json",
+                    "jsonBody": "={{ JSON.stringify({ channel: $json.channel, text: $json.text, username: $json.username, icon_emoji: $json.icon_emoji, unfurl_links: false, unfurl_media: false }) }}",
+                    "options": {}
+                },
+                "id": "1d5d816f-6667-48f4-ac36-9915d08dc76a",
+                "name": "Send ICP Thinking",
+                "type": "n8n-nodes-base.httpRequest",
+                "typeVersion": 4.2,
+                "position": [
+                    2660,
+                    3200
+                ],
+                "credentials": {
+                    "httpHeaderAuth": {
+                        "id": "LluVuiMJ8NUbAiG7",
+                        "name": "Slackbot Auth Token"
+                    }
+                }
+            },
+            {
+                "parameters": {
+                    "jsCode": "const data = $('Route by State').first().json;\nconst user = $('Lookup User').first().json;\nconst dmChannel = $('Open Bot DM (ICP)').first().json.channel?.id || $('Open Bot DM (ICP)').first().json.channel;\nconst sub = data.subRoute || 'calibrate';\nlet mode = sub === 'targets' ? 'targets' : sub === 'compare' ? 'compare' : 'calibrate';\nlet companyName = data.companyName || '';\nconst repName = (user.email || '').split('@')[0].replace(/\\./g, ' ').replace(/\\b\\w/g, c => c.toUpperCase());\nreturn [{ json: {\n  mode, companyName, userId: user.id,\n  slackUserId: user.slack_user_id || data.userId,\n  email: user.email, channelId: dmChannel,\n  assistantName: user.assistant_name || 'Aria',\n  assistantEmoji: user.assistant_emoji || ':robot_face:',\n  assistantPersona: user.assistant_persona || '',\n  digestScope: user.digest_scope || 'my_deals',\n  repName,\n} }];"
+                },
+                "id": "f93d53d9-b762-4c70-8377-417179aa2c24",
+                "name": "Prepare ICP Input",
+                "type": "n8n-nodes-base.code",
+                "typeVersion": 2,
+                "position": [
+                    2900,
+                    3200
+                ]
+            },
+            {
+                "parameters": {
+                    "workflowId": {
+                        "__rl": true,
+                        "mode": "id",
+                        "value": "2lWTeRVCrjx1NtmJ"
+                    },
+                    "options": {
+                        "waitForSubWorkflow": false
+                    }
+                },
+                "id": "5feac4cb-d013-4abf-abc9-afced5cbc07b",
+                "name": "Execute ICP Workflow",
+                "type": "n8n-nodes-base.executeWorkflow",
+                "typeVersion": 1.2,
+                "position": [
+                    3140,
+                    3200
+                ]
+            },
+            {
+                "id": "7aa02352-ec51-4c30-a869-54cdaf06abaa",
+                "name": "Build Auto-Save OD",
+                "type": "n8n-nodes-base.code",
+                "typeVersion": 2,
+                "position": [
+                    6800,
+                    2000
+                ],
+                "parameters": {
+                    "jsCode": "\nconst data = $('Recap Parse Output OD').first().json;\nconst recap = data.recap;\nconst m = data.meeting;\n\nconst description = [\n  'Summary:', recap.summary, '',\n  recap.keyDecisions && recap.keyDecisions.length > 0\n    ? 'Key Decisions:\\n' + recap.keyDecisions.map(d => '\\u2022 ' + d).join('\\n') : '',\n  '',\n  recap.tasks && recap.tasks.length > 0\n    ? 'Action Items:\\n' + recap.tasks.map(t =>\n        '\\u2022 ' + t.description + (t.owner ? ' \\u2014 ' + t.owner : '') +\n        (t.due_hint ? ' \\u00b7 ' + t.due_hint : '')\n      ).join('\\n') : '',\n].filter(Boolean).join('\\n');\n\nconst activityPayload = {\n  action: 'log_activity',\n  salesforce_object: 'Event',\n  fields: {\n    Subject: m.subject || 'Customer Meeting',\n    Description: description,\n    ActivityDate: new Date().toLocaleDateString('en-CA', { timeZone: 'America/Los_Angeles' }),\n    meeting_category: recap.meetingCategory || null,\n    cs_category: recap.csCategory || null,\n  },\n  context: {\n    user_email: data.email || '',\n    account_name: m.accountName || '',\n    activity_uid: m.activityUid || '',\n    prepend_description: true,\n  }\n};\n\nconst now = new Date();\nconst ptNow = new Date(now.toLocaleString('en-US', { timeZone: 'America/Los_Angeles' }));\nfunction parseDueDate(hint) {\n  const h = (hint || '').toLowerCase();\n  if (h.includes('today') || h.includes('asap')) return ptNow.toISOString().split('T')[0];\n  if (h.includes('tomorrow')) { const d = new Date(ptNow.getTime() + 86400000); return d.toISOString().split('T')[0]; }\n  if (h.includes('friday') || h.includes('this week') || h.includes('end of week')) {\n    const d = new Date(ptNow); d.setDate(d.getDate() + ((5 - d.getDay() + 7) % 7 || 7)); return d.toISOString().split('T')[0];\n  }\n  if (h.includes('next week')) { const d = new Date(ptNow.getTime() + 7 * 86400000); return d.toISOString().split('T')[0]; }\n  const dateMatch = (hint || '').match(/(\\w+ \\d{1,2}(?:,? \\d{4})?)/);\n  if (dateMatch) { const parsed = new Date(dateMatch[1]); if (!isNaN(parsed.getTime())) return parsed.toISOString().split('T')[0]; }\n  const d = new Date(ptNow.getTime() + 7 * 86400000); return d.toISOString().split('T')[0];\n}\n\nconst taskPayloads = (recap.tasks || []).slice(0, 5).map(t => ({\n  action: 'create_task', salesforce_object: 'Task',\n  fields: {\n    Subject: (t.description || '').substring(0, 255),\n    Description: 'From meeting: ' + (m.subject || '') + ' with ' + (m.accountName || '') +\n      '\\nAssigned to: ' + (t.owner || '') + (t.assignee_role ? ' (' + t.assignee_role + ')' : '') +\n      '\\nEstimated duration: ' + (t.duration_minutes || 30) + ' minutes',\n    ActivityDate: parseDueDate(t.due_hint),\n    Status: 'Not Started', Priority: 'Normal',\n    TaskDuration: parseInt(t.duration_minutes) || 30,\n    Category: t.task_category || '',\n  },\n  context: {\n    user_email: '', account_name: m.accountName || '',\n    meeting_subject: m.subject || '',\n    assignee_name: t.owner || '', assignee_email: t.owner_email || '',\n    assignee_role: t.assignee_role || '',\n  }\n}));\n\nreturn [{ json: { ...data, activityPayload, taskPayloads, taskCount: taskPayloads.length } }];\n"
+                }
+            },
+            {
+                "id": "b0100a63-c581-46e7-b3ab-6269465f6af1",
+                "name": "Send Recap to CRM OD",
+                "type": "n8n-nodes-base.httpRequest",
+                "typeVersion": 4.2,
+                "position": [
+                    7000,
+                    1900
+                ],
+                "parameters": {
+                    "method": "POST",
+                    "url": "https://webhooks.workato.com/webhooks/rest/cfff4d3a-6f27-4ba4-9754-ac22c759ecaa/assistant_sf_write",
+                    "sendHeaders": true,
+                    "headerParameters": {
+                        "parameters": [
+                            {
+                                "name": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ]
+                    },
+                    "sendBody": true,
+                    "specifyBody": "json",
+                    "jsonBody": "={{ JSON.stringify($json.activityPayload) }}",
+                    "options": {
+                        "timeout": 15000
+                    }
+                },
+                "continueOnFail": true
+            },
+            {
+                "id": "6f99aa8e-e17e-49c7-8a6e-47deca5044e7",
+                "name": "Prepare Task Payloads OD",
+                "type": "n8n-nodes-base.code",
+                "typeVersion": 2,
+                "position": [
+                    7000,
+                    2100
+                ],
+                "parameters": {
+                    "jsCode": "\nconst data = $('Build Auto-Save OD').first().json;\nconst payloads = data.taskPayloads || [];\nif (payloads.length === 0) return [{ json: { skip: true } }];\nreturn payloads.map(p => ({ json: { webhook_payload: p } }));\n"
+                },
+                "continueOnFail": true
+            },
+            {
+                "id": "e40662e3-29db-4894-8c2a-5a924973fc7b",
+                "name": "Send Tasks to CRM OD",
+                "type": "n8n-nodes-base.httpRequest",
+                "typeVersion": 4.2,
+                "position": [
+                    7200,
+                    2100
+                ],
+                "parameters": {
+                    "method": "POST",
+                    "url": "https://webhooks.workato.com/webhooks/rest/cfff4d3a-6f27-4ba4-9754-ac22c759ecaa/assistant_sf_write",
+                    "sendHeaders": true,
+                    "headerParameters": {
+                        "parameters": [
+                            {
+                                "name": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ]
+                    },
+                    "sendBody": true,
+                    "specifyBody": "json",
+                    "jsonBody": "={{ JSON.stringify($json.webhook_payload) }}",
+                    "options": {
+                        "timeout": 15000
+                    }
+                },
+                "continueOnFail": true
+            },
+            {
+                "parameters": {
+                    "jsCode": "const data = $('Recap Parse Output OD').first().json;\nconst m = data.meeting || {};\nconst requestId = 'res_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);\n\nreturn [{ json: {\n  ...data,\n  resolutionRequestId: requestId,\n  resolutionPayload: {\n    action: 'get_tasks_resolution',\n    account_name: m.accountName || '',\n    user_email: data.email || '',\n    callback_url: 'https://scottai.trackslife.com/webhook/task-resolution-callback',\n    request_id: requestId,\n  },\n  resolutionContext: {\n    channel_id: data.channelId || '',\n    assistant_name: data.assistantName || 'Aria',\n    assistant_emoji: data.assistantEmoji || ':robot_face:',\n    mode: 'recap',\n    account_name: m.accountName || '',\n  }\n}}];"
+                },
+                "id": "3ff0050a-e7c3-41e5-a2e8-cc80be49c73f",
+                "name": "Fire Task Resolution OD",
+                "type": "n8n-nodes-base.code",
+                "typeVersion": 2,
+                "position": [
+                    7000,
+                    2300
+                ],
+                "continueOnFail": true
+            },
+            {
+                "parameters": {
+                    "method": "POST",
+                    "url": "https://rhrlnkbphxntxxxcrgvv.supabase.co/rest/v1/pending_actions",
+                    "authentication": "predefinedCredentialType",
+                    "nodeCredentialType": "supabaseApi",
+                    "sendHeaders": true,
+                    "headerParameters": {
+                        "parameters": [
+                            {
+                                "name": "Content-Type",
+                                "value": "application/json"
+                            },
+                            {
+                                "name": "Prefer",
+                                "value": "return=representation"
+                            }
+                        ]
+                    },
+                    "sendBody": true,
+                    "specifyBody": "json",
+                    "jsonBody": "={{ JSON.stringify({ opportunity_id: $json.resolutionRequestId, action_type: 'resolution_request', draft_content: '{}', context: JSON.stringify($json.resolutionContext), status: 'pending' }) }}",
+                    "options": {}
+                },
+                "id": "d7811908-1184-4a0c-a4ea-aacee3054d24",
+                "name": "Store Resolution Request OD",
+                "type": "n8n-nodes-base.httpRequest",
+                "typeVersion": 4.2,
+                "position": [
+                    7200,
+                    2300
+                ],
+                "credentials": {
+                    "supabaseApi": {
+                        "id": "ASRWWkQ0RSMOpNF1",
+                        "name": "Supabase account"
+                    }
+                },
+                "continueOnFail": true
+            },
+            {
+                "parameters": {
+                    "method": "POST",
+                    "url": "https://webhooks.workato.com/webhooks/rest/cfff4d3a-6f27-4ba4-9754-ac22c759ecaa/assistant_sf_read",
+                    "sendHeaders": true,
+                    "headerParameters": {
+                        "parameters": [
+                            {
+                                "name": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ]
+                    },
+                    "sendBody": true,
+                    "specifyBody": "json",
+                    "jsonBody": "={{ JSON.stringify($json.resolutionPayload) }}",
+                    "options": {
+                        "timeout": 15000
+                    }
+                },
+                "id": "441384d8-804e-4d4e-99c0-6f3ccf32f3de",
+                "name": "Send Resolution to Workato OD",
+                "type": "n8n-nodes-base.httpRequest",
+                "typeVersion": 4.2,
+                "position": [
+                    7400,
+                    2300
+                ],
+                "continueOnFail": true
             }
         ],
         "connections": {
@@ -12069,6 +12833,13 @@
                     [
                         {
                             "node": "Prepare Tasks Input",
+                            "type": "main",
+                            "index": 0
+                        }
+                    ],
+                    [
+                        {
+                            "node": "Open Bot DM (ICP)",
                             "type": "main",
                             "index": 0
                         }
@@ -13207,7 +13978,7 @@
                 "main": [
                     [
                         {
-                            "node": "Recap Build Card OD",
+                            "node": "Build Auto-Save OD",
                             "type": "main",
                             "index": 0
                         }
@@ -13308,11 +14079,143 @@
                         }
                     ]
                 ]
+            },
+            "Open Bot DM (ICP)": {
+                "main": [
+                    [
+                        {
+                            "node": "Build ICP Thinking",
+                            "type": "main",
+                            "index": 0
+                        }
+                    ]
+                ]
+            },
+            "Build ICP Thinking": {
+                "main": [
+                    [
+                        {
+                            "node": "Send ICP Thinking",
+                            "type": "main",
+                            "index": 0
+                        }
+                    ]
+                ]
+            },
+            "Send ICP Thinking": {
+                "main": [
+                    [
+                        {
+                            "node": "Prepare ICP Input",
+                            "type": "main",
+                            "index": 0
+                        }
+                    ]
+                ]
+            },
+            "Prepare ICP Input": {
+                "main": [
+                    [
+                        {
+                            "node": "Execute ICP Workflow",
+                            "type": "main",
+                            "index": 0
+                        }
+                    ]
+                ]
+            },
+            "Build Auto-Save OD": {
+                "main": [
+                    [
+                        {
+                            "node": "Send Recap to CRM OD",
+                            "type": "main",
+                            "index": 0
+                        },
+                        {
+                            "node": "Prepare Task Payloads OD",
+                            "type": "main",
+                            "index": 0
+                        },
+                        {
+                            "node": "Fire Task Resolution OD",
+                            "type": "main",
+                            "index": 0
+                        }
+                    ]
+                ]
+            },
+            "Send Recap to CRM OD": {
+                "main": [
+                    [
+                        {
+                            "node": "Recap Build Card OD",
+                            "type": "main",
+                            "index": 0
+                        }
+                    ]
+                ]
+            },
+            "Prepare Task Payloads OD": {
+                "main": [
+                    [
+                        {
+                            "node": "Send Tasks to CRM OD",
+                            "type": "main",
+                            "index": 0
+                        }
+                    ]
+                ]
+            },
+            "Fire Task Resolution OD": {
+                "main": [
+                    [
+                        {
+                            "node": "Store Resolution Request OD",
+                            "type": "main",
+                            "index": 0
+                        }
+                    ]
+                ]
+            },
+            "Store Resolution Request OD": {
+                "main": [
+                    [
+                        {
+                            "node": "Send Resolution to Workato OD",
+                            "type": "main",
+                            "index": 0
+                        }
+                    ]
+                ]
+            },
+            "Send Resolution to Workato OD": {
+                "main": [
+                    []
+                ]
             }
         },
         "authors": "Scott Metcalf",
         "name": null,
         "description": null,
-        "autosaved": false
+        "autosaved": false,
+        "workflowPublishHistory": [
+            {
+                "createdAt": "2026-04-03T14:03:49.068Z",
+                "id": 2022,
+                "workflowId": "QuQbIaWetunUOFUW",
+                "versionId": "b3a41061-2057-45c2-8373-c9a279f764c5",
+                "event": "activated",
+                "userId": "bfa163c1-bd53-4c0f-b0ba-8dc3626f7c79"
+            },
+            {
+                "createdAt": "2026-04-03T14:03:49.029Z",
+                "id": 2021,
+                "workflowId": "QuQbIaWetunUOFUW",
+                "versionId": "b3a41061-2057-45c2-8373-c9a279f764c5",
+                "event": "deactivated",
+                "userId": "bfa163c1-bd53-4c0f-b0ba-8dc3626f7c79"
+            }
+        ]
     }
 }

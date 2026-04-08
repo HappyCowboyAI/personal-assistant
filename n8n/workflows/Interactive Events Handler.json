@@ -1,5 +1,5 @@
 {
-    "updatedAt": "2026-03-29T14:53:48.178Z",
+    "updatedAt": "2026-04-03T13:25:22.670Z",
     "createdAt": "2026-02-26T06:19:27.024Z",
     "id": "JgVjCqoT6ZwGuDL1",
     "name": "Interactive Events Handler",
@@ -467,6 +467,106 @@
                                         },
                                         "leftValue": "={{ $('Parse Interactive Payload').first().json.actionId }}",
                                         "rightValue": "task_complete_"
+                                    }
+                                ]
+                            }
+                        },
+                        {
+                            "outputKey": "output_14",
+                            "renameOutput": true,
+                            "conditions": {
+                                "options": {
+                                    "version": 2,
+                                    "leftValue": "",
+                                    "caseSensitive": true,
+                                    "typeValidation": "strict"
+                                },
+                                "combinator": "and",
+                                "conditions": [
+                                    {
+                                        "id": "675018d2-354e-4050-af9a-4f0fd6addb8f",
+                                        "operator": {
+                                            "name": "filter.operator.equals",
+                                            "type": "string",
+                                            "operation": "equals"
+                                        },
+                                        "leftValue": "={{ $('Parse Interactive Payload').first().json.actionId }}",
+                                        "rightValue": "task_assist_draft_email"
+                                    }
+                                ]
+                            }
+                        },
+                        {
+                            "outputKey": "output_15",
+                            "renameOutput": true,
+                            "conditions": {
+                                "options": {
+                                    "version": 2,
+                                    "leftValue": "",
+                                    "caseSensitive": true,
+                                    "typeValidation": "strict"
+                                },
+                                "combinator": "and",
+                                "conditions": [
+                                    {
+                                        "id": "a215bb00-f3dc-4ddc-bd28-dbf0f16ca91c",
+                                        "operator": {
+                                            "name": "filter.operator.equals",
+                                            "type": "string",
+                                            "operation": "equals"
+                                        },
+                                        "leftValue": "={{ $('Parse Interactive Payload').first().json.actionId }}",
+                                        "rightValue": "task_assist_presentation"
+                                    }
+                                ]
+                            }
+                        },
+                        {
+                            "outputKey": "output_16",
+                            "renameOutput": true,
+                            "conditions": {
+                                "options": {
+                                    "version": 2,
+                                    "leftValue": "",
+                                    "caseSensitive": true,
+                                    "typeValidation": "strict"
+                                },
+                                "combinator": "and",
+                                "conditions": [
+                                    {
+                                        "id": "f4341fc4-cd16-478a-9dde-54211a1e9b3f",
+                                        "operator": {
+                                            "name": "filter.operator.equals",
+                                            "type": "string",
+                                            "operation": "equals"
+                                        },
+                                        "leftValue": "={{ $('Parse Interactive Payload').first().json.actionId }}",
+                                        "rightValue": "task_assist_stakeholders"
+                                    }
+                                ]
+                            }
+                        },
+                        {
+                            "outputKey": "output_17",
+                            "renameOutput": true,
+                            "conditions": {
+                                "options": {
+                                    "version": 2,
+                                    "leftValue": "",
+                                    "caseSensitive": true,
+                                    "typeValidation": "strict"
+                                },
+                                "combinator": "and",
+                                "conditions": [
+                                    {
+                                        "id": "b103fa36-bb6a-472d-8a06-d29f79dd5784",
+                                        "operator": {
+                                            "name": "filter.operator.equals",
+                                            "type": "string",
+                                            "operation": "equals"
+                                        },
+                                        "leftValue": "={{ $('Parse Interactive Payload').first().json.actionId }}",
+                                        "rightValue": "task_assist_meeting_prep"
                                     }
                                 ]
                             }
@@ -1096,7 +1196,7 @@
         },
         {
             "parameters": {
-                "jsCode": "// Extract context from button value and build agent prompt\n// Two-layer pattern: Query API context (in button payload) + MCP enrichment\nconst payload = $('Parse Interactive Payload').first().json;\nlet context = {};\ntry {\n  context = JSON.parse(payload.actionValue || '{}');\n} catch(e) {\n  context = {};\n}\n\nconst accountName = context.accountName || 'the account';\nconst meetingSubject = context.meetingSubject || '';\nconst participants = context.participants || '';\nconst repName = context.repName || 'there';\nconst assistantName = context.assistantName || 'Aria';\nconst assistantEmoji = context.assistantEmoji || ':robot_face:';\n\nconst meetingSubjectNote = meetingSubject\n  ? ` (${meetingSubject})`\n  : '';\n\nconst todayStr = new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });\n\nlet systemPrompt = `You are ${assistantName}, a personal sales assistant for ${repName}.\n\nYou have access to People.ai MCP tools for CRM data, account activity, meeting details, and engagement data.\n\n**FOLLOW-UP EMAIL DRAFT MODE**\n\nTODAY IS ${todayStr}. Remember this date \u2014 it is critical for determining meeting recency.\n\n## KNOWN MEETING CONTEXT (from People.ai Query API \u2014 confirmed data):\n- **Account:** ${accountName}\n- **Meeting Subject:** ${meetingSubject || '[not available]'}\n- **Participants:** ${participants || '[not available]'}\n\nThis meeting data comes from the People.ai Query API and is CONFIRMED \u2014 the meeting definitely happened. Use this as your primary anchor.\n\n## MEETING RECAP CONTEXT (from AI-generated recap):\n\\${context.recapContext ? context.recapContext : '[No recap context available \u2014 research from scratch]'}\n\nUse this recap context to anchor your follow-up email. The recap was generated from transcript data and is more reliable than generic account context.\n\n## CRITICAL: DATA LATENCY PROTOCOL\nPeople.ai transcript data takes 3-4 HOURS to appear after a meeting ends.\nThe meeting above may not have full transcript/notes available via MCP yet.\n\n**YOU MUST FOLLOW THIS PROTOCOL:**\n1. Use People.ai MCP tools to search for this meeting and try to get detailed notes, topics, and action items\n2. **IF MCP has rich data** (transcript, topics, action items) \u2192 Great, use it all to draft a detailed email\n3. **IF MCP has limited/no data for this meeting** \u2192 This is normal for recent meetings. You still KNOW the meeting happened because of the Query API data above. Draft a meaningful email using:\n   - The meeting subject as the anchor topic\n   - The account context and relationship history from MCP\n   - The participant list for To/CC fields\n   - A professional, forward-looking tone referencing \"our conversation\"\n   - Add a note: \"_Details from this meeting are still syncing. Reply with key discussion points and I\\\\'ll make this draft more specific._\"\n4. **NEVER say you cannot find the meeting** \u2014 you have confirmed data above that it happened\n5. **NEVER draft based on an older meeting** \u2014 the user clicked the button for THIS specific meeting\n\n## DRAFTING INSTRUCTIONS\nUse People.ai MCP tools to:\n1. Find the specific meeting with ${accountName} \u2014 look for notes, topics, action items\n2. Extract what was actually discussed (not general deal context)\n3. Look up participant emails to personalize the To/CC fields\n\n**CRITICAL:** Anchor the email on THIS specific meeting${meetingSubjectNote}.\n- Lead with topics, decisions, and action items from the meeting\n- Do NOT pad with generic deal/pipeline context unless it was discussed\n- If meeting notes are thin, use the meeting subject and account context to draft a relevant follow-up\n\n**DATE AWARENESS \u2014 adjust your follow-up language based on when the meeting was:**\n- Same day: \"Thanks for the conversation today\"\n- Yesterday: \"Thanks for the conversation yesterday\"\n- 2-3 days ago: \"I wanted to follow up on our conversation from {day}\"\n- 4-7 days ago: \"Circling back on our discussion last {day}\"\n\n**FORMAT** (Slack mrkdwn):\n\n:email: *Follow-up Draft \u2014 ${accountName}*\n\n*To:* primary recipient ({email@company.com}) \u2014 ALWAYS include email address. Use People.ai MCP to look up emails.\n*CC:* other meeting participants with emails \u2014 internal team and external contacts\n*Subject:* concise subject line\n\n---\nemail body \u2014 150-250 words, professional, references meeting topics, includes clear next step\n---\n\n_Reply in this thread to adjust the tone, add details, or ask me to revise._\n\n**RULES:**\n- Keep the email 150-250 words\n- Reference specific discussion topics from THIS meeting \u2014 do NOT fabricate topics\n- If MCP data is limited, draft based on the meeting subject and note that details are still syncing\n- Include a clear call to action / next step\n- Use contact names, not generic \"team\"\n- Tone: professional but warm\n- ALWAYS sign the email as ${repName}. Do NOT sign as the account owner or AE \u2014 the person requesting the draft is ${repName}.\n- Do NOT use ### headers\n- Keep under 3000 characters`;\n\nconst agentPrompt = `Draft a follow-up email for my meeting with ${accountName}` +\n  (meetingSubject ? `. The meeting was about: ${meetingSubject}` : '') +\n  (participants ? `. Participants included: ${participants}` : '') +\n  `. Today is ${todayStr}.` +\n  `\\n\\nIMPORTANT: Even if MCP tools don't return detailed transcript data for this meeting, you KNOW it happened. Draft based on the meeting subject and account context.`;\n\nreturn [{\n  json: {\n    ...payload,\n    ...context,\n    systemPrompt,\n    agentPrompt,\n    assistantName,\n    assistantEmoji,\n    accountName,\n  }\n}];\n"
+                "jsCode": "// Extract context from button value and build agent prompt\n// Two-layer pattern: Query API context (in button payload) + MCP enrichment\nconst payload = $('Parse Interactive Payload').first().json;\nlet context = {};\ntry {\n  context = JSON.parse(payload.actionValue || '{}');\n} catch(e) {\n  context = {};\n}\n\nconst accountName = (context.accountName || context.account_name) || 'the account';\nconst meetingSubject = (context.meetingSubject || context.meeting_subject) || '';\nconst participants = (context.participants || context.participant_names) || '';\nconst repName = (context.repName || context.rep_name) || 'there';\nconst assistantName = (context.assistantName || context.assistant_name) || 'Aria';\nconst assistantEmoji = (context.assistantEmoji || context.assistant_emoji) || ':robot_face:';\n\nconst meetingSubjectNote = meetingSubject\n  ? ` (${meetingSubject})`\n  : '';\n\nconst todayStr = new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });\n\nlet systemPrompt = `You are ${assistantName}, a personal sales assistant for ${repName}.\n\nYou have access to People.ai MCP tools for CRM data, account activity, meeting details, and engagement data.\n\n**FOLLOW-UP EMAIL DRAFT MODE**\n\nTODAY IS ${todayStr}. Remember this date \u2014 it is critical for determining meeting recency.\n\n## KNOWN MEETING CONTEXT (from People.ai Query API \u2014 confirmed data):\n- **Account:** ${accountName}\n- **Meeting Subject:** ${meetingSubject || '[not available]'}\n- **Participants:** ${participants || '[not available]'}\n\nThis meeting data comes from the People.ai Query API and is CONFIRMED \u2014 the meeting definitely happened. Use this as your primary anchor.\n\n## MEETING RECAP CONTEXT (from AI-generated recap):\n\\${context.recapContext ? context.recapContext : '[No recap context available \u2014 research from scratch]'}\n\nUse this recap context to anchor your follow-up email. The recap was generated from transcript data and is more reliable than generic account context.\n\n## CRITICAL: DATA LATENCY PROTOCOL\nPeople.ai transcript data takes 3-4 HOURS to appear after a meeting ends.\nThe meeting above may not have full transcript/notes available via MCP yet.\n\n**YOU MUST FOLLOW THIS PROTOCOL:**\n1. Use People.ai MCP tools to search for this meeting and try to get detailed notes, topics, and action items\n2. **IF MCP has rich data** (transcript, topics, action items) \u2192 Great, use it all to draft a detailed email\n3. **IF MCP has limited/no data for this meeting** \u2192 This is normal for recent meetings. You still KNOW the meeting happened because of the Query API data above. Draft a meaningful email using:\n   - The meeting subject as the anchor topic\n   - The account context and relationship history from MCP\n   - The participant list for To/CC fields\n   - A professional, forward-looking tone referencing \"our conversation\"\n   - Add a note: \"_Details from this meeting are still syncing. Reply with key discussion points and I\\\\'ll make this draft more specific._\"\n4. **NEVER say you cannot find the meeting** \u2014 you have confirmed data above that it happened\n5. **NEVER draft based on an older meeting** \u2014 the user clicked the button for THIS specific meeting\n\n## DRAFTING INSTRUCTIONS\nUse People.ai MCP tools to:\n1. Find the specific meeting with ${accountName} \u2014 look for notes, topics, action items\n2. Extract what was actually discussed (not general deal context)\n3. Look up participant emails to personalize the To/CC fields\n\n**CRITICAL:** Anchor the email on THIS specific meeting${meetingSubjectNote}.\n- Lead with topics, decisions, and action items from the meeting\n- Do NOT pad with generic deal/pipeline context unless it was discussed\n- If meeting notes are thin, use the meeting subject and account context to draft a relevant follow-up\n\n**DATE AWARENESS \u2014 adjust your follow-up language based on when the meeting was:**\n- Same day: \"Thanks for the conversation today\"\n- Yesterday: \"Thanks for the conversation yesterday\"\n- 2-3 days ago: \"I wanted to follow up on our conversation from {day}\"\n- 4-7 days ago: \"Circling back on our discussion last {day}\"\n\n**FORMAT** (Slack mrkdwn):\n\n:email: *Follow-up Draft \u2014 ${accountName}*\n\n*To:* primary recipient ({email@company.com}) \u2014 ALWAYS include email address. Use People.ai MCP to look up emails.\n*CC:* other meeting participants with emails \u2014 internal team and external contacts\n*Subject:* concise subject line\n\n---\nemail body \u2014 150-250 words, professional, references meeting topics, includes clear next step\n---\n\n_Reply in this thread to adjust the tone, add details, or ask me to revise._\n\n**RULES:**\n- Keep the email 150-250 words\n- Reference specific discussion topics from THIS meeting \u2014 do NOT fabricate topics\n- If MCP data is limited, draft based on the meeting subject and note that details are still syncing\n- Include a clear call to action / next step\n- Use contact names, not generic \"team\"\n- Tone: professional but warm\n- ALWAYS sign the email as ${repName}. Do NOT sign as the account owner or AE \u2014 the person requesting the draft is ${repName}.\n- Do NOT use ### headers\n- Keep under 3000 characters`;\n\nconst agentPrompt = `Draft a follow-up email for my meeting with ${accountName}` +\n  (meetingSubject ? `. The meeting was about: ${meetingSubject}` : '') +\n  (participants ? `. Participants included: ${participants}` : '') +\n  `. Today is ${todayStr}.` +\n  `\\n\\nIMPORTANT: Even if MCP tools don't return detailed transcript data for this meeting, you KNOW it happened. Draft based on the meeting subject and account context.`;\n\nreturn [{\n  json: {\n    ...payload,\n    ...context,\n    systemPrompt,\n    agentPrompt,\n    assistantName,\n    assistantEmoji,\n    accountName,\n  }\n}];\n"
             },
             "id": "079fed0c-26c5-4847-848a-c61e74864f6b",
             "name": "Build Followup Context",
@@ -2135,6 +2235,19 @@
                     "name": "Slackbot Auth Token"
                 }
             }
+        },
+        {
+            "parameters": {
+                "jsCode": "const payload = $('Parse Interactive Payload').first().json;\nlet context = {};\ntry { context = JSON.parse(payload.actionValue || '{}'); } catch(e) {}\n\nconst skill = context.skill || '';\nconst accountName = context.account_name || '';\nconst accountId = context.account_id || '';\nconst taskSubject = context.task_subject || '';\n\n// Reformat to match what Bridge Recap to Draft expects\nconst enrichedValue = JSON.stringify({\n  accountName,\n  accountId,\n  activityUid: '',\n  meetingSubject: '',\n  participants: '',\n  userId: context.user_id || '',\n  dbUserId: context.user_id || '',\n  slackUserId: context.slack_user_id || '',\n  organizationId: context.organization_id || '',\n  assistantName: context.assistant_name || 'Aria',\n  assistantEmoji: context.assistant_emoji || ':robot_face:',\n  repName: context.rep_name || '',\n  recapContext: 'Task: ' + taskSubject,\n});\n\nreturn [{ json: {\n  ...payload,\n  actionValue: enrichedValue,\n  actionId: 'followup_draft',\n  routeSkill: skill,\n}}];"
+            },
+            "id": "56b35658-12f7-4605-a0e8-06b2ecd052bc",
+            "name": "Bridge Task Assist",
+            "type": "n8n-nodes-base.code",
+            "typeVersion": 2,
+            "position": [
+                1728,
+                2396
+            ]
         }
     ],
     "connections": {
@@ -2296,6 +2409,35 @@
                 [
                     {
                         "node": "Build Complete Payload",
+                        "type": "main",
+                        "index": 0
+                    }
+                ],
+                [],
+                [
+                    {
+                        "node": "Bridge Task Assist",
+                        "type": "main",
+                        "index": 0
+                    }
+                ],
+                [
+                    {
+                        "node": "Bridge Task Assist",
+                        "type": "main",
+                        "index": 0
+                    }
+                ],
+                [
+                    {
+                        "node": "Bridge Task Assist",
+                        "type": "main",
+                        "index": 0
+                    }
+                ],
+                [
+                    {
+                        "node": "Bridge Task Assist",
                         "type": "main",
                         "index": 0
                     }
@@ -2846,6 +2988,17 @@
                     }
                 ]
             ]
+        },
+        "Bridge Task Assist": {
+            "main": [
+                [
+                    {
+                        "node": "Bridge Recap to Draft",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
         }
     },
     "settings": {
@@ -2856,9 +3009,9 @@
     "staticData": null,
     "meta": null,
     "pinData": {},
-    "versionId": "9a25a280-ab59-471d-82d8-b641d194dd50",
-    "activeVersionId": "9a25a280-ab59-471d-82d8-b641d194dd50",
-    "versionCounter": 202,
+    "versionId": "34a161be-8e59-4c0c-bab3-79498b8f62a0",
+    "activeVersionId": "34a161be-8e59-4c0c-bab3-79498b8f62a0",
+    "versionCounter": 208,
     "triggerCount": 1,
     "tags": [
         {
@@ -2869,9 +3022,9 @@
         }
     ],
     "activeVersion": {
-        "updatedAt": "2026-03-29T14:53:48.181Z",
-        "createdAt": "2026-03-29T14:53:48.181Z",
-        "versionId": "9a25a280-ab59-471d-82d8-b641d194dd50",
+        "updatedAt": "2026-04-03T13:25:22.698Z",
+        "createdAt": "2026-04-03T13:25:22.698Z",
+        "versionId": "34a161be-8e59-4c0c-bab3-79498b8f62a0",
         "workflowId": "JgVjCqoT6ZwGuDL1",
         "nodes": [
             {
@@ -3334,6 +3487,106 @@
                                             },
                                             "leftValue": "={{ $('Parse Interactive Payload').first().json.actionId }}",
                                             "rightValue": "task_complete_"
+                                        }
+                                    ]
+                                }
+                            },
+                            {
+                                "outputKey": "output_14",
+                                "renameOutput": true,
+                                "conditions": {
+                                    "options": {
+                                        "version": 2,
+                                        "leftValue": "",
+                                        "caseSensitive": true,
+                                        "typeValidation": "strict"
+                                    },
+                                    "combinator": "and",
+                                    "conditions": [
+                                        {
+                                            "id": "675018d2-354e-4050-af9a-4f0fd6addb8f",
+                                            "operator": {
+                                                "name": "filter.operator.equals",
+                                                "type": "string",
+                                                "operation": "equals"
+                                            },
+                                            "leftValue": "={{ $('Parse Interactive Payload').first().json.actionId }}",
+                                            "rightValue": "task_assist_draft_email"
+                                        }
+                                    ]
+                                }
+                            },
+                            {
+                                "outputKey": "output_15",
+                                "renameOutput": true,
+                                "conditions": {
+                                    "options": {
+                                        "version": 2,
+                                        "leftValue": "",
+                                        "caseSensitive": true,
+                                        "typeValidation": "strict"
+                                    },
+                                    "combinator": "and",
+                                    "conditions": [
+                                        {
+                                            "id": "a215bb00-f3dc-4ddc-bd28-dbf0f16ca91c",
+                                            "operator": {
+                                                "name": "filter.operator.equals",
+                                                "type": "string",
+                                                "operation": "equals"
+                                            },
+                                            "leftValue": "={{ $('Parse Interactive Payload').first().json.actionId }}",
+                                            "rightValue": "task_assist_presentation"
+                                        }
+                                    ]
+                                }
+                            },
+                            {
+                                "outputKey": "output_16",
+                                "renameOutput": true,
+                                "conditions": {
+                                    "options": {
+                                        "version": 2,
+                                        "leftValue": "",
+                                        "caseSensitive": true,
+                                        "typeValidation": "strict"
+                                    },
+                                    "combinator": "and",
+                                    "conditions": [
+                                        {
+                                            "id": "f4341fc4-cd16-478a-9dde-54211a1e9b3f",
+                                            "operator": {
+                                                "name": "filter.operator.equals",
+                                                "type": "string",
+                                                "operation": "equals"
+                                            },
+                                            "leftValue": "={{ $('Parse Interactive Payload').first().json.actionId }}",
+                                            "rightValue": "task_assist_stakeholders"
+                                        }
+                                    ]
+                                }
+                            },
+                            {
+                                "outputKey": "output_17",
+                                "renameOutput": true,
+                                "conditions": {
+                                    "options": {
+                                        "version": 2,
+                                        "leftValue": "",
+                                        "caseSensitive": true,
+                                        "typeValidation": "strict"
+                                    },
+                                    "combinator": "and",
+                                    "conditions": [
+                                        {
+                                            "id": "b103fa36-bb6a-472d-8a06-d29f79dd5784",
+                                            "operator": {
+                                                "name": "filter.operator.equals",
+                                                "type": "string",
+                                                "operation": "equals"
+                                            },
+                                            "leftValue": "={{ $('Parse Interactive Payload').first().json.actionId }}",
+                                            "rightValue": "task_assist_meeting_prep"
                                         }
                                     ]
                                 }
@@ -3963,7 +4216,7 @@
             },
             {
                 "parameters": {
-                    "jsCode": "// Extract context from button value and build agent prompt\n// Two-layer pattern: Query API context (in button payload) + MCP enrichment\nconst payload = $('Parse Interactive Payload').first().json;\nlet context = {};\ntry {\n  context = JSON.parse(payload.actionValue || '{}');\n} catch(e) {\n  context = {};\n}\n\nconst accountName = context.accountName || 'the account';\nconst meetingSubject = context.meetingSubject || '';\nconst participants = context.participants || '';\nconst repName = context.repName || 'there';\nconst assistantName = context.assistantName || 'Aria';\nconst assistantEmoji = context.assistantEmoji || ':robot_face:';\n\nconst meetingSubjectNote = meetingSubject\n  ? ` (${meetingSubject})`\n  : '';\n\nconst todayStr = new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });\n\nlet systemPrompt = `You are ${assistantName}, a personal sales assistant for ${repName}.\n\nYou have access to People.ai MCP tools for CRM data, account activity, meeting details, and engagement data.\n\n**FOLLOW-UP EMAIL DRAFT MODE**\n\nTODAY IS ${todayStr}. Remember this date \u2014 it is critical for determining meeting recency.\n\n## KNOWN MEETING CONTEXT (from People.ai Query API \u2014 confirmed data):\n- **Account:** ${accountName}\n- **Meeting Subject:** ${meetingSubject || '[not available]'}\n- **Participants:** ${participants || '[not available]'}\n\nThis meeting data comes from the People.ai Query API and is CONFIRMED \u2014 the meeting definitely happened. Use this as your primary anchor.\n\n## MEETING RECAP CONTEXT (from AI-generated recap):\n\\${context.recapContext ? context.recapContext : '[No recap context available \u2014 research from scratch]'}\n\nUse this recap context to anchor your follow-up email. The recap was generated from transcript data and is more reliable than generic account context.\n\n## CRITICAL: DATA LATENCY PROTOCOL\nPeople.ai transcript data takes 3-4 HOURS to appear after a meeting ends.\nThe meeting above may not have full transcript/notes available via MCP yet.\n\n**YOU MUST FOLLOW THIS PROTOCOL:**\n1. Use People.ai MCP tools to search for this meeting and try to get detailed notes, topics, and action items\n2. **IF MCP has rich data** (transcript, topics, action items) \u2192 Great, use it all to draft a detailed email\n3. **IF MCP has limited/no data for this meeting** \u2192 This is normal for recent meetings. You still KNOW the meeting happened because of the Query API data above. Draft a meaningful email using:\n   - The meeting subject as the anchor topic\n   - The account context and relationship history from MCP\n   - The participant list for To/CC fields\n   - A professional, forward-looking tone referencing \"our conversation\"\n   - Add a note: \"_Details from this meeting are still syncing. Reply with key discussion points and I\\\\'ll make this draft more specific._\"\n4. **NEVER say you cannot find the meeting** \u2014 you have confirmed data above that it happened\n5. **NEVER draft based on an older meeting** \u2014 the user clicked the button for THIS specific meeting\n\n## DRAFTING INSTRUCTIONS\nUse People.ai MCP tools to:\n1. Find the specific meeting with ${accountName} \u2014 look for notes, topics, action items\n2. Extract what was actually discussed (not general deal context)\n3. Look up participant emails to personalize the To/CC fields\n\n**CRITICAL:** Anchor the email on THIS specific meeting${meetingSubjectNote}.\n- Lead with topics, decisions, and action items from the meeting\n- Do NOT pad with generic deal/pipeline context unless it was discussed\n- If meeting notes are thin, use the meeting subject and account context to draft a relevant follow-up\n\n**DATE AWARENESS \u2014 adjust your follow-up language based on when the meeting was:**\n- Same day: \"Thanks for the conversation today\"\n- Yesterday: \"Thanks for the conversation yesterday\"\n- 2-3 days ago: \"I wanted to follow up on our conversation from {day}\"\n- 4-7 days ago: \"Circling back on our discussion last {day}\"\n\n**FORMAT** (Slack mrkdwn):\n\n:email: *Follow-up Draft \u2014 ${accountName}*\n\n*To:* primary recipient ({email@company.com}) \u2014 ALWAYS include email address. Use People.ai MCP to look up emails.\n*CC:* other meeting participants with emails \u2014 internal team and external contacts\n*Subject:* concise subject line\n\n---\nemail body \u2014 150-250 words, professional, references meeting topics, includes clear next step\n---\n\n_Reply in this thread to adjust the tone, add details, or ask me to revise._\n\n**RULES:**\n- Keep the email 150-250 words\n- Reference specific discussion topics from THIS meeting \u2014 do NOT fabricate topics\n- If MCP data is limited, draft based on the meeting subject and note that details are still syncing\n- Include a clear call to action / next step\n- Use contact names, not generic \"team\"\n- Tone: professional but warm\n- ALWAYS sign the email as ${repName}. Do NOT sign as the account owner or AE \u2014 the person requesting the draft is ${repName}.\n- Do NOT use ### headers\n- Keep under 3000 characters`;\n\nconst agentPrompt = `Draft a follow-up email for my meeting with ${accountName}` +\n  (meetingSubject ? `. The meeting was about: ${meetingSubject}` : '') +\n  (participants ? `. Participants included: ${participants}` : '') +\n  `. Today is ${todayStr}.` +\n  `\\n\\nIMPORTANT: Even if MCP tools don't return detailed transcript data for this meeting, you KNOW it happened. Draft based on the meeting subject and account context.`;\n\nreturn [{\n  json: {\n    ...payload,\n    ...context,\n    systemPrompt,\n    agentPrompt,\n    assistantName,\n    assistantEmoji,\n    accountName,\n  }\n}];\n"
+                    "jsCode": "// Extract context from button value and build agent prompt\n// Two-layer pattern: Query API context (in button payload) + MCP enrichment\nconst payload = $('Parse Interactive Payload').first().json;\nlet context = {};\ntry {\n  context = JSON.parse(payload.actionValue || '{}');\n} catch(e) {\n  context = {};\n}\n\nconst accountName = (context.accountName || context.account_name) || 'the account';\nconst meetingSubject = (context.meetingSubject || context.meeting_subject) || '';\nconst participants = (context.participants || context.participant_names) || '';\nconst repName = (context.repName || context.rep_name) || 'there';\nconst assistantName = (context.assistantName || context.assistant_name) || 'Aria';\nconst assistantEmoji = (context.assistantEmoji || context.assistant_emoji) || ':robot_face:';\n\nconst meetingSubjectNote = meetingSubject\n  ? ` (${meetingSubject})`\n  : '';\n\nconst todayStr = new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });\n\nlet systemPrompt = `You are ${assistantName}, a personal sales assistant for ${repName}.\n\nYou have access to People.ai MCP tools for CRM data, account activity, meeting details, and engagement data.\n\n**FOLLOW-UP EMAIL DRAFT MODE**\n\nTODAY IS ${todayStr}. Remember this date \u2014 it is critical for determining meeting recency.\n\n## KNOWN MEETING CONTEXT (from People.ai Query API \u2014 confirmed data):\n- **Account:** ${accountName}\n- **Meeting Subject:** ${meetingSubject || '[not available]'}\n- **Participants:** ${participants || '[not available]'}\n\nThis meeting data comes from the People.ai Query API and is CONFIRMED \u2014 the meeting definitely happened. Use this as your primary anchor.\n\n## MEETING RECAP CONTEXT (from AI-generated recap):\n\\${context.recapContext ? context.recapContext : '[No recap context available \u2014 research from scratch]'}\n\nUse this recap context to anchor your follow-up email. The recap was generated from transcript data and is more reliable than generic account context.\n\n## CRITICAL: DATA LATENCY PROTOCOL\nPeople.ai transcript data takes 3-4 HOURS to appear after a meeting ends.\nThe meeting above may not have full transcript/notes available via MCP yet.\n\n**YOU MUST FOLLOW THIS PROTOCOL:**\n1. Use People.ai MCP tools to search for this meeting and try to get detailed notes, topics, and action items\n2. **IF MCP has rich data** (transcript, topics, action items) \u2192 Great, use it all to draft a detailed email\n3. **IF MCP has limited/no data for this meeting** \u2192 This is normal for recent meetings. You still KNOW the meeting happened because of the Query API data above. Draft a meaningful email using:\n   - The meeting subject as the anchor topic\n   - The account context and relationship history from MCP\n   - The participant list for To/CC fields\n   - A professional, forward-looking tone referencing \"our conversation\"\n   - Add a note: \"_Details from this meeting are still syncing. Reply with key discussion points and I\\\\'ll make this draft more specific._\"\n4. **NEVER say you cannot find the meeting** \u2014 you have confirmed data above that it happened\n5. **NEVER draft based on an older meeting** \u2014 the user clicked the button for THIS specific meeting\n\n## DRAFTING INSTRUCTIONS\nUse People.ai MCP tools to:\n1. Find the specific meeting with ${accountName} \u2014 look for notes, topics, action items\n2. Extract what was actually discussed (not general deal context)\n3. Look up participant emails to personalize the To/CC fields\n\n**CRITICAL:** Anchor the email on THIS specific meeting${meetingSubjectNote}.\n- Lead with topics, decisions, and action items from the meeting\n- Do NOT pad with generic deal/pipeline context unless it was discussed\n- If meeting notes are thin, use the meeting subject and account context to draft a relevant follow-up\n\n**DATE AWARENESS \u2014 adjust your follow-up language based on when the meeting was:**\n- Same day: \"Thanks for the conversation today\"\n- Yesterday: \"Thanks for the conversation yesterday\"\n- 2-3 days ago: \"I wanted to follow up on our conversation from {day}\"\n- 4-7 days ago: \"Circling back on our discussion last {day}\"\n\n**FORMAT** (Slack mrkdwn):\n\n:email: *Follow-up Draft \u2014 ${accountName}*\n\n*To:* primary recipient ({email@company.com}) \u2014 ALWAYS include email address. Use People.ai MCP to look up emails.\n*CC:* other meeting participants with emails \u2014 internal team and external contacts\n*Subject:* concise subject line\n\n---\nemail body \u2014 150-250 words, professional, references meeting topics, includes clear next step\n---\n\n_Reply in this thread to adjust the tone, add details, or ask me to revise._\n\n**RULES:**\n- Keep the email 150-250 words\n- Reference specific discussion topics from THIS meeting \u2014 do NOT fabricate topics\n- If MCP data is limited, draft based on the meeting subject and note that details are still syncing\n- Include a clear call to action / next step\n- Use contact names, not generic \"team\"\n- Tone: professional but warm\n- ALWAYS sign the email as ${repName}. Do NOT sign as the account owner or AE \u2014 the person requesting the draft is ${repName}.\n- Do NOT use ### headers\n- Keep under 3000 characters`;\n\nconst agentPrompt = `Draft a follow-up email for my meeting with ${accountName}` +\n  (meetingSubject ? `. The meeting was about: ${meetingSubject}` : '') +\n  (participants ? `. Participants included: ${participants}` : '') +\n  `. Today is ${todayStr}.` +\n  `\\n\\nIMPORTANT: Even if MCP tools don't return detailed transcript data for this meeting, you KNOW it happened. Draft based on the meeting subject and account context.`;\n\nreturn [{\n  json: {\n    ...payload,\n    ...context,\n    systemPrompt,\n    agentPrompt,\n    assistantName,\n    assistantEmoji,\n    accountName,\n  }\n}];\n"
                 },
                 "id": "079fed0c-26c5-4847-848a-c61e74864f6b",
                 "name": "Build Followup Context",
@@ -5002,6 +5255,19 @@
                         "name": "Slackbot Auth Token"
                     }
                 }
+            },
+            {
+                "parameters": {
+                    "jsCode": "const payload = $('Parse Interactive Payload').first().json;\nlet context = {};\ntry { context = JSON.parse(payload.actionValue || '{}'); } catch(e) {}\n\nconst skill = context.skill || '';\nconst accountName = context.account_name || '';\nconst accountId = context.account_id || '';\nconst taskSubject = context.task_subject || '';\n\n// Reformat to match what Bridge Recap to Draft expects\nconst enrichedValue = JSON.stringify({\n  accountName,\n  accountId,\n  activityUid: '',\n  meetingSubject: '',\n  participants: '',\n  userId: context.user_id || '',\n  dbUserId: context.user_id || '',\n  slackUserId: context.slack_user_id || '',\n  organizationId: context.organization_id || '',\n  assistantName: context.assistant_name || 'Aria',\n  assistantEmoji: context.assistant_emoji || ':robot_face:',\n  repName: context.rep_name || '',\n  recapContext: 'Task: ' + taskSubject,\n});\n\nreturn [{ json: {\n  ...payload,\n  actionValue: enrichedValue,\n  actionId: 'followup_draft',\n  routeSkill: skill,\n}}];"
+                },
+                "id": "56b35658-12f7-4605-a0e8-06b2ecd052bc",
+                "name": "Bridge Task Assist",
+                "type": "n8n-nodes-base.code",
+                "typeVersion": 2,
+                "position": [
+                    1728,
+                    2396
+                ]
             }
         ],
         "connections": {
@@ -5163,6 +5429,35 @@
                     [
                         {
                             "node": "Build Complete Payload",
+                            "type": "main",
+                            "index": 0
+                        }
+                    ],
+                    [],
+                    [
+                        {
+                            "node": "Bridge Task Assist",
+                            "type": "main",
+                            "index": 0
+                        }
+                    ],
+                    [
+                        {
+                            "node": "Bridge Task Assist",
+                            "type": "main",
+                            "index": 0
+                        }
+                    ],
+                    [
+                        {
+                            "node": "Bridge Task Assist",
+                            "type": "main",
+                            "index": 0
+                        }
+                    ],
+                    [
+                        {
+                            "node": "Bridge Task Assist",
                             "type": "main",
                             "index": 0
                         }
@@ -5708,6 +6003,17 @@
                     [
                         {
                             "node": "Confirm Task Complete",
+                            "type": "main",
+                            "index": 0
+                        }
+                    ]
+                ]
+            },
+            "Bridge Task Assist": {
+                "main": [
+                    [
+                        {
+                            "node": "Bridge Recap to Draft",
                             "type": "main",
                             "index": 0
                         }

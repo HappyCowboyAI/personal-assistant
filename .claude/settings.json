@@ -22,7 +22,38 @@
       "Bash(jq -r \".nodes[].parameters.conditions[]? | select\\(.condition | contains\\(\"\"cmd_tasks\"\"\\)\\) | .condition\" /Users/scottmetcalf/projects/oppassistant/n8n/workflows/Slack Events Handler.json)",
       "Bash(jq -r \".nodes[] | select\\(.name | contains\\(\"\"cmd_tasks\"\"\\)\\) | .\" /Users/scottmetcalf/projects/oppassistant/n8n/workflows/Slack Events Handler.json)",
       "mcp__claude_ai_Atlassian__searchConfluenceUsingCql",
-      "Bash(git rm:*)"
+      "Bash(git rm:*)",
+      "Bash(git push:*)",
+      "Read(//Users/scottmetcalf/projects/oppassistant/**)",
+      "Bash(for WF_ID in \"vxGajBdXFBaOCdkG\" \"7sinwSgjkEA40zDj\")",
+      "Bash(do echo:*)",
+      "Bash(jq '.nodes[] | select\\(.name == \"\"Merge All Data\"\" or .name == \"\"Format Slack Message\"\" or .name == \"\"Post to Slack\"\" or .name == \"\"Format Email Digest\"\" or .name == \"\"Send Email Digest\"\" or .name == \"\"Parse Deep Dive Results\"\" or .name == \"\"Aggregate Deep Dive Results\"\"\\)' /Users/scottmetcalf/projects/accountinsights/n8n/workflows/icp_calibration_v1.json)",
+      "Bash(find /Users/scottmetcalf/projects/accountinsights/docs -name *calibrat* -o -name *icp*)",
+      "Bash(jq '.nodes[] | select\\(.name == \"\"MCP Client Deep Dive\"\"\\)' /Users/scottmetcalf/projects/accountinsights/n8n/workflows/icp_calibration_v1.json)",
+      "Bash(jq '.nodes[] | select\\(.name == \"\"Format Merged Data\"\"\\)' /Users/scottmetcalf/projects/accountinsights/n8n/workflows/icp_calibration_v1.json)",
+      "Bash(jq '.nodes[] | select\\(.type == \"\"n8n-nodes-base.code\"\"\\) | {id, name, parameters}' /Users/scottmetcalf/projects/accountinsights/n8n/workflows/icp_calibration_v1.json)",
+      "Bash(jq '.nodes[] | select\\(.type == \"\"n8n-nodes-base.httpRequest\"\"\\) | {id, name, \"\"method\"\": .parameters.method, \"\"url\"\": .parameters.url}' /Users/scottmetcalf/projects/accountinsights/n8n/workflows/icp_calibration_v1.json)",
+      "Bash(jq '.nodes[] | select\\(.name == \"\"Generate Win Pattern Fingerprint\"\"\\)' /Users/scottmetcalf/projects/accountinsights/n8n/workflows/icp_calibration_v1.json)",
+      "Bash(jq '.nodes[] | select\\(.name == \"\"Chat Model Fingerprint\"\"\\)' /Users/scottmetcalf/projects/accountinsights/n8n/workflows/icp_calibration_v1.json)",
+      "Bash(jq '.nodes[] | select\\(.type == \"\"n8n-nodes-base.httpRequest\"\"\\) | {name, method, url, sendHeaders, \"\"headersCount\"\": \\(.parameters.headerParameters.parameters | length // 0\\), \"\"bodySpecified\"\": \\(.parameters.specifyBody // null\\)}' /Users/scottmetcalf/projects/accountinsights/n8n/workflows/icp_calibration_v1.json)",
+      "Bash(jq '.nodes[] | select\\(.name == \"\"Get User Email from Slack\"\"\\) | {id, name, type, typeVersion, parameters}' /Users/scottmetcalf/projects/accountinsights/n8n/workflows/icp_calibration_v1.json)",
+      "Bash(jq '.nodes[] | select\\(.name == \"\"Get People.ai Auth Token\"\"\\) | {id, name, type, typeVersion, parameters}' /Users/scottmetcalf/projects/accountinsights/n8n/workflows/icp_calibration_v1.json)",
+      "Bash(jq '.nodes[] | select\\(.name == \"\"Get Winners\"\"\\) | {id, name, type, typeVersion, parameters}' /Users/scottmetcalf/projects/accountinsights/n8n/workflows/icp_calibration_v1.json)",
+      "Bash(jq '.nodes[] | select\\(.name == \"\"Get Losers\"\"\\) | {id, name, type, typeVersion, parameters}' /Users/scottmetcalf/projects/accountinsights/n8n/workflows/icp_calibration_v1.json)",
+      "Bash(jq '.nodes[] | select\\(.name == \"\"Post to Slack\"\"\\) | {id, name, type, typeVersion, parameters}' /Users/scottmetcalf/projects/accountinsights/n8n/workflows/icp_calibration_v1.json)",
+      "Bash(jq '.nodes[] | select\\(.name == \"\"Workflow Parameters\"\"\\)' /Users/scottmetcalf/projects/accountinsights/n8n/workflows/icp_calibration_v1.json)",
+      "Bash(jq '.nodes[] | select\\(.name == \"\"Send Email Digest\"\"\\)' /Users/scottmetcalf/projects/accountinsights/n8n/workflows/icp_calibration_v1.json)",
+      "Bash(jq '.nodes[] | select\\(.name == \"\"Loop Over Winners\"\" or .name == \"\"Acknowledge Slash Command\"\" or .name == \"\"Merge All Data\"\"\\)' /Users/scottmetcalf/projects/accountinsights/n8n/workflows/icp_calibration_v1.json)",
+      "Bash(/tmp/research_summary.txt:*)",
+      "Bash(/tmp/button_action_reference.txt:*)",
+      "Bash(jq -r \".. | select\\(.type? == \"\"section\"\" or .type? == \"\"actions\"\"\\) | select\\(.elements? or .text?\\) | .elements[0].action_id? // .text.text? // empty\" /Users/scottmetcalf/projects/oppassistant/n8n/workflows/Interactive Events Handler.json)",
+      "Bash(jq \".nodes[] | select\\(.name == \"\"Route Action\"\" or .name | contains\\(\"\"Command\"\"\\)\\) | .name\" /Users/scottmetcalf/projects/oppassistant/n8n/workflows/Slack Events Handler.json)",
+      "Bash(ls -la /Users/scottmetcalf/projects/oppassistant/n8n/workflows/Follow-up*)",
+      "Bash(git remote:*)"
+    ],
+    "additionalDirectories": [
+      "/tmp",
+      "/Users/scottmetcalf/projects/oppassistant"
     ]
   }
 }

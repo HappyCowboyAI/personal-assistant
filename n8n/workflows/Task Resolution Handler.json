@@ -1,0 +1,1361 @@
+{
+    "updatedAt": "2026-04-03T13:26:21.236Z",
+    "createdAt": "2026-04-02T17:21:04.364Z",
+    "id": "dnoslQTCCTHZVexp",
+    "name": "Task Resolution Handler",
+    "description": null,
+    "active": true,
+    "isArchived": false,
+    "nodes": [
+        {
+            "parameters": {
+                "httpMethod": "POST",
+                "path": "task-resolution-callback",
+                "options": {}
+            },
+            "id": "e754b5cd-d23d-4647-872b-1da1e194431d",
+            "name": "Resolution Callback",
+            "type": "n8n-nodes-base.webhook",
+            "typeVersion": 2.1,
+            "position": [
+                0,
+                200
+            ],
+            "webhookId": "f41062a1-26fe-4034-9f6a-2796828402f8"
+        },
+        {
+            "parameters": {
+                "jsCode": "const body = $input.first().json.body || $input.first().json;\nconst requestId = body.request_id || '';\nconst accountName = body.account_name || '';\nconst isDone = (body.done === 'true' || body.done === true);\n\nif (!isDone) {\n  return [{ json: {\n    isDone: false,\n    requestId,\n    accountName,\n    task: {\n      Id: body.task_id || '',\n      Subject: body.task_subject || '',\n      Status: body.task_status || '',\n      Priority: body.task_priority || '',\n      ActivityDate: body.task_due_date || '',\n      Description: body.task_description || '',\n      Owner_Name: body.task_owner_name || '',\n      Owner_Email: body.task_owner_email || '',\n      Category: body.task_category || '',\n      Account_Name: body.task_account_name || '',\n    }\n  }}];\n} else {\n  return [{ json: {\n    isDone: true,\n    requestId,\n    accountName,\n  }}];\n}"
+            },
+            "id": "3f01d0de-0f80-40a0-b60f-2257a8dc60cf",
+            "name": "Parse Callback",
+            "type": "n8n-nodes-base.code",
+            "typeVersion": 2,
+            "position": [
+                240,
+                200
+            ]
+        },
+        {
+            "parameters": {
+                "conditions": {
+                    "options": {
+                        "version": 2,
+                        "caseSensitive": true,
+                        "typeValidation": "loose"
+                    },
+                    "combinator": "and",
+                    "conditions": [
+                        {
+                            "id": "f39fb4d2-a5ba-4f2f-9415-b6b0af5261a1",
+                            "leftValue": "={{ $json.isDone }}",
+                            "rightValue": true,
+                            "operator": {
+                                "type": "boolean",
+                                "operation": "true"
+                            }
+                        }
+                    ]
+                },
+                "options": {}
+            },
+            "id": "893a05ec-4547-4f17-a4ff-77bc5fa0b5aa",
+            "name": "Is Done?",
+            "type": "n8n-nodes-base.if",
+            "typeVersion": 2.2,
+            "position": [
+                480,
+                200
+            ]
+        },
+        {
+            "parameters": {
+                "method": "POST",
+                "url": "https://rhrlnkbphxntxxxcrgvv.supabase.co/rest/v1/pending_actions",
+                "authentication": "predefinedCredentialType",
+                "nodeCredentialType": "supabaseApi",
+                "sendHeaders": true,
+                "headerParameters": {
+                    "parameters": [
+                        {
+                            "name": "Prefer",
+                            "value": "return=representation"
+                        },
+                        {
+                            "name": "Content-Type",
+                            "value": "application/json"
+                        }
+                    ]
+                },
+                "sendBody": true,
+                "specifyBody": "json",
+                "jsonBody": "={{ JSON.stringify({ user_id: null, action_type: 'resolution_task', opportunity_id: $json.requestId, draft_content: JSON.stringify($json.task), context: JSON.stringify({ account_name: $json.accountName }), status: 'pending' }) }}",
+                "options": {}
+            },
+            "id": "7c742359-746f-45e1-8b33-c77c6500a654",
+            "name": "Store Task",
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4.2,
+            "position": [
+                720,
+                400
+            ],
+            "credentials": {
+                "supabaseApi": {
+                    "id": "ASRWWkQ0RSMOpNF1",
+                    "name": "Supabase account"
+                }
+            }
+        },
+        {
+            "parameters": {
+                "url": "=https://rhrlnkbphxntxxxcrgvv.supabase.co/rest/v1/pending_actions?opportunity_id=eq.{{ $json.requestId }}&action_type=eq.resolution_request&select=*&limit=1",
+                "authentication": "predefinedCredentialType",
+                "nodeCredentialType": "supabaseApi",
+                "options": {}
+            },
+            "id": "aa56b07a-263b-43af-af1b-c4ffbe4e8bbd",
+            "name": "Fetch Request Context",
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4.2,
+            "position": [
+                720,
+                200
+            ],
+            "credentials": {
+                "supabaseApi": {
+                    "id": "ASRWWkQ0RSMOpNF1",
+                    "name": "Supabase account"
+                }
+            }
+        },
+        {
+            "parameters": {
+                "url": "=https://rhrlnkbphxntxxxcrgvv.supabase.co/rest/v1/pending_actions?opportunity_id=eq.{{ $('Parse Callback').first().json.requestId }}&action_type=eq.resolution_task&select=draft_content",
+                "authentication": "predefinedCredentialType",
+                "nodeCredentialType": "supabaseApi",
+                "options": {}
+            },
+            "id": "e954405a-4132-46c5-a0a0-7ff3659d5a60",
+            "name": "Fetch All Tasks",
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4.2,
+            "position": [
+                960,
+                200
+            ],
+            "credentials": {
+                "supabaseApi": {
+                    "id": "ASRWWkQ0RSMOpNF1",
+                    "name": "Supabase account"
+                }
+            }
+        },
+        {
+            "parameters": {
+                "jsCode": "const callbackData = $('Parse Callback').first().json;\nconst contextArr = $('Fetch Request Context').all().map(i => i.json);\nconst context = Array.isArray(contextArr[0]) ? contextArr[0][0] : contextArr[0];\nconst taskRows = $('Fetch All Tasks').all().map(i => i.json);\nconst allTaskRows = Array.isArray(taskRows[0]) ? taskRows[0] : taskRows;\n\nlet meta = context.context || {};\nif (typeof meta === 'string') try { meta = JSON.parse(meta); } catch(e) { meta = {}; }\n\nconst tasks = allTaskRows.map(row => {\n  try { return JSON.parse(row.draft_content || '{}'); } catch(e) { return {}; }\n}).filter(t => t.Id);\n\n// Only process open tasks\nconst openTasks = tasks.filter(t => t.Status !== 'Completed');\n\n// Group by account\nconst byAccount = {};\nfor (const t of openTasks) {\n  const acct = t.Account_Name || 'Unknown';\n  if (!byAccount[acct]) byAccount[acct] = [];\n  byAccount[acct].push(t);\n}\n\nconst channelId = meta.channel_id || '';\nconst assistantName = meta.assistant_name || 'Aria';\nconst assistantEmoji = meta.assistant_emoji || ':robot_face:';\nconst requestId = callbackData.requestId;\n\n// Build one item per account for the loop\nconst accounts = Object.entries(byAccount).map(([accountName, accountTasks]) => {\n  const taskList = accountTasks.map(t => {\n    return `- ID: ${t.Id} | Subject: ${t.Subject} | Status: ${t.Status} | Due: ${t.ActivityDate || 'none'} | Owner: ${t.Owner_Name || 'unknown'}`;\n  }).join('\\n');\n\n  return {\n    json: {\n      accountName,\n      taskList,\n      tasks: accountTasks,\n      channelId,\n      assistantName,\n      assistantEmoji,\n      requestId,\n      totalOpenTasks: openTasks.length,\n    }\n  };\n});\n\nif (accounts.length === 0) {\n  // No open tasks to resolve \u2014 pass through with empty marker\n  return [{ json: {\n    accountName: '__NO_ACCOUNTS__',\n    taskList: '',\n    tasks: [],\n    channelId,\n    assistantName,\n    assistantEmoji,\n    requestId,\n    totalOpenTasks: 0,\n  }}];\n}\n\nreturn accounts;"
+            },
+            "id": "c277820f-f688-4223-98d8-d1ba7341828e",
+            "name": "Build Resolution Tasks",
+            "type": "n8n-nodes-base.code",
+            "typeVersion": 2,
+            "position": [
+                1200,
+                200
+            ]
+        },
+        {
+            "parameters": {
+                "batchSize": 1,
+                "options": {}
+            },
+            "id": "e2c2e66c-7bb8-4b4e-8b78-b31ab9b7fbbe",
+            "name": "Loop Accounts",
+            "type": "n8n-nodes-base.splitInBatches",
+            "typeVersion": 3,
+            "position": [
+                1440,
+                200
+            ]
+        },
+        {
+            "parameters": {
+                "promptType": "define",
+                "text": "={{ \"Review these open CRM tasks for \" + $json.accountName + \":\\n\\n\" + $json.taskList + \"\\n\\nUse People.ai SalesAI tools (ask_sales_ai_about_account) to check recent activity, emails, and meeting outcomes for \" + $json.accountName + \".\\n\\nFor each task, determine if it was completed based on evidence from recent activity. Also determine if the assistant can help with each OPEN task.\\n\\nOutput JSON:\\n{\\n  \\\"account_name\\\": \\\"\" + $json.accountName + \"\\\",\\n  \\\"results\\\": [\\n    {\\\"id\\\": \\\"SF_TASK_ID\\\", \\\"status\\\": \\\"COMPLETE\\\" or \\\"OPEN\\\", \\\"evidence\\\": \\\"one-line reason\\\", \\\"assist_skill\\\": \\\"DRAFT_EMAIL|PRESENTATION|STAKEHOLDER_MAP|MEETING_PREP|NONE\\\"}\\n  ]\\n}\" }}",
+                "options": {
+                    "systemMessage": "You are a task resolution analyst. You evaluate whether CRM tasks have been completed based on recent account activity from People.ai SalesAI.\n\nRULES:\n- Only mark a task COMPLETE if there is CLEAR evidence the work was done\n- Evidence includes: email sent, meeting held, document delivered, issue resolved, follow-up completed\n- When in doubt, leave as OPEN\n- Be conservative \u2014 false completions are worse than missed completions\n- Output ONLY valid JSON, no prose\n\nYou also determine whether the assistant can help with each OPEN task.\nAvailable assistant skills:\n- DRAFT_EMAIL: task involves sending an email, follow-up, or written communication\n- PRESENTATION: task involves creating a deck, slides, or visual deliverable\n- STAKEHOLDER_MAP: task involves identifying or mapping contacts and relationships\n- MEETING_PREP: task involves preparing for an upcoming meeting or call\n- NONE: assistant cannot help with this task",
+                    "maxIterations": 5
+                }
+            },
+            "id": "ae6b0dd9-f3a6-4864-8581-72945f913ecf",
+            "name": "Resolution Agent",
+            "type": "@n8n/n8n-nodes-langchain.agent",
+            "typeVersion": 1.7,
+            "position": [
+                1680,
+                200
+            ],
+            "continueOnFail": true
+        },
+        {
+            "parameters": {
+                "model": {
+                    "__rl": true,
+                    "mode": "list",
+                    "value": "claude-sonnet-4-5-20250929",
+                    "cachedResultName": "Claude Sonnet 4.5"
+                },
+                "options": {}
+            },
+            "id": "0779997a-c316-44b7-ad00-93b692de92b2",
+            "name": "Anthropic Chat Model (Resolution)",
+            "type": "@n8n/n8n-nodes-langchain.lmChatAnthropic",
+            "typeVersion": 1.3,
+            "position": [
+                1630,
+                400
+            ],
+            "credentials": {
+                "anthropicApi": {
+                    "id": "rlAz7ZSl4y6AwRUq",
+                    "name": "Anthropic account 2"
+                }
+            }
+        },
+        {
+            "parameters": {
+                "endpointUrl": "https://mcp.people.ai/mcp",
+                "authentication": "multipleHeadersAuth",
+                "options": {}
+            },
+            "id": "c7772389-5746-4f09-b641-78bab3384bf8",
+            "name": "People.ai MCP (Resolution)",
+            "type": "@n8n/n8n-nodes-langchain.mcpClientTool",
+            "typeVersion": 1.2,
+            "position": [
+                1830,
+                400
+            ],
+            "credentials": {
+                "httpMultipleHeadersAuth": {
+                    "id": "wvV5pwBeIL7f2vLG",
+                    "name": "People.ai MCP Multi-Header"
+                }
+            }
+        },
+        {
+            "parameters": {
+                "jsCode": "// Parse resolution results with assistable task detection\nconst SKILL_ID_MAP = {\n  'DRAFT_EMAIL': 'draft_email',\n  'PRESENTATION': 'presentation',\n  'STAKEHOLDER_MAP': 'stakeholder_map',\n  'MEETING_PREP': 'meeting_prep',\n};\n\nconst agentOutput = $input.first().json.output || $input.first().json.text || '';\nconst accountName = $('Group by Account').first().json.accountName || '';\n\n// Extract JSON from agent output\nlet parsed;\ntry {\n  const jsonMatch = agentOutput.match(/\\{[\\s\\S]*\\}/);\n  parsed = jsonMatch ? JSON.parse(jsonMatch[0]) : { results: [] };\n} catch (e) {\n  parsed = { results: [] };\n}\n\nconst results = parsed.results || [];\nconst completedTasks = [];\nconst openTasks = [];\nconst assistableTasks = [];\n\nfor (const r of results) {\n  if (r.status === 'COMPLETE') {\n    completedTasks.push({\n      id: r.id,\n      evidence: r.evidence || '',\n      accountName,\n    });\n  } else {\n    openTasks.push({\n      id: r.id,\n      evidence: r.evidence || '',\n      accountName,\n    });\n    // Check for assistable skill\n    const skillId = SKILL_ID_MAP[r.assist_skill];\n    if (skillId) {\n      assistableTasks.push({\n        id: r.id,\n        subject: r.subject || r.id,\n        accountName,\n        assistSkill: skillId,\n      });\n    }\n  }\n}\n\nreturn [{\n  json: {\n    accountName,\n    completedTasks,\n    openTasks,\n    assistableTasks,\n    completedCount: completedTasks.length,\n    openCount: openTasks.length,\n    assistableCount: assistableTasks.length,\n  }\n}];"
+            },
+            "id": "0c876bd3-6d1c-486d-90e3-398184190de4",
+            "name": "Parse Resolution Results",
+            "type": "n8n-nodes-base.code",
+            "typeVersion": 2,
+            "position": [
+                1920,
+                200
+            ]
+        },
+        {
+            "parameters": {
+                "jsCode": "const data = $input.first().json;\nconst completed = data.completedTasks || [];\n\nif (completed.length === 0) {\n  // Nothing to mark complete \u2014 skip to next account\n  return [{ json: { ...data, hasCompletions: false } }];\n}\n\n// Fan out one item per completed task for the Workato webhook\nconst items = completed.map(t => ({\n  json: {\n    payload: {\n      action: 'update_task',\n      salesforce_object: 'Task',\n      task_id: t.id,\n      fields: { Status: 'Completed' },\n      context: { account_name: t.accountName },\n    },\n    // Carry forward metadata for downstream\n    _meta: {\n      accountName: data.accountName,\n      completedTasks: data.completedTasks,\n      openTasks: data.openTasks,\n      completedCount: data.completedCount,\n      openCount: data.openCount,\n      channelId: data.channelId,\n      assistantName: data.assistantName,\n      assistantEmoji: data.assistantEmoji,\n      requestId: data.requestId,\n      hasCompletions: true,\n    },\n  }\n}));\n\nreturn items;"
+            },
+            "id": "70a30c5e-0d28-4faa-a13b-dd34de596541",
+            "name": "Prepare Completion Payloads",
+            "type": "n8n-nodes-base.code",
+            "typeVersion": 2,
+            "position": [
+                2160,
+                200
+            ]
+        },
+        {
+            "parameters": {
+                "method": "POST",
+                "url": "https://webhooks.workato.com/webhooks/rest/cfff4d3a-6f27-4ba4-9754-ac22c759ecaa/assistant_sf_write",
+                "sendHeaders": true,
+                "headerParameters": {
+                    "parameters": [
+                        {
+                            "name": "Content-Type",
+                            "value": "application/json"
+                        }
+                    ]
+                },
+                "sendBody": true,
+                "specifyBody": "json",
+                "jsonBody": "={{ JSON.stringify($json.payload) }}",
+                "options": {}
+            },
+            "id": "5c668406-5e86-4f95-9e73-9381d7bb9e01",
+            "name": "Mark Task Complete",
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4.2,
+            "position": [
+                2400,
+                200
+            ]
+        },
+        {
+            "parameters": {
+                "jsCode": "// Collect results from all loop iterations\nconst items = $input.all();\nlet completedDetails = [];\nlet assistableDetails = [];\nlet totalCompleted = 0;\nlet totalOpen = 0;\n\nfor (const item of items) {\n  const d = item.json;\n  if (d.completedTasks) {\n    completedDetails = completedDetails.concat(d.completedTasks);\n  }\n  if (d.assistableTasks) {\n    assistableDetails = assistableDetails.concat(d.assistableTasks);\n  }\n  totalCompleted += (d.completedCount || 0);\n  totalOpen += (d.openCount || 0);\n}\n\nreturn [{\n  json: {\n    completedDetails,\n    assistableDetails,\n    totalCompleted,\n    totalOpen,\n    completedCount: completedDetails.length,\n    assistableCount: assistableDetails.length,\n  }\n}];"
+            },
+            "id": "ae0f91dd-fe21-4d9e-a1a1-9e92edc5ff4a",
+            "name": "Collect All Results",
+            "type": "n8n-nodes-base.code",
+            "typeVersion": 2,
+            "position": [
+                1680,
+                -50
+            ]
+        },
+        {
+            "parameters": {
+                "jsCode": "// Build summary text with assist suggestions\nconst data = $input.first().json;\nconst completedDetails = data.completedDetails || [];\nconst assistableDetails = data.assistableDetails || [];\nconst completedCount = data.completedCount || 0;\nconst totalOpen = data.totalOpen || 0;\n\nlet summaryLines = [];\n\nif (completedCount > 0) {\n  summaryLines.push(`:white_check_mark: *${completedCount} task${completedCount === 1 ? '' : 's'} auto-resolved*`);\n  for (const t of completedDetails) {\n    summaryLines.push(`\u2022 ${t.accountName}: ${t.evidence}`);\n  }\n}\n\nif (assistableDetails.length > 0) {\n  summaryLines.push('');\n  summaryLines.push(`:robot_face: *I can help with ${assistableDetails.length} open task${assistableDetails.length === 1 ? '' : 's'}:*`);\n  for (const t of assistableDetails) {\n    summaryLines.push(`\u2022 ${t.accountName}: ${t.subject}`);\n  }\n}\n\nconst summaryText = summaryLines.join('\\n');\nconst shouldPost = completedCount > 0;\n\nreturn [{\n  json: {\n    summaryText,\n    shouldPost,\n    completedCount,\n    totalOpen,\n    completedDetails,\n    assistableDetails,\n  }\n}];"
+            },
+            "id": "0be09c47-9be5-48c8-b003-afac79e3fb1e",
+            "name": "Build Summary",
+            "type": "n8n-nodes-base.code",
+            "typeVersion": 2,
+            "position": [
+                1920,
+                -50
+            ]
+        },
+        {
+            "parameters": {
+                "conditions": {
+                    "options": {
+                        "version": 2,
+                        "caseSensitive": true,
+                        "typeValidation": "loose"
+                    },
+                    "combinator": "and",
+                    "conditions": [
+                        {
+                            "id": "c88582cb-90f4-4c5c-a9b7-c9805ebfcb8d",
+                            "leftValue": "={{ $json.skipSummary }}",
+                            "rightValue": true,
+                            "operator": {
+                                "type": "boolean",
+                                "operation": "false"
+                            }
+                        }
+                    ]
+                },
+                "options": {}
+            },
+            "id": "2cf55763-82d9-40e3-80be-430c24b3af8f",
+            "name": "Has Summary?",
+            "type": "n8n-nodes-base.if",
+            "typeVersion": 2.2,
+            "position": [
+                2160,
+                -50
+            ]
+        },
+        {
+            "parameters": {
+                "jsCode": "// Format summary DM with assist buttons\nconst SKILL_BUTTON_MAP = {\n  'draft_email': { text: ':email: Draft Email', actionId: 'task_assist_draft_email' },\n  'presentation': { text: ':bar_chart: Create Deck', actionId: 'task_assist_presentation' },\n  'stakeholder_map': { text: ':busts_in_silhouette: Stakeholder Map', actionId: 'task_assist_stakeholders' },\n  'meeting_prep': { text: ':clipboard: Meeting Prep', actionId: 'task_assist_meeting_prep' },\n};\n\nconst data = $input.first().json;\nconst summaryText = data.summaryText || '';\nconst assistableDetails = data.assistableDetails || [];\n\nconst blocks = [];\n\n// Summary text section\nblocks.push({\n  type: \"section\",\n  text: { type: \"mrkdwn\", text: summaryText }\n});\n\n// Assist buttons for assistable tasks (max 3 tasks, each gets skill + complete button)\nconst tasksToShow = assistableDetails.slice(0, 3);\nif (tasksToShow.length > 0) {\n  const elements = [];\n  for (const t of tasksToShow) {\n    const skillBtn = SKILL_BUTTON_MAP[t.assistSkill];\n    if (skillBtn) {\n      elements.push({\n        type: \"button\",\n        text: { type: \"plain_text\", text: skillBtn.text, emoji: true },\n        action_id: `${skillBtn.actionId}_${t.id}`,\n        value: JSON.stringify({\n          action: 'task_assist',\n          skill: t.assistSkill,\n          task_subject: t.subject,\n          account_name: t.accountName,\n          task_id: t.id,\n        }),\n      });\n      elements.push({\n        type: \"button\",\n        text: { type: \"plain_text\", text: ':white_check_mark: Complete', emoji: true },\n        action_id: `task_complete_${t.id}`,\n        value: JSON.stringify({\n          task_id: t.id,\n          task_subject: t.subject,\n          account_name: t.accountName,\n        }),\n        style: \"primary\",\n      });\n    }\n  }\n  if (elements.length > 0) {\n    blocks.push({ type: \"actions\", elements });\n  }\n}\n\n// \"All Tasks Today\" link button at the bottom\nblocks.push({\n  type: \"actions\",\n  elements: [\n    {\n      type: \"button\",\n      text: { type: \"plain_text\", text: \"All Tasks Today\", emoji: true },\n      action_id: \"link_all_tasks\",\n      url: \"https://glass.people.ai/sheet/0250d214-84ba-48e4-b272-6839c03462f5\"\n    }\n  ]\n});\n\nreturn [{\n  json: {\n    blocks: JSON.stringify(blocks),\n    summaryText,\n  }\n}];"
+            },
+            "id": "e0d981ca-a3d6-4225-b216-f9555026e405",
+            "name": "Format Summary DM",
+            "type": "n8n-nodes-base.code",
+            "typeVersion": 2,
+            "position": [
+                2400,
+                -50
+            ]
+        },
+        {
+            "parameters": {
+                "method": "POST",
+                "url": "https://slack.com/api/chat.postMessage",
+                "authentication": "genericCredentialType",
+                "genericAuthType": "httpHeaderAuth",
+                "sendHeaders": true,
+                "headerParameters": {
+                    "parameters": [
+                        {
+                            "name": "Content-Type",
+                            "value": "application/json"
+                        }
+                    ]
+                },
+                "sendBody": true,
+                "specifyBody": "json",
+                "jsonBody": "={{ JSON.stringify({ channel: $json.channelId, text: $json.text, blocks: JSON.parse($json.blocks), username: $json.assistantName, icon_emoji: $json.assistantEmoji }) }}",
+                "options": {}
+            },
+            "id": "cb3b795c-f0c3-47fc-a7d5-67bf7cf59b2e",
+            "name": "Send Summary DM",
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4.2,
+            "position": [
+                2640,
+                -50
+            ],
+            "credentials": {
+                "httpHeaderAuth": {
+                    "id": "LluVuiMJ8NUbAiG7",
+                    "name": "Slackbot Auth Token"
+                }
+            }
+        },
+        {
+            "parameters": {
+                "method": "DELETE",
+                "url": "=https://rhrlnkbphxntxxxcrgvv.supabase.co/rest/v1/pending_actions?opportunity_id=eq.{{ $('Parse Callback').first().json.requestId }}&action_type=in.(resolution_task,resolution_request)",
+                "authentication": "predefinedCredentialType",
+                "nodeCredentialType": "supabaseApi",
+                "sendHeaders": true,
+                "headerParameters": {
+                    "parameters": [
+                        {
+                            "name": "Content-Type",
+                            "value": "application/json"
+                        },
+                        {
+                            "name": "Prefer",
+                            "value": "return=representation"
+                        }
+                    ]
+                },
+                "options": {}
+            },
+            "id": "f87a0e70-c010-46e9-bf09-3bb2fa662449",
+            "name": "Cleanup Stored Tasks",
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4.2,
+            "position": [
+                2880,
+                -50
+            ],
+            "credentials": {
+                "supabaseApi": {
+                    "id": "ASRWWkQ0RSMOpNF1",
+                    "name": "Supabase account"
+                }
+            }
+        }
+    ],
+    "connections": {
+        "Anthropic Chat Model (Resolution)": {
+            "ai_languageModel": [
+                [
+                    {
+                        "node": "Resolution Agent",
+                        "type": "ai_languageModel",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "People.ai MCP (Resolution)": {
+            "ai_tool": [
+                [
+                    {
+                        "node": "Resolution Agent",
+                        "type": "ai_tool",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Resolution Callback": {
+            "main": [
+                [
+                    {
+                        "node": "Parse Callback",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Parse Callback": {
+            "main": [
+                [
+                    {
+                        "node": "Is Done?",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Is Done?": {
+            "main": [
+                [
+                    {
+                        "node": "Fetch Request Context",
+                        "type": "main",
+                        "index": 0
+                    }
+                ],
+                [
+                    {
+                        "node": "Store Task",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Store Task": {
+            "main": [
+                []
+            ]
+        },
+        "Fetch Request Context": {
+            "main": [
+                [
+                    {
+                        "node": "Fetch All Tasks",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Fetch All Tasks": {
+            "main": [
+                [
+                    {
+                        "node": "Build Resolution Tasks",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Build Resolution Tasks": {
+            "main": [
+                [
+                    {
+                        "node": "Loop Accounts",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Loop Accounts": {
+            "main": [
+                [
+                    {
+                        "node": "Collect All Results",
+                        "type": "main",
+                        "index": 0
+                    }
+                ],
+                [
+                    {
+                        "node": "Resolution Agent",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Resolution Agent": {
+            "main": [
+                [
+                    {
+                        "node": "Parse Resolution Results",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Parse Resolution Results": {
+            "main": [
+                [
+                    {
+                        "node": "Prepare Completion Payloads",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Prepare Completion Payloads": {
+            "main": [
+                [
+                    {
+                        "node": "Mark Task Complete",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Mark Task Complete": {
+            "main": [
+                [
+                    {
+                        "node": "Loop Accounts",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Collect All Results": {
+            "main": [
+                [
+                    {
+                        "node": "Build Summary",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Build Summary": {
+            "main": [
+                [
+                    {
+                        "node": "Has Summary?",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Has Summary?": {
+            "main": [
+                [
+                    {
+                        "node": "Format Summary DM",
+                        "type": "main",
+                        "index": 0
+                    }
+                ],
+                [
+                    {
+                        "node": "Cleanup Stored Tasks",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Format Summary DM": {
+            "main": [
+                [
+                    {
+                        "node": "Send Summary DM",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Send Summary DM": {
+            "main": [
+                [
+                    {
+                        "node": "Cleanup Stored Tasks",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Cleanup Stored Tasks": {
+            "main": [
+                []
+            ]
+        }
+    },
+    "settings": {
+        "executionOrder": "v1",
+        "saveManualExecutions": true,
+        "callerPolicy": "workflowsFromSameOwner",
+        "availableInMCP": false
+    },
+    "staticData": null,
+    "meta": null,
+    "pinData": null,
+    "versionId": "825e354d-9ca5-4a49-8aaa-3ab38173cee4",
+    "activeVersionId": "825e354d-9ca5-4a49-8aaa-3ab38173cee4",
+    "versionCounter": 10,
+    "triggerCount": 1,
+    "tags": [],
+    "activeVersion": {
+        "updatedAt": "2026-04-03T13:23:10.180Z",
+        "createdAt": "2026-04-03T13:23:10.180Z",
+        "versionId": "825e354d-9ca5-4a49-8aaa-3ab38173cee4",
+        "workflowId": "dnoslQTCCTHZVexp",
+        "nodes": [
+            {
+                "parameters": {
+                    "httpMethod": "POST",
+                    "path": "task-resolution-callback",
+                    "options": {}
+                },
+                "id": "e754b5cd-d23d-4647-872b-1da1e194431d",
+                "name": "Resolution Callback",
+                "type": "n8n-nodes-base.webhook",
+                "typeVersion": 2.1,
+                "position": [
+                    0,
+                    200
+                ],
+                "webhookId": "f41062a1-26fe-4034-9f6a-2796828402f8"
+            },
+            {
+                "parameters": {
+                    "jsCode": "const body = $input.first().json.body || $input.first().json;\nconst requestId = body.request_id || '';\nconst accountName = body.account_name || '';\nconst isDone = (body.done === 'true' || body.done === true);\n\nif (!isDone) {\n  return [{ json: {\n    isDone: false,\n    requestId,\n    accountName,\n    task: {\n      Id: body.task_id || '',\n      Subject: body.task_subject || '',\n      Status: body.task_status || '',\n      Priority: body.task_priority || '',\n      ActivityDate: body.task_due_date || '',\n      Description: body.task_description || '',\n      Owner_Name: body.task_owner_name || '',\n      Owner_Email: body.task_owner_email || '',\n      Category: body.task_category || '',\n      Account_Name: body.task_account_name || '',\n    }\n  }}];\n} else {\n  return [{ json: {\n    isDone: true,\n    requestId,\n    accountName,\n  }}];\n}"
+                },
+                "id": "3f01d0de-0f80-40a0-b60f-2257a8dc60cf",
+                "name": "Parse Callback",
+                "type": "n8n-nodes-base.code",
+                "typeVersion": 2,
+                "position": [
+                    240,
+                    200
+                ]
+            },
+            {
+                "parameters": {
+                    "conditions": {
+                        "options": {
+                            "version": 2,
+                            "caseSensitive": true,
+                            "typeValidation": "loose"
+                        },
+                        "combinator": "and",
+                        "conditions": [
+                            {
+                                "id": "f39fb4d2-a5ba-4f2f-9415-b6b0af5261a1",
+                                "leftValue": "={{ $json.isDone }}",
+                                "rightValue": true,
+                                "operator": {
+                                    "type": "boolean",
+                                    "operation": "true"
+                                }
+                            }
+                        ]
+                    },
+                    "options": {}
+                },
+                "id": "893a05ec-4547-4f17-a4ff-77bc5fa0b5aa",
+                "name": "Is Done?",
+                "type": "n8n-nodes-base.if",
+                "typeVersion": 2.2,
+                "position": [
+                    480,
+                    200
+                ]
+            },
+            {
+                "parameters": {
+                    "method": "POST",
+                    "url": "https://rhrlnkbphxntxxxcrgvv.supabase.co/rest/v1/pending_actions",
+                    "authentication": "predefinedCredentialType",
+                    "nodeCredentialType": "supabaseApi",
+                    "sendHeaders": true,
+                    "headerParameters": {
+                        "parameters": [
+                            {
+                                "name": "Prefer",
+                                "value": "return=representation"
+                            },
+                            {
+                                "name": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ]
+                    },
+                    "sendBody": true,
+                    "specifyBody": "json",
+                    "jsonBody": "={{ JSON.stringify({ user_id: null, action_type: 'resolution_task', opportunity_id: $json.requestId, draft_content: JSON.stringify($json.task), context: JSON.stringify({ account_name: $json.accountName }), status: 'pending' }) }}",
+                    "options": {}
+                },
+                "id": "7c742359-746f-45e1-8b33-c77c6500a654",
+                "name": "Store Task",
+                "type": "n8n-nodes-base.httpRequest",
+                "typeVersion": 4.2,
+                "position": [
+                    720,
+                    400
+                ],
+                "credentials": {
+                    "supabaseApi": {
+                        "id": "ASRWWkQ0RSMOpNF1",
+                        "name": "Supabase account"
+                    }
+                }
+            },
+            {
+                "parameters": {
+                    "url": "=https://rhrlnkbphxntxxxcrgvv.supabase.co/rest/v1/pending_actions?opportunity_id=eq.{{ $json.requestId }}&action_type=eq.resolution_request&select=*&limit=1",
+                    "authentication": "predefinedCredentialType",
+                    "nodeCredentialType": "supabaseApi",
+                    "options": {}
+                },
+                "id": "aa56b07a-263b-43af-af1b-c4ffbe4e8bbd",
+                "name": "Fetch Request Context",
+                "type": "n8n-nodes-base.httpRequest",
+                "typeVersion": 4.2,
+                "position": [
+                    720,
+                    200
+                ],
+                "credentials": {
+                    "supabaseApi": {
+                        "id": "ASRWWkQ0RSMOpNF1",
+                        "name": "Supabase account"
+                    }
+                }
+            },
+            {
+                "parameters": {
+                    "url": "=https://rhrlnkbphxntxxxcrgvv.supabase.co/rest/v1/pending_actions?opportunity_id=eq.{{ $('Parse Callback').first().json.requestId }}&action_type=eq.resolution_task&select=draft_content",
+                    "authentication": "predefinedCredentialType",
+                    "nodeCredentialType": "supabaseApi",
+                    "options": {}
+                },
+                "id": "e954405a-4132-46c5-a0a0-7ff3659d5a60",
+                "name": "Fetch All Tasks",
+                "type": "n8n-nodes-base.httpRequest",
+                "typeVersion": 4.2,
+                "position": [
+                    960,
+                    200
+                ],
+                "credentials": {
+                    "supabaseApi": {
+                        "id": "ASRWWkQ0RSMOpNF1",
+                        "name": "Supabase account"
+                    }
+                }
+            },
+            {
+                "parameters": {
+                    "jsCode": "const callbackData = $('Parse Callback').first().json;\nconst contextArr = $('Fetch Request Context').all().map(i => i.json);\nconst context = Array.isArray(contextArr[0]) ? contextArr[0][0] : contextArr[0];\nconst taskRows = $('Fetch All Tasks').all().map(i => i.json);\nconst allTaskRows = Array.isArray(taskRows[0]) ? taskRows[0] : taskRows;\n\nlet meta = context.context || {};\nif (typeof meta === 'string') try { meta = JSON.parse(meta); } catch(e) { meta = {}; }\n\nconst tasks = allTaskRows.map(row => {\n  try { return JSON.parse(row.draft_content || '{}'); } catch(e) { return {}; }\n}).filter(t => t.Id);\n\n// Only process open tasks\nconst openTasks = tasks.filter(t => t.Status !== 'Completed');\n\n// Group by account\nconst byAccount = {};\nfor (const t of openTasks) {\n  const acct = t.Account_Name || 'Unknown';\n  if (!byAccount[acct]) byAccount[acct] = [];\n  byAccount[acct].push(t);\n}\n\nconst channelId = meta.channel_id || '';\nconst assistantName = meta.assistant_name || 'Aria';\nconst assistantEmoji = meta.assistant_emoji || ':robot_face:';\nconst requestId = callbackData.requestId;\n\n// Build one item per account for the loop\nconst accounts = Object.entries(byAccount).map(([accountName, accountTasks]) => {\n  const taskList = accountTasks.map(t => {\n    return `- ID: ${t.Id} | Subject: ${t.Subject} | Status: ${t.Status} | Due: ${t.ActivityDate || 'none'} | Owner: ${t.Owner_Name || 'unknown'}`;\n  }).join('\\n');\n\n  return {\n    json: {\n      accountName,\n      taskList,\n      tasks: accountTasks,\n      channelId,\n      assistantName,\n      assistantEmoji,\n      requestId,\n      totalOpenTasks: openTasks.length,\n    }\n  };\n});\n\nif (accounts.length === 0) {\n  // No open tasks to resolve \u2014 pass through with empty marker\n  return [{ json: {\n    accountName: '__NO_ACCOUNTS__',\n    taskList: '',\n    tasks: [],\n    channelId,\n    assistantName,\n    assistantEmoji,\n    requestId,\n    totalOpenTasks: 0,\n  }}];\n}\n\nreturn accounts;"
+                },
+                "id": "c277820f-f688-4223-98d8-d1ba7341828e",
+                "name": "Build Resolution Tasks",
+                "type": "n8n-nodes-base.code",
+                "typeVersion": 2,
+                "position": [
+                    1200,
+                    200
+                ]
+            },
+            {
+                "parameters": {
+                    "batchSize": 1,
+                    "options": {}
+                },
+                "id": "e2c2e66c-7bb8-4b4e-8b78-b31ab9b7fbbe",
+                "name": "Loop Accounts",
+                "type": "n8n-nodes-base.splitInBatches",
+                "typeVersion": 3,
+                "position": [
+                    1440,
+                    200
+                ]
+            },
+            {
+                "parameters": {
+                    "promptType": "define",
+                    "text": "={{ \"Review these open CRM tasks for \" + $json.accountName + \":\\n\\n\" + $json.taskList + \"\\n\\nUse People.ai SalesAI tools (ask_sales_ai_about_account) to check recent activity, emails, and meeting outcomes for \" + $json.accountName + \".\\n\\nFor each task, determine if it was completed based on evidence from recent activity. Also determine if the assistant can help with each OPEN task.\\n\\nOutput JSON:\\n{\\n  \\\"account_name\\\": \\\"\" + $json.accountName + \"\\\",\\n  \\\"results\\\": [\\n    {\\\"id\\\": \\\"SF_TASK_ID\\\", \\\"status\\\": \\\"COMPLETE\\\" or \\\"OPEN\\\", \\\"evidence\\\": \\\"one-line reason\\\", \\\"assist_skill\\\": \\\"DRAFT_EMAIL|PRESENTATION|STAKEHOLDER_MAP|MEETING_PREP|NONE\\\"}\\n  ]\\n}\" }}",
+                    "options": {
+                        "systemMessage": "You are a task resolution analyst. You evaluate whether CRM tasks have been completed based on recent account activity from People.ai SalesAI.\n\nRULES:\n- Only mark a task COMPLETE if there is CLEAR evidence the work was done\n- Evidence includes: email sent, meeting held, document delivered, issue resolved, follow-up completed\n- When in doubt, leave as OPEN\n- Be conservative \u2014 false completions are worse than missed completions\n- Output ONLY valid JSON, no prose\n\nYou also determine whether the assistant can help with each OPEN task.\nAvailable assistant skills:\n- DRAFT_EMAIL: task involves sending an email, follow-up, or written communication\n- PRESENTATION: task involves creating a deck, slides, or visual deliverable\n- STAKEHOLDER_MAP: task involves identifying or mapping contacts and relationships\n- MEETING_PREP: task involves preparing for an upcoming meeting or call\n- NONE: assistant cannot help with this task",
+                        "maxIterations": 5
+                    }
+                },
+                "id": "ae6b0dd9-f3a6-4864-8581-72945f913ecf",
+                "name": "Resolution Agent",
+                "type": "@n8n/n8n-nodes-langchain.agent",
+                "typeVersion": 1.7,
+                "position": [
+                    1680,
+                    200
+                ],
+                "continueOnFail": true
+            },
+            {
+                "parameters": {
+                    "model": {
+                        "__rl": true,
+                        "mode": "list",
+                        "value": "claude-sonnet-4-5-20250929",
+                        "cachedResultName": "Claude Sonnet 4.5"
+                    },
+                    "options": {}
+                },
+                "id": "0779997a-c316-44b7-ad00-93b692de92b2",
+                "name": "Anthropic Chat Model (Resolution)",
+                "type": "@n8n/n8n-nodes-langchain.lmChatAnthropic",
+                "typeVersion": 1.3,
+                "position": [
+                    1630,
+                    400
+                ],
+                "credentials": {
+                    "anthropicApi": {
+                        "id": "rlAz7ZSl4y6AwRUq",
+                        "name": "Anthropic account 2"
+                    }
+                }
+            },
+            {
+                "parameters": {
+                    "endpointUrl": "https://mcp.people.ai/mcp",
+                    "authentication": "multipleHeadersAuth",
+                    "options": {}
+                },
+                "id": "c7772389-5746-4f09-b641-78bab3384bf8",
+                "name": "People.ai MCP (Resolution)",
+                "type": "@n8n/n8n-nodes-langchain.mcpClientTool",
+                "typeVersion": 1.2,
+                "position": [
+                    1830,
+                    400
+                ],
+                "credentials": {
+                    "httpMultipleHeadersAuth": {
+                        "id": "wvV5pwBeIL7f2vLG",
+                        "name": "People.ai MCP Multi-Header"
+                    }
+                }
+            },
+            {
+                "parameters": {
+                    "jsCode": "// Parse resolution results with assistable task detection\nconst SKILL_ID_MAP = {\n  'DRAFT_EMAIL': 'draft_email',\n  'PRESENTATION': 'presentation',\n  'STAKEHOLDER_MAP': 'stakeholder_map',\n  'MEETING_PREP': 'meeting_prep',\n};\n\nconst agentOutput = $input.first().json.output || $input.first().json.text || '';\nconst accountName = $('Group by Account').first().json.accountName || '';\n\n// Extract JSON from agent output\nlet parsed;\ntry {\n  const jsonMatch = agentOutput.match(/\\{[\\s\\S]*\\}/);\n  parsed = jsonMatch ? JSON.parse(jsonMatch[0]) : { results: [] };\n} catch (e) {\n  parsed = { results: [] };\n}\n\nconst results = parsed.results || [];\nconst completedTasks = [];\nconst openTasks = [];\nconst assistableTasks = [];\n\nfor (const r of results) {\n  if (r.status === 'COMPLETE') {\n    completedTasks.push({\n      id: r.id,\n      evidence: r.evidence || '',\n      accountName,\n    });\n  } else {\n    openTasks.push({\n      id: r.id,\n      evidence: r.evidence || '',\n      accountName,\n    });\n    // Check for assistable skill\n    const skillId = SKILL_ID_MAP[r.assist_skill];\n    if (skillId) {\n      assistableTasks.push({\n        id: r.id,\n        subject: r.subject || r.id,\n        accountName,\n        assistSkill: skillId,\n      });\n    }\n  }\n}\n\nreturn [{\n  json: {\n    accountName,\n    completedTasks,\n    openTasks,\n    assistableTasks,\n    completedCount: completedTasks.length,\n    openCount: openTasks.length,\n    assistableCount: assistableTasks.length,\n  }\n}];"
+                },
+                "id": "0c876bd3-6d1c-486d-90e3-398184190de4",
+                "name": "Parse Resolution Results",
+                "type": "n8n-nodes-base.code",
+                "typeVersion": 2,
+                "position": [
+                    1920,
+                    200
+                ]
+            },
+            {
+                "parameters": {
+                    "jsCode": "const data = $input.first().json;\nconst completed = data.completedTasks || [];\n\nif (completed.length === 0) {\n  // Nothing to mark complete \u2014 skip to next account\n  return [{ json: { ...data, hasCompletions: false } }];\n}\n\n// Fan out one item per completed task for the Workato webhook\nconst items = completed.map(t => ({\n  json: {\n    payload: {\n      action: 'update_task',\n      salesforce_object: 'Task',\n      task_id: t.id,\n      fields: { Status: 'Completed' },\n      context: { account_name: t.accountName },\n    },\n    // Carry forward metadata for downstream\n    _meta: {\n      accountName: data.accountName,\n      completedTasks: data.completedTasks,\n      openTasks: data.openTasks,\n      completedCount: data.completedCount,\n      openCount: data.openCount,\n      channelId: data.channelId,\n      assistantName: data.assistantName,\n      assistantEmoji: data.assistantEmoji,\n      requestId: data.requestId,\n      hasCompletions: true,\n    },\n  }\n}));\n\nreturn items;"
+                },
+                "id": "70a30c5e-0d28-4faa-a13b-dd34de596541",
+                "name": "Prepare Completion Payloads",
+                "type": "n8n-nodes-base.code",
+                "typeVersion": 2,
+                "position": [
+                    2160,
+                    200
+                ]
+            },
+            {
+                "parameters": {
+                    "method": "POST",
+                    "url": "https://webhooks.workato.com/webhooks/rest/cfff4d3a-6f27-4ba4-9754-ac22c759ecaa/assistant_sf_write",
+                    "sendHeaders": true,
+                    "headerParameters": {
+                        "parameters": [
+                            {
+                                "name": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ]
+                    },
+                    "sendBody": true,
+                    "specifyBody": "json",
+                    "jsonBody": "={{ JSON.stringify($json.payload) }}",
+                    "options": {}
+                },
+                "id": "5c668406-5e86-4f95-9e73-9381d7bb9e01",
+                "name": "Mark Task Complete",
+                "type": "n8n-nodes-base.httpRequest",
+                "typeVersion": 4.2,
+                "position": [
+                    2400,
+                    200
+                ]
+            },
+            {
+                "parameters": {
+                    "jsCode": "// Collect results from all loop iterations\nconst items = $input.all();\nlet completedDetails = [];\nlet assistableDetails = [];\nlet totalCompleted = 0;\nlet totalOpen = 0;\n\nfor (const item of items) {\n  const d = item.json;\n  if (d.completedTasks) {\n    completedDetails = completedDetails.concat(d.completedTasks);\n  }\n  if (d.assistableTasks) {\n    assistableDetails = assistableDetails.concat(d.assistableTasks);\n  }\n  totalCompleted += (d.completedCount || 0);\n  totalOpen += (d.openCount || 0);\n}\n\nreturn [{\n  json: {\n    completedDetails,\n    assistableDetails,\n    totalCompleted,\n    totalOpen,\n    completedCount: completedDetails.length,\n    assistableCount: assistableDetails.length,\n  }\n}];"
+                },
+                "id": "ae0f91dd-fe21-4d9e-a1a1-9e92edc5ff4a",
+                "name": "Collect All Results",
+                "type": "n8n-nodes-base.code",
+                "typeVersion": 2,
+                "position": [
+                    1680,
+                    -50
+                ]
+            },
+            {
+                "parameters": {
+                    "jsCode": "// Build summary text with assist suggestions\nconst data = $input.first().json;\nconst completedDetails = data.completedDetails || [];\nconst assistableDetails = data.assistableDetails || [];\nconst completedCount = data.completedCount || 0;\nconst totalOpen = data.totalOpen || 0;\n\nlet summaryLines = [];\n\nif (completedCount > 0) {\n  summaryLines.push(`:white_check_mark: *${completedCount} task${completedCount === 1 ? '' : 's'} auto-resolved*`);\n  for (const t of completedDetails) {\n    summaryLines.push(`\u2022 ${t.accountName}: ${t.evidence}`);\n  }\n}\n\nif (assistableDetails.length > 0) {\n  summaryLines.push('');\n  summaryLines.push(`:robot_face: *I can help with ${assistableDetails.length} open task${assistableDetails.length === 1 ? '' : 's'}:*`);\n  for (const t of assistableDetails) {\n    summaryLines.push(`\u2022 ${t.accountName}: ${t.subject}`);\n  }\n}\n\nconst summaryText = summaryLines.join('\\n');\nconst shouldPost = completedCount > 0;\n\nreturn [{\n  json: {\n    summaryText,\n    shouldPost,\n    completedCount,\n    totalOpen,\n    completedDetails,\n    assistableDetails,\n  }\n}];"
+                },
+                "id": "0be09c47-9be5-48c8-b003-afac79e3fb1e",
+                "name": "Build Summary",
+                "type": "n8n-nodes-base.code",
+                "typeVersion": 2,
+                "position": [
+                    1920,
+                    -50
+                ]
+            },
+            {
+                "parameters": {
+                    "conditions": {
+                        "options": {
+                            "version": 2,
+                            "caseSensitive": true,
+                            "typeValidation": "loose"
+                        },
+                        "combinator": "and",
+                        "conditions": [
+                            {
+                                "id": "c88582cb-90f4-4c5c-a9b7-c9805ebfcb8d",
+                                "leftValue": "={{ $json.skipSummary }}",
+                                "rightValue": true,
+                                "operator": {
+                                    "type": "boolean",
+                                    "operation": "false"
+                                }
+                            }
+                        ]
+                    },
+                    "options": {}
+                },
+                "id": "2cf55763-82d9-40e3-80be-430c24b3af8f",
+                "name": "Has Summary?",
+                "type": "n8n-nodes-base.if",
+                "typeVersion": 2.2,
+                "position": [
+                    2160,
+                    -50
+                ]
+            },
+            {
+                "parameters": {
+                    "jsCode": "// Format summary DM with assist buttons\nconst SKILL_BUTTON_MAP = {\n  'draft_email': { text: ':email: Draft Email', actionId: 'task_assist_draft_email' },\n  'presentation': { text: ':bar_chart: Create Deck', actionId: 'task_assist_presentation' },\n  'stakeholder_map': { text: ':busts_in_silhouette: Stakeholder Map', actionId: 'task_assist_stakeholders' },\n  'meeting_prep': { text: ':clipboard: Meeting Prep', actionId: 'task_assist_meeting_prep' },\n};\n\nconst data = $input.first().json;\nconst summaryText = data.summaryText || '';\nconst assistableDetails = data.assistableDetails || [];\n\nconst blocks = [];\n\n// Summary text section\nblocks.push({\n  type: \"section\",\n  text: { type: \"mrkdwn\", text: summaryText }\n});\n\n// Assist buttons for assistable tasks (max 3 tasks, each gets skill + complete button)\nconst tasksToShow = assistableDetails.slice(0, 3);\nif (tasksToShow.length > 0) {\n  const elements = [];\n  for (const t of tasksToShow) {\n    const skillBtn = SKILL_BUTTON_MAP[t.assistSkill];\n    if (skillBtn) {\n      elements.push({\n        type: \"button\",\n        text: { type: \"plain_text\", text: skillBtn.text, emoji: true },\n        action_id: `${skillBtn.actionId}_${t.id}`,\n        value: JSON.stringify({\n          action: 'task_assist',\n          skill: t.assistSkill,\n          task_subject: t.subject,\n          account_name: t.accountName,\n          task_id: t.id,\n        }),\n      });\n      elements.push({\n        type: \"button\",\n        text: { type: \"plain_text\", text: ':white_check_mark: Complete', emoji: true },\n        action_id: `task_complete_${t.id}`,\n        value: JSON.stringify({\n          task_id: t.id,\n          task_subject: t.subject,\n          account_name: t.accountName,\n        }),\n        style: \"primary\",\n      });\n    }\n  }\n  if (elements.length > 0) {\n    blocks.push({ type: \"actions\", elements });\n  }\n}\n\n// \"All Tasks Today\" link button at the bottom\nblocks.push({\n  type: \"actions\",\n  elements: [\n    {\n      type: \"button\",\n      text: { type: \"plain_text\", text: \"All Tasks Today\", emoji: true },\n      action_id: \"link_all_tasks\",\n      url: \"https://glass.people.ai/sheet/0250d214-84ba-48e4-b272-6839c03462f5\"\n    }\n  ]\n});\n\nreturn [{\n  json: {\n    blocks: JSON.stringify(blocks),\n    summaryText,\n  }\n}];"
+                },
+                "id": "e0d981ca-a3d6-4225-b216-f9555026e405",
+                "name": "Format Summary DM",
+                "type": "n8n-nodes-base.code",
+                "typeVersion": 2,
+                "position": [
+                    2400,
+                    -50
+                ]
+            },
+            {
+                "parameters": {
+                    "method": "POST",
+                    "url": "https://slack.com/api/chat.postMessage",
+                    "authentication": "genericCredentialType",
+                    "genericAuthType": "httpHeaderAuth",
+                    "sendHeaders": true,
+                    "headerParameters": {
+                        "parameters": [
+                            {
+                                "name": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ]
+                    },
+                    "sendBody": true,
+                    "specifyBody": "json",
+                    "jsonBody": "={{ JSON.stringify({ channel: $json.channelId, text: $json.text, blocks: JSON.parse($json.blocks), username: $json.assistantName, icon_emoji: $json.assistantEmoji }) }}",
+                    "options": {}
+                },
+                "id": "cb3b795c-f0c3-47fc-a7d5-67bf7cf59b2e",
+                "name": "Send Summary DM",
+                "type": "n8n-nodes-base.httpRequest",
+                "typeVersion": 4.2,
+                "position": [
+                    2640,
+                    -50
+                ],
+                "credentials": {
+                    "httpHeaderAuth": {
+                        "id": "LluVuiMJ8NUbAiG7",
+                        "name": "Slackbot Auth Token"
+                    }
+                }
+            },
+            {
+                "parameters": {
+                    "method": "DELETE",
+                    "url": "=https://rhrlnkbphxntxxxcrgvv.supabase.co/rest/v1/pending_actions?opportunity_id=eq.{{ $('Parse Callback').first().json.requestId }}&action_type=in.(resolution_task,resolution_request)",
+                    "authentication": "predefinedCredentialType",
+                    "nodeCredentialType": "supabaseApi",
+                    "sendHeaders": true,
+                    "headerParameters": {
+                        "parameters": [
+                            {
+                                "name": "Content-Type",
+                                "value": "application/json"
+                            },
+                            {
+                                "name": "Prefer",
+                                "value": "return=representation"
+                            }
+                        ]
+                    },
+                    "options": {}
+                },
+                "id": "f87a0e70-c010-46e9-bf09-3bb2fa662449",
+                "name": "Cleanup Stored Tasks",
+                "type": "n8n-nodes-base.httpRequest",
+                "typeVersion": 4.2,
+                "position": [
+                    2880,
+                    -50
+                ],
+                "credentials": {
+                    "supabaseApi": {
+                        "id": "ASRWWkQ0RSMOpNF1",
+                        "name": "Supabase account"
+                    }
+                }
+            }
+        ],
+        "connections": {
+            "Anthropic Chat Model (Resolution)": {
+                "ai_languageModel": [
+                    [
+                        {
+                            "node": "Resolution Agent",
+                            "type": "ai_languageModel",
+                            "index": 0
+                        }
+                    ]
+                ]
+            },
+            "People.ai MCP (Resolution)": {
+                "ai_tool": [
+                    [
+                        {
+                            "node": "Resolution Agent",
+                            "type": "ai_tool",
+                            "index": 0
+                        }
+                    ]
+                ]
+            },
+            "Resolution Callback": {
+                "main": [
+                    [
+                        {
+                            "node": "Parse Callback",
+                            "type": "main",
+                            "index": 0
+                        }
+                    ]
+                ]
+            },
+            "Parse Callback": {
+                "main": [
+                    [
+                        {
+                            "node": "Is Done?",
+                            "type": "main",
+                            "index": 0
+                        }
+                    ]
+                ]
+            },
+            "Is Done?": {
+                "main": [
+                    [
+                        {
+                            "node": "Fetch Request Context",
+                            "type": "main",
+                            "index": 0
+                        }
+                    ],
+                    [
+                        {
+                            "node": "Store Task",
+                            "type": "main",
+                            "index": 0
+                        }
+                    ]
+                ]
+            },
+            "Store Task": {
+                "main": [
+                    []
+                ]
+            },
+            "Fetch Request Context": {
+                "main": [
+                    [
+                        {
+                            "node": "Fetch All Tasks",
+                            "type": "main",
+                            "index": 0
+                        }
+                    ]
+                ]
+            },
+            "Fetch All Tasks": {
+                "main": [
+                    [
+                        {
+                            "node": "Build Resolution Tasks",
+                            "type": "main",
+                            "index": 0
+                        }
+                    ]
+                ]
+            },
+            "Build Resolution Tasks": {
+                "main": [
+                    [
+                        {
+                            "node": "Loop Accounts",
+                            "type": "main",
+                            "index": 0
+                        }
+                    ]
+                ]
+            },
+            "Loop Accounts": {
+                "main": [
+                    [
+                        {
+                            "node": "Collect All Results",
+                            "type": "main",
+                            "index": 0
+                        }
+                    ],
+                    [
+                        {
+                            "node": "Resolution Agent",
+                            "type": "main",
+                            "index": 0
+                        }
+                    ]
+                ]
+            },
+            "Resolution Agent": {
+                "main": [
+                    [
+                        {
+                            "node": "Parse Resolution Results",
+                            "type": "main",
+                            "index": 0
+                        }
+                    ]
+                ]
+            },
+            "Parse Resolution Results": {
+                "main": [
+                    [
+                        {
+                            "node": "Prepare Completion Payloads",
+                            "type": "main",
+                            "index": 0
+                        }
+                    ]
+                ]
+            },
+            "Prepare Completion Payloads": {
+                "main": [
+                    [
+                        {
+                            "node": "Mark Task Complete",
+                            "type": "main",
+                            "index": 0
+                        }
+                    ]
+                ]
+            },
+            "Mark Task Complete": {
+                "main": [
+                    [
+                        {
+                            "node": "Loop Accounts",
+                            "type": "main",
+                            "index": 0
+                        }
+                    ]
+                ]
+            },
+            "Collect All Results": {
+                "main": [
+                    [
+                        {
+                            "node": "Build Summary",
+                            "type": "main",
+                            "index": 0
+                        }
+                    ]
+                ]
+            },
+            "Build Summary": {
+                "main": [
+                    [
+                        {
+                            "node": "Has Summary?",
+                            "type": "main",
+                            "index": 0
+                        }
+                    ]
+                ]
+            },
+            "Has Summary?": {
+                "main": [
+                    [
+                        {
+                            "node": "Format Summary DM",
+                            "type": "main",
+                            "index": 0
+                        }
+                    ],
+                    [
+                        {
+                            "node": "Cleanup Stored Tasks",
+                            "type": "main",
+                            "index": 0
+                        }
+                    ]
+                ]
+            },
+            "Format Summary DM": {
+                "main": [
+                    [
+                        {
+                            "node": "Send Summary DM",
+                            "type": "main",
+                            "index": 0
+                        }
+                    ]
+                ]
+            },
+            "Send Summary DM": {
+                "main": [
+                    [
+                        {
+                            "node": "Cleanup Stored Tasks",
+                            "type": "main",
+                            "index": 0
+                        }
+                    ]
+                ]
+            },
+            "Cleanup Stored Tasks": {
+                "main": [
+                    []
+                ]
+            }
+        },
+        "authors": "Scott Metcalf",
+        "name": null,
+        "description": null,
+        "autosaved": false
+    }
+}

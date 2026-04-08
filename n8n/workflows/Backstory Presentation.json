@@ -1,5 +1,5 @@
 {
-    "updatedAt": "2026-03-17T04:31:20.454Z",
+    "updatedAt": "2026-04-03T17:33:19.943Z",
     "createdAt": "2026-02-25T17:22:54.846Z",
     "id": "lJypxYaw0BmUsTV8",
     "name": "Backstory Presentation",
@@ -47,7 +47,7 @@
             "type": "@n8n/n8n-nodes-langchain.agent",
             "typeVersion": 1.7,
             "position": [
-                640,
+                656,
                 400
             ],
             "continueOnFail": true
@@ -60,14 +60,16 @@
                     "mode": "list",
                     "cachedResultName": "Claude Sonnet 4.6"
                 },
-                "options": {}
+                "options": {
+                    "maxTokens": 16000
+                }
             },
             "id": "dc21301f-a892-47db-a8d6-c7610f77aa5f",
             "name": "Anthropic Chat Model",
             "type": "@n8n/n8n-nodes-langchain.lmChatAnthropic",
             "typeVersion": 1.3,
             "position": [
-                1784,
+                664,
                 624
             ],
             "credentials": {
@@ -79,14 +81,14 @@
         },
         {
             "parameters": {
-                "jsCode": "const agentOutput = $('Presentation Agent').first().json;\n\n// Extract text from various possible agent output structures\nlet text = '';\nif (agentOutput.output) {\n  text = agentOutput.output;\n} else if (agentOutput.text) {\n  text = agentOutput.text;\n} else if (agentOutput.error) {\n  // Agent errored \u2014 log it\n  console.log('Presentation Agent error:', JSON.stringify(agentOutput.error).substring(0, 500));\n  text = '';\n} else {\n  text = JSON.stringify(agentOutput);\n}\n\nlet parsed = null;\n\n// Strategy 1: Direct parse (agent returned clean JSON)\ntry { parsed = JSON.parse(text.trim()); } catch (e) {}\n\n// Strategy 2: Extract from markdown code block\nif (!parsed) {\n  const m = text.match(/```(?:json)?\\s*([\\s\\S]*?)```/);\n  if (m) try { parsed = JSON.parse(m[1].trim()); } catch (e) {}\n}\n\n// Strategy 3: Find the outermost JSON object with slides array\nif (!parsed) {\n  // Look for {\"title\":... pattern\n  const start = text.indexOf('{\"');\n  if (start >= 0) {\n    // Find matching closing brace by counting braces\n    let depth = 0;\n    let end = -1;\n    for (let i = start; i < text.length; i++) {\n      if (text[i] === '{') depth++;\n      else if (text[i] === '}') {\n        depth--;\n        if (depth === 0) { end = i + 1; break; }\n      }\n    }\n    if (end > start) {\n      try { parsed = JSON.parse(text.substring(start, end)); } catch (e) {}\n    }\n  }\n}\n\n// Strategy 4: Try extracting any JSON object (greedy regex)\nif (!parsed) {\n  const m = text.match(/\\{[\\s\\S]*\\}/);\n  if (m) try { parsed = JSON.parse(m[0]); } catch (e) {}\n}\n\n// Validate: must have slides array\nif (parsed && (!parsed.slides || !Array.isArray(parsed.slides) || parsed.slides.length === 0)) {\n  console.log('Parsed JSON but no valid slides array. Keys:', Object.keys(parsed).join(', '));\n  parsed = null;\n}\n\n// Fallback \u2014 create a meaningful single-slide deck from the prompt\nif (!parsed) {\n  const prompt = $('Resolve Presentation Identity').first().json.presentationPrompt || 'Presentation';\n  console.log('WARNING: Could not parse agent output. First 500 chars:', text.substring(0, 500));\n  parsed = {\n    title: prompt.substring(0, 80),\n    slides: [\n      {type: \"title\", title: prompt.substring(0, 80), subtitle: \"Content generation needs retry\"},\n      {type: \"two_column\", title: \"Overview\",\n        left: {header: \"Key Points\", items: [\"Content generation encountered an issue\", \"Please retry the presentation command\"]},\n        right: {header: \"Next Steps\", items: [\"Try again with a more specific prompt\", \"Check n8n execution logs for details\"]}},\n      {type: \"thank_you\", title: \"Thank You\"}\n    ]\n  };\n}\n\n// Ensure bookend slides\nif (parsed.slides[0] && parsed.slides[0].type !== 'title') {\n  parsed.slides.unshift({type: 'title', title: parsed.title || 'Presentation', subtitle: ''});\n}\nif (parsed.slides[parsed.slides.length - 1].type !== 'thank_you') {\n  parsed.slides.push({type: 'thank_you', title: 'Thank You'});\n}\n\nreturn [{ json: parsed }];\n"
+                "jsCode": "const agentOutput = $('Presentation Agent').first().json;\n\nlet text = '';\nif (agentOutput.output) {\n  text = agentOutput.output;\n} else if (agentOutput.text) {\n  text = agentOutput.text;\n} else if (agentOutput.error) {\n  text = '';\n} else {\n  text = JSON.stringify(agentOutput);\n}\n\n// Sanitize: replace fullwidth/unicode punctuation with ASCII equivalents\ntext = text\n  .replace(/\\uFF0C/g, ',')   // fullwidth comma\n  .replace(/\\uFF1A/g, ':')   // fullwidth colon\n  .replace(/\\uFF1B/g, ';')   // fullwidth semicolon\n  .replace(/\\uFF08/g, '(')   // fullwidth left paren\n  .replace(/\\uFF09/g, ')')   // fullwidth right paren\n  .replace(/\\uFF3B/g, '[')   // fullwidth left bracket\n  .replace(/\\uFF3D/g, ']')   // fullwidth right bracket\n  .replace(/\\uFF5B/g, '{')   // fullwidth left brace\n  .replace(/\\uFF5D/g, '}')   // fullwidth right brace\n  .replace(/\\u201C/g, '\"')   // left double quote\n  .replace(/\\u201D/g, '\"')   // right double quote\n  .replace(/\\u2018/g, \"'\")   // left single quote\n  .replace(/\\u2019/g, \"'\")   // right single quote\n  .replace(/\\u2014/g, '-')   // em dash\n  .replace(/\\u2013/g, '-');  // en dash\n\nlet parsed = null;\n\n// Strategy 1: Direct parse\ntry { parsed = JSON.parse(text.trim()); } catch (e) {}\n\n// Strategy 2: Code block\nif (!parsed) {\n  const m = text.match(/```(?:json)?\\s*([\\s\\S]*?)```/);\n  if (m) try { parsed = JSON.parse(m[1].trim()); } catch (e) {}\n}\n\n// Strategy 3: Brace matching from {\"title\" or {\"slides\"\nif (!parsed) {\n  for (const pat of ['{\"title\"', '{\"slides\"']) {\n    const start = text.indexOf(pat);\n    if (start >= 0) {\n      let depth = 0, end = -1;\n      for (let i = start; i < text.length; i++) {\n        if (text[i] === '{') depth++;\n        else if (text[i] === '}') { depth--; if (depth === 0) { end = i + 1; break; } }\n      }\n      if (end > start) {\n        try { parsed = JSON.parse(text.substring(start, end)); break; } catch (e) {}\n      }\n    }\n  }\n}\n\n// Strategy 4: Greedy regex\nif (!parsed) {\n  const m = text.match(/\\{[\\s\\S]*\\}/);\n  if (m) try { parsed = JSON.parse(m[0]); } catch (e) {}\n}\n\n// Validate slides array\nif (parsed && (!parsed.slides || !Array.isArray(parsed.slides) || parsed.slides.length === 0)) {\n  parsed = null;\n}\n\n// Fallback\nif (!parsed) {\n  const prompt = $('Resolve Presentation Identity').first().json.presentationPrompt || 'Presentation';\n  parsed = {\n    title: prompt.substring(0, 80),\n    slides: [\n      {type: \"title\", title: prompt.substring(0, 80), subtitle: \"Content generation needs retry\"},\n      {type: \"two_column\", title: \"Overview\",\n        left: {header: \"Key Points\", items: [\"Content generation encountered an issue\", \"Please retry the presentation command\"]},\n        right: {header: \"Next Steps\", items: [\"Try again with a more specific prompt\", \"Check n8n execution logs for details\"]}},\n      {type: \"thank_you\", title: \"Thank You\"}\n    ]\n  };\n}\n\n// Ensure bookends\nif (parsed.slides[0] && parsed.slides[0].type !== 'title') {\n  parsed.slides.unshift({type: 'title', title: parsed.title || 'Presentation', subtitle: ''});\n}\nif (parsed.slides[parsed.slides.length - 1].type !== 'thank_you') {\n  parsed.slides.push({type: 'thank_you', title: 'Thank You'});\n}\n\nreturn [{ json: parsed }];"
             },
             "id": "2130b130-49bf-4ae2-963d-22a7339d41fe",
             "name": "Parse Slide JSON",
             "type": "n8n-nodes-base.code",
             "typeVersion": 2,
             "position": [
-                2128,
+                1008,
                 400
             ]
         },
@@ -115,7 +117,7 @@
             "type": "n8n-nodes-base.httpRequest",
             "typeVersion": 4.2,
             "position": [
-                2352,
+                1232,
                 400
             ],
             "credentials": {
@@ -134,7 +136,7 @@
             "type": "n8n-nodes-base.code",
             "typeVersion": 2,
             "position": [
-                2576,
+                1456,
                 400
             ]
         },
@@ -163,7 +165,7 @@
             "type": "n8n-nodes-base.httpRequest",
             "typeVersion": 4.2,
             "position": [
-                2800,
+                1680,
                 400
             ],
             "credentials": {
@@ -198,7 +200,7 @@
             "type": "n8n-nodes-base.httpRequest",
             "typeVersion": 4.2,
             "position": [
-                3024,
+                1904,
                 400
             ],
             "credentials": {
@@ -234,7 +236,7 @@
             "type": "n8n-nodes-base.httpRequest",
             "typeVersion": 4.2,
             "position": [
-                3248,
+                2128,
                 400
             ],
             "credentials": {
@@ -269,7 +271,7 @@
             "type": "n8n-nodes-base.httpRequest",
             "typeVersion": 4.2,
             "position": [
-                3472,
+                2352,
                 400
             ],
             "credentials": {
@@ -291,7 +293,7 @@
             "type": "@n8n/n8n-nodes-langchain.mcpClientTool",
             "typeVersion": 1.2,
             "position": [
-                1912,
+                792,
                 624
             ],
             "credentials": {
@@ -428,22 +430,42 @@
     "settings": {
         "executionOrder": "v1",
         "callerPolicy": "workflowsFromSameOwner",
-        "availableInMCP": false
+        "availableInMCP": false,
+        "binaryMode": "separate"
     },
     "staticData": null,
     "meta": {
         "templateCredsSetupCompleted": true
     },
     "pinData": {},
-    "versionId": "5a87d7fc-ee68-48ec-858d-2db28d58be1f",
-    "activeVersionId": "5a87d7fc-ee68-48ec-858d-2db28d58be1f",
-    "versionCounter": 170,
+    "versionId": "7cc0a986-891d-4272-a06e-bb5577326ce9",
+    "activeVersionId": "7cc0a986-891d-4272-a06e-bb5577326ce9",
+    "versionCounter": 185,
     "triggerCount": 0,
+    "shared": [
+        {
+            "updatedAt": "2026-02-25T17:22:54.850Z",
+            "createdAt": "2026-02-25T17:22:54.850Z",
+            "role": "workflow:owner",
+            "workflowId": "lJypxYaw0BmUsTV8",
+            "projectId": "85jtzrEPriGDXgHV",
+            "project": {
+                "updatedAt": "2025-11-24T07:01:19.205Z",
+                "createdAt": "2025-11-24T06:56:53.862Z",
+                "id": "85jtzrEPriGDXgHV",
+                "name": "Scott Metcalf <metcalf.scott@gmail.com>",
+                "type": "personal",
+                "icon": null,
+                "description": null,
+                "creatorId": "bfa163c1-bd53-4c0f-b0ba-8dc3626f7c79"
+            }
+        }
+    ],
     "tags": [],
     "activeVersion": {
-        "updatedAt": "2026-03-17T04:31:20.456Z",
-        "createdAt": "2026-03-17T04:31:20.456Z",
-        "versionId": "5a87d7fc-ee68-48ec-858d-2db28d58be1f",
+        "updatedAt": "2026-04-03T17:33:19.945Z",
+        "createdAt": "2026-04-03T17:33:19.945Z",
+        "versionId": "7cc0a986-891d-4272-a06e-bb5577326ce9",
         "workflowId": "lJypxYaw0BmUsTV8",
         "nodes": [
             {
@@ -486,7 +508,7 @@
                 "type": "@n8n/n8n-nodes-langchain.agent",
                 "typeVersion": 1.7,
                 "position": [
-                    640,
+                    656,
                     400
                 ],
                 "continueOnFail": true
@@ -499,14 +521,16 @@
                         "mode": "list",
                         "cachedResultName": "Claude Sonnet 4.6"
                     },
-                    "options": {}
+                    "options": {
+                        "maxTokens": 16000
+                    }
                 },
                 "id": "dc21301f-a892-47db-a8d6-c7610f77aa5f",
                 "name": "Anthropic Chat Model",
                 "type": "@n8n/n8n-nodes-langchain.lmChatAnthropic",
                 "typeVersion": 1.3,
                 "position": [
-                    1784,
+                    664,
                     624
                 ],
                 "credentials": {
@@ -518,14 +542,14 @@
             },
             {
                 "parameters": {
-                    "jsCode": "const agentOutput = $('Presentation Agent').first().json;\n\n// Extract text from various possible agent output structures\nlet text = '';\nif (agentOutput.output) {\n  text = agentOutput.output;\n} else if (agentOutput.text) {\n  text = agentOutput.text;\n} else if (agentOutput.error) {\n  // Agent errored \u2014 log it\n  console.log('Presentation Agent error:', JSON.stringify(agentOutput.error).substring(0, 500));\n  text = '';\n} else {\n  text = JSON.stringify(agentOutput);\n}\n\nlet parsed = null;\n\n// Strategy 1: Direct parse (agent returned clean JSON)\ntry { parsed = JSON.parse(text.trim()); } catch (e) {}\n\n// Strategy 2: Extract from markdown code block\nif (!parsed) {\n  const m = text.match(/```(?:json)?\\s*([\\s\\S]*?)```/);\n  if (m) try { parsed = JSON.parse(m[1].trim()); } catch (e) {}\n}\n\n// Strategy 3: Find the outermost JSON object with slides array\nif (!parsed) {\n  // Look for {\"title\":... pattern\n  const start = text.indexOf('{\"');\n  if (start >= 0) {\n    // Find matching closing brace by counting braces\n    let depth = 0;\n    let end = -1;\n    for (let i = start; i < text.length; i++) {\n      if (text[i] === '{') depth++;\n      else if (text[i] === '}') {\n        depth--;\n        if (depth === 0) { end = i + 1; break; }\n      }\n    }\n    if (end > start) {\n      try { parsed = JSON.parse(text.substring(start, end)); } catch (e) {}\n    }\n  }\n}\n\n// Strategy 4: Try extracting any JSON object (greedy regex)\nif (!parsed) {\n  const m = text.match(/\\{[\\s\\S]*\\}/);\n  if (m) try { parsed = JSON.parse(m[0]); } catch (e) {}\n}\n\n// Validate: must have slides array\nif (parsed && (!parsed.slides || !Array.isArray(parsed.slides) || parsed.slides.length === 0)) {\n  console.log('Parsed JSON but no valid slides array. Keys:', Object.keys(parsed).join(', '));\n  parsed = null;\n}\n\n// Fallback \u2014 create a meaningful single-slide deck from the prompt\nif (!parsed) {\n  const prompt = $('Resolve Presentation Identity').first().json.presentationPrompt || 'Presentation';\n  console.log('WARNING: Could not parse agent output. First 500 chars:', text.substring(0, 500));\n  parsed = {\n    title: prompt.substring(0, 80),\n    slides: [\n      {type: \"title\", title: prompt.substring(0, 80), subtitle: \"Content generation needs retry\"},\n      {type: \"two_column\", title: \"Overview\",\n        left: {header: \"Key Points\", items: [\"Content generation encountered an issue\", \"Please retry the presentation command\"]},\n        right: {header: \"Next Steps\", items: [\"Try again with a more specific prompt\", \"Check n8n execution logs for details\"]}},\n      {type: \"thank_you\", title: \"Thank You\"}\n    ]\n  };\n}\n\n// Ensure bookend slides\nif (parsed.slides[0] && parsed.slides[0].type !== 'title') {\n  parsed.slides.unshift({type: 'title', title: parsed.title || 'Presentation', subtitle: ''});\n}\nif (parsed.slides[parsed.slides.length - 1].type !== 'thank_you') {\n  parsed.slides.push({type: 'thank_you', title: 'Thank You'});\n}\n\nreturn [{ json: parsed }];\n"
+                    "jsCode": "const agentOutput = $('Presentation Agent').first().json;\n\nlet text = '';\nif (agentOutput.output) {\n  text = agentOutput.output;\n} else if (agentOutput.text) {\n  text = agentOutput.text;\n} else if (agentOutput.error) {\n  text = '';\n} else {\n  text = JSON.stringify(agentOutput);\n}\n\n// Sanitize: replace fullwidth/unicode punctuation with ASCII equivalents\ntext = text\n  .replace(/\\uFF0C/g, ',')   // fullwidth comma\n  .replace(/\\uFF1A/g, ':')   // fullwidth colon\n  .replace(/\\uFF1B/g, ';')   // fullwidth semicolon\n  .replace(/\\uFF08/g, '(')   // fullwidth left paren\n  .replace(/\\uFF09/g, ')')   // fullwidth right paren\n  .replace(/\\uFF3B/g, '[')   // fullwidth left bracket\n  .replace(/\\uFF3D/g, ']')   // fullwidth right bracket\n  .replace(/\\uFF5B/g, '{')   // fullwidth left brace\n  .replace(/\\uFF5D/g, '}')   // fullwidth right brace\n  .replace(/\\u201C/g, '\"')   // left double quote\n  .replace(/\\u201D/g, '\"')   // right double quote\n  .replace(/\\u2018/g, \"'\")   // left single quote\n  .replace(/\\u2019/g, \"'\")   // right single quote\n  .replace(/\\u2014/g, '-')   // em dash\n  .replace(/\\u2013/g, '-');  // en dash\n\nlet parsed = null;\n\n// Strategy 1: Direct parse\ntry { parsed = JSON.parse(text.trim()); } catch (e) {}\n\n// Strategy 2: Code block\nif (!parsed) {\n  const m = text.match(/```(?:json)?\\s*([\\s\\S]*?)```/);\n  if (m) try { parsed = JSON.parse(m[1].trim()); } catch (e) {}\n}\n\n// Strategy 3: Brace matching from {\"title\" or {\"slides\"\nif (!parsed) {\n  for (const pat of ['{\"title\"', '{\"slides\"']) {\n    const start = text.indexOf(pat);\n    if (start >= 0) {\n      let depth = 0, end = -1;\n      for (let i = start; i < text.length; i++) {\n        if (text[i] === '{') depth++;\n        else if (text[i] === '}') { depth--; if (depth === 0) { end = i + 1; break; } }\n      }\n      if (end > start) {\n        try { parsed = JSON.parse(text.substring(start, end)); break; } catch (e) {}\n      }\n    }\n  }\n}\n\n// Strategy 4: Greedy regex\nif (!parsed) {\n  const m = text.match(/\\{[\\s\\S]*\\}/);\n  if (m) try { parsed = JSON.parse(m[0]); } catch (e) {}\n}\n\n// Validate slides array\nif (parsed && (!parsed.slides || !Array.isArray(parsed.slides) || parsed.slides.length === 0)) {\n  parsed = null;\n}\n\n// Fallback\nif (!parsed) {\n  const prompt = $('Resolve Presentation Identity').first().json.presentationPrompt || 'Presentation';\n  parsed = {\n    title: prompt.substring(0, 80),\n    slides: [\n      {type: \"title\", title: prompt.substring(0, 80), subtitle: \"Content generation needs retry\"},\n      {type: \"two_column\", title: \"Overview\",\n        left: {header: \"Key Points\", items: [\"Content generation encountered an issue\", \"Please retry the presentation command\"]},\n        right: {header: \"Next Steps\", items: [\"Try again with a more specific prompt\", \"Check n8n execution logs for details\"]}},\n      {type: \"thank_you\", title: \"Thank You\"}\n    ]\n  };\n}\n\n// Ensure bookends\nif (parsed.slides[0] && parsed.slides[0].type !== 'title') {\n  parsed.slides.unshift({type: 'title', title: parsed.title || 'Presentation', subtitle: ''});\n}\nif (parsed.slides[parsed.slides.length - 1].type !== 'thank_you') {\n  parsed.slides.push({type: 'thank_you', title: 'Thank You'});\n}\n\nreturn [{ json: parsed }];"
                 },
                 "id": "2130b130-49bf-4ae2-963d-22a7339d41fe",
                 "name": "Parse Slide JSON",
                 "type": "n8n-nodes-base.code",
                 "typeVersion": 2,
                 "position": [
-                    2128,
+                    1008,
                     400
                 ]
             },
@@ -554,7 +578,7 @@
                 "type": "n8n-nodes-base.httpRequest",
                 "typeVersion": 4.2,
                 "position": [
-                    2352,
+                    1232,
                     400
                 ],
                 "credentials": {
@@ -573,7 +597,7 @@
                 "type": "n8n-nodes-base.code",
                 "typeVersion": 2,
                 "position": [
-                    2576,
+                    1456,
                     400
                 ]
             },
@@ -602,7 +626,7 @@
                 "type": "n8n-nodes-base.httpRequest",
                 "typeVersion": 4.2,
                 "position": [
-                    2800,
+                    1680,
                     400
                 ],
                 "credentials": {
@@ -637,7 +661,7 @@
                 "type": "n8n-nodes-base.httpRequest",
                 "typeVersion": 4.2,
                 "position": [
-                    3024,
+                    1904,
                     400
                 ],
                 "credentials": {
@@ -673,7 +697,7 @@
                 "type": "n8n-nodes-base.httpRequest",
                 "typeVersion": 4.2,
                 "position": [
-                    3248,
+                    2128,
                     400
                 ],
                 "credentials": {
@@ -708,7 +732,7 @@
                 "type": "n8n-nodes-base.httpRequest",
                 "typeVersion": 4.2,
                 "position": [
-                    3472,
+                    2352,
                     400
                 ],
                 "credentials": {
@@ -730,7 +754,7 @@
                 "type": "@n8n/n8n-nodes-langchain.mcpClientTool",
                 "typeVersion": 1.2,
                 "position": [
-                    1912,
+                    792,
                     624
                 ],
                 "credentials": {
@@ -867,6 +891,24 @@
         "authors": "Scott Metcalf",
         "name": null,
         "description": null,
-        "autosaved": false
+        "autosaved": false,
+        "workflowPublishHistory": [
+            {
+                "createdAt": "2026-04-03T17:33:19.995Z",
+                "id": 2030,
+                "workflowId": "lJypxYaw0BmUsTV8",
+                "versionId": "7cc0a986-891d-4272-a06e-bb5577326ce9",
+                "event": "activated",
+                "userId": "bfa163c1-bd53-4c0f-b0ba-8dc3626f7c79"
+            },
+            {
+                "createdAt": "2026-04-03T17:33:19.980Z",
+                "id": 2029,
+                "workflowId": "lJypxYaw0BmUsTV8",
+                "versionId": "7cc0a986-891d-4272-a06e-bb5577326ce9",
+                "event": "deactivated",
+                "userId": "bfa163c1-bd53-4c0f-b0ba-8dc3626f7c79"
+            }
+        ]
     }
 }
