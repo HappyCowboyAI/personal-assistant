@@ -169,12 +169,3 @@ These workflows are called by other workflows (not triggered directly):
 | Executive Inbox | C-suite portfolio summary | [`Executive Inbox.json`](https://github.com/HappyCowboyAI/personal-assistant/blob/main/n8n/workflows/Executive%20Inbox.json) |
 | Meeting Data Monitor | Monitor meeting data quality | [`Meeting Data Monitor.json`](https://github.com/HappyCowboyAI/personal-assistant/blob/main/n8n/workflows/Meeting%20Data%20Monitor.json) |
 
-## Legacy (Reference Only)
-
-These are older versions kept for reference:
-
-| Workflow | Notes | Download |
-|----------|-------|----------|
-| nightly_digest | Original v1 digest template | [`nightly_digest.json`](https://github.com/HappyCowboyAI/personal-assistant/blob/main/n8n/workflows/nightly_digest.json) |
-| onboarding | Original v1 onboarding flow | [`onboarding.json`](https://github.com/HappyCowboyAI/personal-assistant/blob/main/n8n/workflows/onboarding.json) |
-| n8nClaw | Internal utility | [`n8nClaw.json`](https://github.com/HappyCowboyAI/personal-assistant/blob/main/n8n/workflows/n8nClaw.json) |
