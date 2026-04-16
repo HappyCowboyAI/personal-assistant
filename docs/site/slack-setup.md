@@ -302,4 +302,4 @@ When deploying on Teams or Google Chat instead of Slack, these workflow componen
 | **Interactive handler** | `/webhook/slack-interactive` | Same endpoint as events | Same endpoint as events |
 | **User lookup** | `users.info` API | Microsoft Graph `users` API | Google People API or Workspace Directory |
 
-> The core logic (People.ai data fetch → Claude agent → parse output → deliver) stays the same across all platforms. Only the delivery and event-handling layers change.
+> The core logic (People.ai data fetch → AI agent → parse output → deliver) stays the same across all platforms. Only the delivery and event-handling layers change.

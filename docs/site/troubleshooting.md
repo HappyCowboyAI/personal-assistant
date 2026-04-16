@@ -176,5 +176,5 @@ To trigger for a single user, you can also use the On-Demand Digest sub-workflow
 If you're stuck after working through this page:
 
 1. Check the n8n execution logs — they show the full data flow for each run
-2. Verify each integration independently (Slack, database, People.ai, Claude)
+2. Verify each integration independently (Slack, database, People.ai, LLM provider)
 3. Contact your People.ai account team for API access issues

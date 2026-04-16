@@ -21,7 +21,7 @@ The assistant is built on a three-layer stack:
 | Layer | Component | Role |
 |-------|-----------|------|
 | **Orchestration** | n8n | Scheduling, API routing, conditional logic, message delivery |
-| **Reasoning** | Claude (Anthropic API) | Synthesizes data into natural language briefings and recommendations |
+| **Reasoning** | LLM (Claude, ChatGPT, Gemini, etc.) | Synthesizes data into natural language briefings and recommendations |
 | **Intelligence** | People.ai API + MCP | Engagement scores, activity signals, deal health, stakeholder data |
 | **Delivery** | Slack, Teams, or Google Chat | All user interaction — onboarding, digests, commands, approvals |
 | **Data Store** | PostgreSQL | Multi-tenant user/org data, message logs, pending actions |
@@ -35,7 +35,7 @@ The assistant is built on a three-layer stack:
                     ┌───────┴───────┐
                     │               │
               ┌─────▼─────┐  ┌─────▼──────┐
-              │  Claude    │  │ People.ai  │
+              │    LLM     │  │ People.ai  │
               │ (Reasoning)│  │ (Intel)    │
               └───────────┘  └────────────┘
                     │

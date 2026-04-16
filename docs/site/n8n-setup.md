@@ -36,12 +36,32 @@ Create the credential for your chosen platform:
 
 > See the [Chat Platform Setup](slack-setup.md) page for how to obtain these credentials.
 
-### Anthropic API
+### LLM Provider API
+
+The workflows ship with Anthropic (Claude) configured, but any n8n-supported LLM works. Create the credential for your chosen provider:
+
+**Anthropic (Claude):**
 
 | Field | Value |
 |-------|-------|
 | Type | Anthropic API |
 | API Key | `sk-ant-your-api-key` |
+
+**OpenAI (ChatGPT):**
+
+| Field | Value |
+|-------|-------|
+| Type | OpenAI API |
+| API Key | `sk-your-api-key` |
+
+**Google (Gemini):**
+
+| Field | Value |
+|-------|-------|
+| Type | Google AI API |
+| API Key | `your-api-key` |
+
+> After importing workflows, swap the Anthropic Chat Model node for your provider's model node and update the credential reference.
 
 ### People.ai MCP (Multi-Header Auth)
 
@@ -109,12 +129,12 @@ After importing each workflow:
 | Node Type | Slack Credential | Teams Credential | Google Chat Credential |
 |-----------|-----------------|-------------------|----------------------|
 | Chat message delivery (HTTP Request) | Slack Bot Token | Azure Bot / MS Teams API | Google Service Account |
-| Anthropic Chat Model | Anthropic API | Anthropic API | Anthropic API |
+| LLM Chat Model | LLM Provider API (Anthropic, OpenAI, Google, etc.) | LLM Provider API | LLM Provider API |
 | People.ai MCP Client | People.ai MCP (Multi-Header) | People.ai MCP (Multi-Header) | People.ai MCP (Multi-Header) |
 | Database nodes | Database Connection | Database Connection | Database Connection |
 | People.ai Query API (HTTP Request) | Update OAuth token node | Update OAuth token node | Update OAuth token node |
 
-> The Anthropic, People.ai, and database credentials are the same regardless of chat platform. Only the message delivery and event handling nodes change.
+> The LLM, People.ai, and database credentials are the same regardless of chat platform. Only the message delivery and event handling nodes change.
 
 ## Update Webhook URLs
 
