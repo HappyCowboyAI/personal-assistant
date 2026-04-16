@@ -1,249 +1,569 @@
 /* ==========================================================
    Backstory Brand Theme for Docsify
-   Based on Backstory Brand Guidelines v2.0 (March 2026)
+   Inspired by Opp Insights Guide visual language
    ========================================================== */
 
+@import url('https://fonts.googleapis.com/css2?family=Cardo:ital,wght@0,400;0,700;1,400&family=Roboto:wght@300;400;500;600&family=Chivo+Mono:wght@300;400;500&display=swap');
+
 :root {
-  --bs-black: #000000;
-  --bs-graphite: #171721;
-  --bs-surface-gray: #BBBCBC;
-  --bs-horizon: #6296AD;
-  --bs-white: #FFFFFF;
-  --bs-plum: #B08FA2;
-  --bs-mint: #8FCDA8;
-  --bs-cinder: #C05527;
-  --bs-indigo: #275198;
-  --bs-cobalt: #21B5FF;
-  --bs-code-bg: #F5F5F6;
-  --bs-tip-bg: rgba(98, 150, 173, 0.1);
-  --bs-warn-bg: rgba(192, 85, 39, 0.1);
-  --theme-color: var(--bs-horizon);
-  --sidebar-background: var(--bs-graphite);
-  --sidebar-nav-link-color: rgba(255, 255, 255, 0.75);
-  --sidebar-nav-link-color--active: var(--bs-white);
-  --sidebar-nav-link-color--hover: var(--bs-white);
-  --sidebar-nav-link-border-color--active: var(--bs-horizon);
-  --text-color-base: var(--bs-graphite);
-  --heading-color: var(--bs-black);
-  --link-color: var(--bs-horizon);
+  /* Brand palette */
+  --graphite: #171721;
+  --horizon: #6296AD;
+  --mint: #8FCDA8;
+  --plum: #B08FA2;
+  --cinder: #C05527;
+  --indigo: #275198;
+  --cobalt: #21B5FF;
+
+  /* Surfaces */
+  --bg: #f5f5f4;
+  --surface: #ffffff;
+  --surface2: #fafaf9;
+  --border: #e5e5e4;
+  --border2: #d1d0ce;
+
+  /* Text */
+  --text: #171721;
+  --text-muted: #6b6b72;
+  --text-dim: #9b9b9e;
+
+  /* Functional */
+  --code-bg: #1e293b;
+  --tip-bg: rgba(98, 150, 173, 0.08);
+  --warn-bg: rgba(192, 85, 39, 0.08);
+
+  /* Docsify overrides */
+  --theme-color: var(--horizon);
+  --sidebar-background: var(--graphite);
+  --sidebar-nav-link-color: rgba(255, 255, 255, 0.6);
+  --sidebar-nav-link-color--active: #ffffff;
+  --sidebar-nav-link-color--hover: rgba(255, 255, 255, 0.9);
+  --sidebar-nav-link-border-color--active: var(--horizon);
+  --text-color-base: var(--text);
+  --heading-color: var(--graphite);
+  --link-color: var(--horizon);
   --link-color--hover: #4a7a90;
-  --code-inline-color: var(--bs-cinder);
-  --code-inline-background: var(--bs-code-bg);
-  --blockquote-border-color: var(--bs-horizon);
-  --notice-tip-border-color: var(--bs-horizon);
+  --code-inline-color: var(--cinder);
+  --code-inline-background: rgba(0,0,0,0.04);
+  --blockquote-border-color: var(--horizon);
+  --notice-tip-border-color: var(--horizon);
 }
+
+/* ==========================================================
+   Base
+   ========================================================== */
 
 body {
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  font-family: 'Roboto', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  color: var(--text);
+  background: var(--bg);
 }
 
-.markdown-section h1,
-.markdown-section h2,
-.markdown-section h3 {
-  font-family: Georgia, 'Times New Roman', serif;
-  font-weight: 400;
-  letter-spacing: -0.02em;
-}
-
-.markdown-section h1 {
-  font-size: 2.2rem;
-  border-bottom: 2px solid var(--bs-horizon);
-  padding-bottom: 0.4rem;
-}
-
-.markdown-section h2 {
-  font-size: 1.6rem;
-  border-bottom: 1px solid var(--bs-surface-gray);
-  padding-bottom: 0.3rem;
-}
-
-.markdown-section h3 {
-  font-size: 1.25rem;
-}
-
-.markdown-section code,
-.markdown-section pre {
-  font-family: 'Chivo Mono', 'Fira Mono', 'Courier New', monospace;
-}
+/* ==========================================================
+   Sidebar
+   ========================================================== */
 
 .sidebar {
-  background: var(--bs-graphite);
-  color: var(--bs-white);
+  background: var(--graphite);
+  border-right: none;
+  box-shadow: 2px 0 24px rgba(0, 0, 0, 0.15);
 }
 
 .sidebar .sidebar-nav {
-  padding-top: 1rem;
+  padding-top: 0.5rem;
 }
 
 .sidebar .sidebar-nav a {
-  color: rgba(255, 255, 255, 0.75);
-  font-size: 0.95rem;
-  padding: 6px 16px;
+  color: rgba(255, 255, 255, 0.55);
+  font-family: 'Roboto', sans-serif;
+  font-weight: 400;
+  font-size: 0.875rem;
+  padding: 8px 20px 8px 24px;
   display: block;
-  transition: color 0.15s, border-color 0.15s;
+  transition: all 0.15s ease;
   border-left: 3px solid transparent;
+  letter-spacing: 0.01em;
 }
 
 .sidebar .sidebar-nav a:hover {
-  color: var(--bs-white);
+  color: rgba(255, 255, 255, 0.9);
+  background: rgba(255, 255, 255, 0.04);
   text-decoration: none;
 }
 
 .sidebar .sidebar-nav a.active {
-  color: var(--bs-white);
-  border-left-color: var(--bs-horizon);
-  font-weight: 600;
+  color: #ffffff;
+  border-left-color: var(--horizon);
+  background: rgba(98, 150, 173, 0.1);
+  font-weight: 500;
+}
+
+.sidebar .sidebar-nav ul ul a {
+  font-size: 0.8125rem;
+  padding-left: 40px;
+  color: rgba(255, 255, 255, 0.4);
+}
+
+.sidebar .sidebar-nav ul ul a:hover {
+  color: rgba(255, 255, 255, 0.75);
 }
 
 .sidebar .app-name-link img {
-  max-width: 160px;
-  padding: 1.5rem 1rem 0.5rem 1rem;
+  max-width: 150px;
+  padding: 1.5rem 1.25rem 0.25rem;
 }
 
 .sidebar .app-name-link {
   text-align: left;
-  padding-left: 1rem;
+  padding-left: 0;
 }
 
 .app-name {
   display: block;
-  color: rgba(255, 255, 255, 0.5);
-  font-size: 0.8rem;
+  color: rgba(255, 255, 255, 0.35);
+  font-size: 0.7rem;
   text-transform: uppercase;
-  letter-spacing: 0.1em;
-  padding: 0 1rem 1rem 1rem;
-  font-family: 'Chivo Mono', 'Fira Mono', monospace;
+  letter-spacing: 0.15em;
+  padding: 0 1.25rem 1.25rem;
+  font-family: 'Chivo Mono', monospace;
+  font-weight: 300;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  margin-bottom: 0.5rem;
 }
 
-.markdown-section pre {
-  background: var(--bs-code-bg);
+.search input {
+  background: rgba(255, 255, 255, 0.06) !important;
+  border: 1px solid rgba(255, 255, 255, 0.1) !important;
+  color: #ffffff !important;
   border-radius: 6px;
-  border: 1px solid #E8E8E8;
-  padding: 1rem;
+  font-family: 'Roboto', sans-serif;
+  font-size: 0.8125rem;
+  padding: 8px 12px;
+  transition: border-color 0.15s;
 }
 
-.markdown-section pre > code {
-  color: var(--bs-graphite);
-  font-size: 0.875rem;
+.search input:focus {
+  border-color: var(--horizon) !important;
+  background: rgba(255, 255, 255, 0.08) !important;
 }
 
-.markdown-section code {
-  background: var(--bs-code-bg);
-  color: var(--bs-cinder);
-  border-radius: 3px;
-  padding: 2px 6px;
-  font-size: 0.875em;
+.search input::placeholder {
+  color: rgba(255, 255, 255, 0.3) !important;
 }
 
-.markdown-section pre > code {
-  background: transparent;
-  color: var(--bs-graphite);
-  padding: 0;
+.search .results-panel {
+  background: var(--graphite);
+  border: 1px solid rgba(255, 255, 255, 0.08);
 }
+
+.search .matching-post {
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.search .matching-post a {
+  color: rgba(255, 255, 255, 0.85);
+}
+
+/* ==========================================================
+   Main content area
+   ========================================================== */
+
+.content {
+  background: var(--bg);
+}
+
+.markdown-section {
+  max-width: 860px;
+  padding: 2.5rem 3rem 4rem;
+}
+
+/* ==========================================================
+   Typography
+   ========================================================== */
+
+.markdown-section h1 {
+  font-family: 'Cardo', Georgia, serif;
+  font-weight: 400;
+  font-size: 2.4rem;
+  color: var(--graphite);
+  letter-spacing: -0.03em;
+  border-bottom: none;
+  padding-bottom: 0;
+  margin-top: 0;
+  margin-bottom: 0.25rem;
+  line-height: 1.2;
+}
+
+/* Accent bar under h1 */
+.markdown-section h1::after {
+  content: '';
+  display: block;
+  width: 48px;
+  height: 3px;
+  background: linear-gradient(90deg, var(--horizon), var(--mint));
+  border-radius: 2px;
+  margin-top: 12px;
+  margin-bottom: 8px;
+}
+
+.markdown-section h2 {
+  font-family: 'Cardo', Georgia, serif;
+  font-weight: 400;
+  font-size: 1.55rem;
+  color: var(--graphite);
+  letter-spacing: -0.02em;
+  border-bottom: none;
+  padding-bottom: 0;
+  margin-top: 2.5rem;
+  margin-bottom: 1rem;
+  line-height: 1.3;
+}
+
+.markdown-section h3 {
+  font-family: 'Cardo', Georgia, serif;
+  font-weight: 700;
+  font-size: 1.15rem;
+  color: var(--graphite);
+  letter-spacing: -0.01em;
+  margin-top: 2rem;
+  margin-bottom: 0.75rem;
+}
+
+.markdown-section h4 {
+  font-family: 'Roboto', sans-serif;
+  font-weight: 600;
+  font-size: 0.9rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-muted);
+  margin-top: 1.75rem;
+  margin-bottom: 0.5rem;
+}
+
+.markdown-section p {
+  font-size: 0.9375rem;
+  line-height: 1.7;
+  color: var(--text-muted);
+  margin-bottom: 1rem;
+}
+
+.markdown-section li {
+  font-size: 0.9375rem;
+  line-height: 1.65;
+  color: var(--text-muted);
+  margin-bottom: 0.35rem;
+}
+
+.markdown-section strong {
+  color: var(--text);
+  font-weight: 600;
+}
+
+.markdown-section a {
+  color: var(--horizon);
+  text-decoration: none;
+  border-bottom: 1px solid transparent;
+  transition: border-color 0.15s;
+}
+
+.markdown-section a:hover {
+  border-bottom-color: var(--horizon);
+}
+
+/* ==========================================================
+   Tables — styled like cards
+   ========================================================== */
 
 .markdown-section table {
-  border-collapse: collapse;
+  border-collapse: separate;
+  border-spacing: 0;
   width: 100%;
-  margin: 1rem 0;
+  margin: 1.25rem 0;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+  background: var(--surface);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
 }
 
 .markdown-section table th {
-  background: var(--bs-graphite);
-  color: var(--bs-white);
-  font-weight: 600;
+  background: var(--graphite);
+  color: rgba(255, 255, 255, 0.9);
+  font-family: 'Roboto', sans-serif;
+  font-weight: 500;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
   text-align: left;
-  padding: 10px 14px;
-  font-size: 0.875rem;
+  padding: 10px 16px;
 }
 
 .markdown-section table td {
-  padding: 10px 14px;
-  border-bottom: 1px solid #E8E8E8;
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--border);
   font-size: 0.875rem;
+  color: var(--text);
+  line-height: 1.5;
+}
+
+.markdown-section table tr:last-child td {
+  border-bottom: none;
 }
 
 .markdown-section table tr:hover td {
-  background: var(--bs-tip-bg);
+  background: var(--tip-bg);
 }
 
+.markdown-section table td code {
+  font-size: 0.8rem;
+  background: rgba(0, 0, 0, 0.04);
+  padding: 2px 6px;
+  border-radius: 3px;
+}
+
+/* ==========================================================
+   Code blocks — dark theme
+   ========================================================== */
+
+.markdown-section pre {
+  background: var(--code-bg);
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  padding: 1.25rem;
+  margin: 1.25rem 0;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+
+.markdown-section pre > code {
+  font-family: 'Chivo Mono', 'Fira Mono', monospace;
+  font-size: 0.8125rem;
+  font-weight: 300;
+  color: #a8c4cf;
+  line-height: 1.65;
+  background: transparent;
+  padding: 0;
+}
+
+.markdown-section code {
+  font-family: 'Chivo Mono', 'Fira Mono', monospace;
+  font-size: 0.825em;
+  font-weight: 400;
+  background: rgba(0, 0, 0, 0.04);
+  color: var(--cinder);
+  border-radius: 4px;
+  padding: 2px 7px;
+}
+
+/* ==========================================================
+   Blockquotes — callout cards
+   ========================================================== */
+
 .markdown-section blockquote {
-  border-left: 4px solid var(--bs-horizon);
-  background: var(--bs-tip-bg);
-  padding: 12px 20px;
+  border-left: 3px solid var(--horizon);
+  background: var(--tip-bg);
+  padding: 14px 20px;
   margin: 1.5rem 0;
-  border-radius: 0 6px 6px 0;
+  border-radius: 0 8px 8px 0;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
 }
 
 .markdown-section blockquote p {
   margin: 0;
+  color: var(--text);
+  font-size: 0.875rem;
+  line-height: 1.6;
 }
 
+.markdown-section blockquote strong {
+  color: var(--graphite);
+}
+
+/* ==========================================================
+   Horizontal rules — section dividers
+   ========================================================== */
+
+.markdown-section hr {
+  border: none;
+  height: 1px;
+  background: linear-gradient(90deg, var(--border), transparent);
+  margin: 2.5rem 0;
+}
+
+/* ==========================================================
+   Lists — refined
+   ========================================================== */
+
+.markdown-section ul {
+  padding-left: 1.25rem;
+}
+
+.markdown-section ol {
+  padding-left: 1.25rem;
+}
+
+.markdown-section ul > li::marker {
+  color: var(--horizon);
+}
+
+.markdown-section ol > li::marker {
+  color: var(--horizon);
+  font-weight: 600;
+}
+
+/* ==========================================================
+   Task lists (checklists)
+   ========================================================== */
+
+.markdown-section .task-list-item {
+  list-style: none;
+  margin-left: -1.25rem;
+  padding: 4px 0;
+}
+
+.markdown-section .task-list-item input[type="checkbox"] {
+  margin-right: 8px;
+  accent-color: var(--horizon);
+}
+
+/* ==========================================================
+   Images
+   ========================================================== */
+
+.markdown-section img {
+  border-radius: 8px;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
+  max-width: 100%;
+}
+
+/* ==========================================================
+   Cover page
+   ========================================================== */
+
 .cover {
-  background: var(--bs-graphite) !important;
-  color: var(--bs-white) !important;
+  background: var(--graphite) !important;
+  color: #ffffff !important;
 }
 
 .cover h1 {
-  color: var(--bs-white);
-  font-family: Georgia, 'Times New Roman', serif;
+  font-family: 'Cardo', Georgia, serif;
   font-weight: 400;
   font-size: 3rem;
+  color: #ffffff;
+  letter-spacing: -0.03em;
 }
 
 .cover p:last-child a {
-  background: var(--bs-horizon) !important;
-  color: var(--bs-white) !important;
+  background: var(--horizon) !important;
+  color: #ffffff !important;
   border: none !important;
-  border-radius: 6px;
-  padding: 12px 32px;
-  font-weight: 600;
-  transition: background 0.15s;
+  border-radius: 8px;
+  padding: 14px 36px;
+  font-family: 'Roboto', sans-serif;
+  font-weight: 500;
+  font-size: 0.9375rem;
+  letter-spacing: 0.02em;
+  transition: all 0.15s ease;
+  box-shadow: 0 2px 8px rgba(98, 150, 173, 0.3);
 }
 
 .cover p:last-child a:hover {
   background: #4a7a90 !important;
+  box-shadow: 0 4px 16px rgba(98, 150, 173, 0.4);
+  transform: translateY(-1px);
 }
 
 .cover blockquote {
   border: none;
   background: transparent;
-  color: rgba(255, 255, 255, 0.65);
+  color: rgba(255, 255, 255, 0.5);
 }
 
 .cover .cover-main {
   max-width: 600px;
 }
 
-.search input {
-  background: rgba(255, 255, 255, 0.08) !important;
-  border: 1px solid rgba(255, 255, 255, 0.15) !important;
-  color: var(--bs-white) !important;
-  border-radius: 4px;
+/* ==========================================================
+   Animations
+   ========================================================== */
+
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
 }
 
-.search input::placeholder {
-  color: rgba(255, 255, 255, 0.4) !important;
+.markdown-section h1 {
+  animation: fadeUp 0.4s ease both;
 }
 
-.search .results-panel {
-  background: var(--bs-graphite);
+.markdown-section h2 {
+  animation: fadeUp 0.3s ease both;
 }
 
-.search .matching-post {
-  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+.markdown-section table {
+  animation: fadeUp 0.35s ease both;
+  animation-delay: 0.05s;
 }
 
-.search .matching-post a {
-  color: var(--bs-white);
+.markdown-section blockquote {
+  animation: fadeUp 0.3s ease both;
+  animation-delay: 0.08s;
 }
+
+.markdown-section pre {
+  animation: fadeUp 0.3s ease both;
+  animation-delay: 0.1s;
+}
+
+/* ==========================================================
+   Responsive
+   ========================================================== */
 
 @media (max-width: 768px) {
   .markdown-section {
-    padding: 1.5rem;
+    padding: 1.5rem 1.25rem 3rem;
   }
 
   .markdown-section h1 {
     font-size: 1.75rem;
   }
+
+  .markdown-section h2 {
+    font-size: 1.3rem;
+  }
+
+  .markdown-section table {
+    font-size: 0.8125rem;
+  }
+}
+
+/* ==========================================================
+   Scrollbar (WebKit)
+   ========================================================== */
+
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.15);
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(0, 0, 0, 0.25);
+}
+
+.sidebar::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.sidebar::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.2);
 }
