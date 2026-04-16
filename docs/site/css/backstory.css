@@ -1,0 +1,249 @@
+/* ==========================================================
+   Backstory Brand Theme for Docsify
+   Based on Backstory Brand Guidelines v2.0 (March 2026)
+   ========================================================== */
+
+:root {
+  --bs-black: #000000;
+  --bs-graphite: #171721;
+  --bs-surface-gray: #BBBCBC;
+  --bs-horizon: #6296AD;
+  --bs-white: #FFFFFF;
+  --bs-plum: #B08FA2;
+  --bs-mint: #8FCDA8;
+  --bs-cinder: #C05527;
+  --bs-indigo: #275198;
+  --bs-cobalt: #21B5FF;
+  --bs-code-bg: #F5F5F6;
+  --bs-tip-bg: rgba(98, 150, 173, 0.1);
+  --bs-warn-bg: rgba(192, 85, 39, 0.1);
+  --theme-color: var(--bs-horizon);
+  --sidebar-background: var(--bs-graphite);
+  --sidebar-nav-link-color: rgba(255, 255, 255, 0.75);
+  --sidebar-nav-link-color--active: var(--bs-white);
+  --sidebar-nav-link-color--hover: var(--bs-white);
+  --sidebar-nav-link-border-color--active: var(--bs-horizon);
+  --text-color-base: var(--bs-graphite);
+  --heading-color: var(--bs-black);
+  --link-color: var(--bs-horizon);
+  --link-color--hover: #4a7a90;
+  --code-inline-color: var(--bs-cinder);
+  --code-inline-background: var(--bs-code-bg);
+  --blockquote-border-color: var(--bs-horizon);
+  --notice-tip-border-color: var(--bs-horizon);
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+.markdown-section h1,
+.markdown-section h2,
+.markdown-section h3 {
+  font-family: Georgia, 'Times New Roman', serif;
+  font-weight: 400;
+  letter-spacing: -0.02em;
+}
+
+.markdown-section h1 {
+  font-size: 2.2rem;
+  border-bottom: 2px solid var(--bs-horizon);
+  padding-bottom: 0.4rem;
+}
+
+.markdown-section h2 {
+  font-size: 1.6rem;
+  border-bottom: 1px solid var(--bs-surface-gray);
+  padding-bottom: 0.3rem;
+}
+
+.markdown-section h3 {
+  font-size: 1.25rem;
+}
+
+.markdown-section code,
+.markdown-section pre {
+  font-family: 'Chivo Mono', 'Fira Mono', 'Courier New', monospace;
+}
+
+.sidebar {
+  background: var(--bs-graphite);
+  color: var(--bs-white);
+}
+
+.sidebar .sidebar-nav {
+  padding-top: 1rem;
+}
+
+.sidebar .sidebar-nav a {
+  color: rgba(255, 255, 255, 0.75);
+  font-size: 0.95rem;
+  padding: 6px 16px;
+  display: block;
+  transition: color 0.15s, border-color 0.15s;
+  border-left: 3px solid transparent;
+}
+
+.sidebar .sidebar-nav a:hover {
+  color: var(--bs-white);
+  text-decoration: none;
+}
+
+.sidebar .sidebar-nav a.active {
+  color: var(--bs-white);
+  border-left-color: var(--bs-horizon);
+  font-weight: 600;
+}
+
+.sidebar .app-name-link img {
+  max-width: 160px;
+  padding: 1.5rem 1rem 0.5rem 1rem;
+}
+
+.sidebar .app-name-link {
+  text-align: left;
+  padding-left: 1rem;
+}
+
+.app-name {
+  display: block;
+  color: rgba(255, 255, 255, 0.5);
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  padding: 0 1rem 1rem 1rem;
+  font-family: 'Chivo Mono', 'Fira Mono', monospace;
+}
+
+.markdown-section pre {
+  background: var(--bs-code-bg);
+  border-radius: 6px;
+  border: 1px solid #E8E8E8;
+  padding: 1rem;
+}
+
+.markdown-section pre > code {
+  color: var(--bs-graphite);
+  font-size: 0.875rem;
+}
+
+.markdown-section code {
+  background: var(--bs-code-bg);
+  color: var(--bs-cinder);
+  border-radius: 3px;
+  padding: 2px 6px;
+  font-size: 0.875em;
+}
+
+.markdown-section pre > code {
+  background: transparent;
+  color: var(--bs-graphite);
+  padding: 0;
+}
+
+.markdown-section table {
+  border-collapse: collapse;
+  width: 100%;
+  margin: 1rem 0;
+}
+
+.markdown-section table th {
+  background: var(--bs-graphite);
+  color: var(--bs-white);
+  font-weight: 600;
+  text-align: left;
+  padding: 10px 14px;
+  font-size: 0.875rem;
+}
+
+.markdown-section table td {
+  padding: 10px 14px;
+  border-bottom: 1px solid #E8E8E8;
+  font-size: 0.875rem;
+}
+
+.markdown-section table tr:hover td {
+  background: var(--bs-tip-bg);
+}
+
+.markdown-section blockquote {
+  border-left: 4px solid var(--bs-horizon);
+  background: var(--bs-tip-bg);
+  padding: 12px 20px;
+  margin: 1.5rem 0;
+  border-radius: 0 6px 6px 0;
+}
+
+.markdown-section blockquote p {
+  margin: 0;
+}
+
+.cover {
+  background: var(--bs-graphite) !important;
+  color: var(--bs-white) !important;
+}
+
+.cover h1 {
+  color: var(--bs-white);
+  font-family: Georgia, 'Times New Roman', serif;
+  font-weight: 400;
+  font-size: 3rem;
+}
+
+.cover p:last-child a {
+  background: var(--bs-horizon) !important;
+  color: var(--bs-white) !important;
+  border: none !important;
+  border-radius: 6px;
+  padding: 12px 32px;
+  font-weight: 600;
+  transition: background 0.15s;
+}
+
+.cover p:last-child a:hover {
+  background: #4a7a90 !important;
+}
+
+.cover blockquote {
+  border: none;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.65);
+}
+
+.cover .cover-main {
+  max-width: 600px;
+}
+
+.search input {
+  background: rgba(255, 255, 255, 0.08) !important;
+  border: 1px solid rgba(255, 255, 255, 0.15) !important;
+  color: var(--bs-white) !important;
+  border-radius: 4px;
+}
+
+.search input::placeholder {
+  color: rgba(255, 255, 255, 0.4) !important;
+}
+
+.search .results-panel {
+  background: var(--bs-graphite);
+}
+
+.search .matching-post {
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.search .matching-post a {
+  color: var(--bs-white);
+}
+
+@media (max-width: 768px) {
+  .markdown-section {
+    padding: 1.5rem;
+  }
+
+  .markdown-section h1 {
+    font-size: 1.75rem;
+  }
+}
