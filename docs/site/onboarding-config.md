@@ -32,6 +32,16 @@ For example, if a rep has set `assistant_name = 'ScottAI'`, they see "ScottAI." 
 
 This applies to name, emoji, and persona independently — a rep could override their name but use the org default emoji.
 
+### Platform Differences for Personalization
+
+| Feature | Slack | Microsoft Teams | Google Chat |
+|---------|-------|-----------------|-------------|
+| Bot display name | Overridden per-message via `chat:write.customize` | Fixed — set in Azure Bot Service | Fixed — set in Google Cloud Console |
+| Bot avatar | Overridden per-message via `icon_emoji` or `icon_url` | Fixed — set in Azure Bot Service | Fixed — set in Google Cloud Console |
+| Assistant name usage | Appears as the sender name | Included in message greeting text | Included in message greeting text |
+
+> On Teams and Google Chat, the assistant name is still stored and used in the message content (e.g., "Hey, it's ScottAI — here's your pipeline briefing"), but the bot's display name in the chat list will be whatever you configured during app registration.
+
 ## Onboarding State Machine
 
 When a new user first DMs the bot, the onboarding flow walks them through personalization:

@@ -129,6 +129,48 @@ If Row-Level Security is enabled but the API requests aren't setting the organiz
 
 To trigger for a single user, you can also use the On-Demand Digest sub-workflow if it's configured.
 
+## Microsoft Teams Issues
+
+### Bot doesn't respond
+
+1. Verify the **Messaging endpoint** in Azure Bot Service points to your n8n webhook URL
+2. Check that the Azure App ID and Client Secret are correct in your n8n credentials
+3. Ensure the app is approved and published in the Teams Admin Center
+4. Check n8n execution logs for incoming activity payloads
+
+### Proactive messages fail
+
+1. Verify you have stored the **conversation reference** from the user's first interaction
+2. Check that the Azure App has `Chat.Create` and `ChatMessage.Send` permissions with admin consent
+3. Ensure the service URL in the stored conversation reference is still valid
+
+### Adaptive Cards don't render
+
+1. Validate your Adaptive Card JSON at [adaptivecards.io/designer](https://adaptivecards.io/designer)
+2. Ensure the card schema version is compatible with Teams (use version `1.4` or lower for broad compatibility)
+3. Check for unsupported elements — Teams doesn't support all Adaptive Card features
+
+## Google Chat Issues
+
+### App doesn't receive messages
+
+1. Verify the **HTTP endpoint URL** in the Google Chat API configuration points to your n8n webhook
+2. Check that the Google Chat API is enabled in your Cloud project
+3. Ensure the app is approved in the Google Workspace Admin Console
+4. Verify domain-wide delegation is configured for the service account
+
+### Proactive messages fail
+
+1. Check that the service account has the `chat.messages.create` scope
+2. Verify domain-wide delegation is granted in the Workspace Admin Console
+3. Use `spaces.list` to confirm the bot has a DM space with the target user — the user must have messaged the bot at least once
+
+### Card messages display as plain text
+
+1. Verify you're using the Cards v2 format (not legacy cards)
+2. Check that the `cardsV2` field is used in the message payload (not `cards`)
+3. Validate the card JSON structure against the [Google Chat API reference](https://developers.google.com/workspace/chat/api/reference/rest/v1/spaces.messages)
+
 ## Getting Help
 
 If you're stuck after working through this page:

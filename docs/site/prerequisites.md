@@ -6,11 +6,21 @@ Before starting the deployment, ensure you have the following accounts and acces
 
 | Service | What You Need | Sign Up |
 |---------|---------------|---------|
-| **Slack** | Workspace admin access | [slack.com](https://slack.com) |
+| **Chat Platform** | Slack, Microsoft Teams, or Google Chat (see below) | — |
 | **PostgreSQL Database** | Any Postgres-compatible database (Supabase, AWS RDS, self-hosted, etc.) | Varies by provider |
 | **n8n** | Cloud or self-hosted instance | [n8n.io](https://n8n.io) |
 | **Anthropic** | API key for Claude | [console.anthropic.com](https://console.anthropic.com) |
 | **People.ai** | API credentials (client ID + secret) and MCP access | Contact your People.ai account team |
+
+## Chat Platform Requirements
+
+You need **one** of the following, depending on your chosen platform:
+
+| Platform | What You Need | Admin Access Required |
+|----------|---------------|-----------------------|
+| **Slack** | Workspace admin access to create and install apps | Slack workspace admin |
+| **Microsoft Teams** | Azure subscription + Teams admin access | Azure AD admin + Teams admin |
+| **Google Chat** | Google Cloud project + Workspace admin access | Google Workspace admin |
 
 ## Access Requirements
 
@@ -18,6 +28,16 @@ Before starting the deployment, ensure you have the following accounts and acces
 - **Admin access** to the workspace where the bot will be installed
 - Ability to create and install Slack apps
 - Ability to approve OAuth scopes for bots
+
+### Microsoft Teams (alternative)
+- **Azure subscription** with permission to create Azure Bot resources
+- **Azure AD admin** access to grant API permissions (Graph API)
+- **Teams admin** access to approve and publish apps to the organization catalog
+
+### Google Chat (alternative)
+- **Google Cloud project** with billing enabled
+- **Google Workspace admin** access to enable domain-wide delegation and approve Chat apps
+- Ability to create service accounts and manage OAuth consent
 
 ### PostgreSQL Database
 - A running PostgreSQL instance (version 13+)

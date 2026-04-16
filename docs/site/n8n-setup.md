@@ -6,7 +6,11 @@ This guide covers importing workflows, configuring credentials, and activating t
 
 In n8n, go to **Settings → Credentials → Add Credential** and create the following:
 
-### Slack Bot Token
+### Chat Platform Credential
+
+Create the credential for your chosen platform:
+
+**Slack:**
 
 | Field | Value |
 |-------|-------|
@@ -14,7 +18,23 @@ In n8n, go to **Settings → Credentials → Add Credential** and create the fol
 | Header Name | `Authorization` |
 | Header Value | `Bearer xoxb-your-bot-token` |
 
-> Use the Bot User OAuth Token from the Slack App Setup step.
+**Microsoft Teams:**
+
+| Field | Value |
+|-------|-------|
+| Type | Microsoft Teams API (or HTTP Request with Azure Bot Framework) |
+| App ID | Your Azure Bot App ID |
+| Client Secret | Your Azure App client secret |
+| Tenant ID | Your Azure AD tenant ID |
+
+**Google Chat:**
+
+| Field | Value |
+|-------|-------|
+| Type | Google Service Account |
+| Service Account JSON | Upload the JSON key file from Google Cloud Console |
+
+> See the [Chat Platform Setup](slack-setup.md) page for how to obtain these credentials.
 
 ### Anthropic API
 
@@ -86,13 +106,15 @@ After importing each workflow:
 
 ### Common Credential Mappings
 
-| Node Type | Credential to Use |
-|-----------|-------------------|
-| Slack `chat.postMessage` (HTTP Request) | Slack Bot Token |
-| Anthropic Chat Model | Anthropic API |
-| People.ai MCP Client | People.ai MCP (Multi-Header) |
-| Supabase nodes | Database Connection |
-| People.ai Query API (HTTP Request) | Update the OAuth token node in-workflow |
+| Node Type | Slack Credential | Teams Credential | Google Chat Credential |
+|-----------|-----------------|-------------------|----------------------|
+| Chat message delivery (HTTP Request) | Slack Bot Token | Azure Bot / MS Teams API | Google Service Account |
+| Anthropic Chat Model | Anthropic API | Anthropic API | Anthropic API |
+| People.ai MCP Client | People.ai MCP (Multi-Header) | People.ai MCP (Multi-Header) | People.ai MCP (Multi-Header) |
+| Database nodes | Database Connection | Database Connection | Database Connection |
+| People.ai Query API (HTTP Request) | Update OAuth token node | Update OAuth token node | Update OAuth token node |
+
+> The Anthropic, People.ai, and database credentials are the same regardless of chat platform. Only the message delivery and event handling nodes change.
 
 ## Update Webhook URLs
 

@@ -1,6 +1,6 @@
 - [Overview](/)
 - [Prerequisites](prerequisites.md)
-- [Slack App Setup](slack-setup.md)
+- [Chat Platform Setup](slack-setup.md)
 - [Database Setup](database-setup.md)
 - [n8n Setup](n8n-setup.md)
 - [Onboarding Configuration](onboarding-config.md)
