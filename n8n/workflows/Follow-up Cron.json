@@ -1,5 +1,5 @@
 {
-    "updatedAt": "2026-04-08T15:32:05.856Z",
+    "updatedAt": "2026-04-17T15:44:49.217Z",
     "createdAt": "2026-03-04T00:59:29.239Z",
     "id": "JhDuCvZdFN4PFTOW",
     "name": "Follow-up Cron",
@@ -22,7 +22,7 @@
                 },
                 "sendBody": true,
                 "specifyBody": "string",
-                "body": "client_id=YOUR_CLIENT_ID&client_secret=YOUR_CLIENT_SECRET&grant_type=client_credentials",
+                "body": "client_id=Yl1JnBIr7yzb&client_secret=2rT0SWrgRN9fCYwu1BkFgeaFXeyBGNgTwb5GfeywkIeYEJvE&grant_type=client_credentials",
                 "options": {}
             },
             "id": "429b2c07-d2f6-42d0-a833-6f22f3092026",
@@ -505,7 +505,7 @@
         },
         {
             "parameters": {
-                "jsCode": "// Build Workato payloads for auto-saving recap to CRM\nconst data = $('Parse Recap Output').first().json;\nconst recap = data.recap;\nconst m = data.meeting;\n\n// Build description from recap parts\nconst descParts = [];\nif (recap.summary) descParts.push('Summary: ' + recap.summary);\nif (recap.keyDecisions && recap.keyDecisions.length > 0) {\n  descParts.push('Key Decisions:\\n' + recap.keyDecisions.map(d => '- ' + d).join('\\n'));\n}\nif (recap.tasks && recap.tasks.length > 0) {\n  descParts.push('Action Items:\\n' + recap.tasks.map(t =>\n    '- ' + t.description + (t.owner ? ' (' + t.owner + ')' : '')\n  ).join('\\n'));\n}\nconst description = descParts.join('\\n\\n');\n\n// Activity payload for logging the meeting recap\nconst activityPayload = {\n  action: 'log_activity',\n  salesforce_object: 'Event',\n  fields: {\n    Subject: m.subject || 'Customer Meeting',\n    Description: description,\n    ActivityDate: m.dayStr || new Date().toISOString().split('T')[0],\n    meeting_category: recap.meetingCategory || null,\n    cs_category: recap.csCategory || null,\n  },\n  context: {\n    user_email: data.email || '',\n    account_name: m.accountName || '',\n    activity_uid: m.activityUid || '',\n    prepend_description: true,\n  }\n};\n\n// Parse due date hints into actual dates\nfunction parseDueDate(hint) {\n  if (!hint) return '';\n  const now = new Date();\n  const lower = hint.toLowerCase().trim();\n  if (lower === 'today') return now.toISOString().split('T')[0];\n  if (lower === 'tomorrow') {\n    const d = new Date(now); d.setDate(d.getDate() + 1);\n    return d.toISOString().split('T')[0];\n  }\n  if (lower === 'this week' || lower === 'end of week') {\n    const d = new Date(now);\n    const dayOfWeek = d.getDay();\n    d.setDate(d.getDate() + (5 - dayOfWeek));\n    return d.toISOString().split('T')[0];\n  }\n  if (lower === 'next week') {\n    const d = new Date(now);\n    d.setDate(d.getDate() + 7);\n    return d.toISOString().split('T')[0];\n  }\n  // Try parsing as a date string\n  const parsed = new Date(hint);\n  if (!isNaN(parsed.getTime())) return parsed.toISOString().split('T')[0];\n  // Default: 1 week from now\n  const d = new Date(now); d.setDate(d.getDate() + 7);\n  return d.toISOString().split('T')[0];\n}\n\n// Task payloads\nconst taskPayloads = (recap.tasks || []).map(t => ({\n  action: 'create_task',\n  salesforce_object: 'Task',\n  fields: {\n    Subject: t.description || 'Follow-up task',\n    Description: 'From meeting: ' + (m.subject || '') + ' with ' + (m.accountName || '') +\n      (t.due_hint ? '\\nDue: ' + t.due_hint : ''),\n    ActivityDate: parseDueDate(t.due_hint),\n    Status: 'Not Started',\n    Priority: 'Normal',\n    TaskDuration: t.duration_minutes || 30,\n    Category: t.task_category || '',\n  },\n  context: {\n    user_email: data.email || '',\n    account_name: m.accountName || '',\n    meeting_subject: m.subject || '',\n    assignee_name: t.owner || '',\n    assignee_email: t.owner_email || '',\n    assignee_role: t.assignee_role || '',\n  }\n}));\n\nreturn [{ json: {\n  ...data,\n  activityPayload,\n  taskPayloads,\n  taskCount: taskPayloads.length,\n}}];"
+                "jsCode": "// Build Workato payloads for auto-saving recap to CRM\nconst data = $('Parse Recap Output').first().json;\nconst recap = data.recap;\nconst m = data.meeting;\n\n// Build description from recap parts\nconst descParts = [];\nif (recap.summary) descParts.push('Summary: ' + recap.summary);\nif (recap.keyDecisions && recap.keyDecisions.length > 0) {\n  descParts.push('Key Decisions:\\n' + recap.keyDecisions.map(d => '- ' + d).join('\\n'));\n}\nif (recap.tasks && recap.tasks.length > 0) {\n  descParts.push('Action Items:\\n' + recap.tasks.map(t =>\n    '- ' + t.description + (t.owner ? ' (' + t.owner + ')' : '')\n  ).join('\\n'));\n}\nconst description = descParts.join('\\n\\n');\n\n// Activity payload for logging the meeting recap\nconst activityPayload = {\n  action: 'log_activity',\n  salesforce_object: 'Event',\n  fields: {\n    Subject: m.subject || 'Customer Meeting',\n    Description: description,\n    ActivityDate: m.dayStr || new Date().toISOString().split('T')[0],\n    meeting_category: recap.meetingCategory || null,\n    cs_category: recap.csCategory || null,\n  },\n  context: {\n    user_email: data.email || '',\n    account_name: m.accountName || '',\n    activity_uid: m.activityUid || '',\n    prepend_description: true,\n  }\n};\n\n// Parse due date hints into actual dates\nfunction parseDueDate(hint) {\n  if (!hint) return '';\n  const now = new Date();\n  const lower = hint.toLowerCase().trim();\n  if (lower === 'today') return now.toISOString().split('T')[0];\n  if (lower === 'tomorrow') {\n    const d = new Date(now); d.setDate(d.getDate() + 1);\n    return d.toISOString().split('T')[0];\n  }\n  if (lower === 'this week' || lower === 'end of week') {\n    const d = new Date(now);\n    const dayOfWeek = d.getDay();\n    d.setDate(d.getDate() + (5 - dayOfWeek));\n    return d.toISOString().split('T')[0];\n  }\n  if (lower === 'next week') {\n    const d = new Date(now);\n    d.setDate(d.getDate() + 7);\n    return d.toISOString().split('T')[0];\n  }\n  // Try parsing as a date string\n  const parsed = new Date(hint);\n  if (!isNaN(parsed.getTime())) return parsed.toISOString().split('T')[0];\n  // Default: 1 week from now\n  const d = new Date(now); d.setDate(d.getDate() + 7);\n  return d.toISOString().split('T')[0];\n}\n\n// Task payloads\nconst taskPayloads = (recap.tasks || []).map(t => ({\n  action: 'create_task',\n  salesforce_object: 'Task',\n  fields: {\n    Subject: t.description || 'Follow-up task',\n    Description: 'From meeting: ' + (m.subject || '') + ' with ' + (m.accountName || '') +\n      (t.due_hint ? '\\nDue: ' + t.due_hint : ''),\n    ActivityDate: parseDueDate(t.due_hint),\n    Status: 'Not Started',\n    Priority: 'Normal',\n    TaskDuration: t.duration_minutes || 30,\n    Category: t.task_category || '',\n  },\n  context: {\n    user_email: data.email || '',\n    account_name: m.accountName || '',\n    meeting_subject: m.subject || '',\n    activity_uid: m.activityUid || '',\n    assignee_name: t.owner || '',\n    assignee_email: t.owner_email || '',\n    assignee_role: t.assignee_role || '',\n  }\n}));\n\nreturn [{ json: {\n  ...data,\n  activityPayload,\n  taskPayloads,\n  taskCount: taskPayloads.length,\n}}];"
             },
             "id": "a12def0c-378d-4524-8835-426755f10bb0",
             "name": "Build Auto-Save Payload",
@@ -585,7 +585,7 @@
             "type": "n8n-nodes-base.httpRequest",
             "typeVersion": 4.2,
             "position": [
-                3968,
+                4864,
                 496
             ],
             "continueOnFail": true
@@ -825,6 +825,109 @@
                 928
             ],
             "continueOnFail": true
+        },
+        {
+            "id": "e1308dc4-34ce-4f24-aa99-c28e50a51e7f",
+            "name": "Sticky Note",
+            "type": "n8n-nodes-base.stickyNote",
+            "typeVersion": 1,
+            "position": [
+                256,
+                44
+            ],
+            "parameters": {
+                "content": "## Follow-up Cron\n\n9am + 4pm PT weekday cron. Matches users to ended meetings, runs Claude recap agent, auto-saves to Salesforce via Workato, creates tasks, fires task resolution, sends compact recap card + detail thread to Slack. 36 nodes.",
+                "width": 600,
+                "height": 200
+            }
+        },
+        {
+            "parameters": {
+                "method": "POST",
+                "url": "https://rhrlnkbphxntxxxcrgvv.supabase.co/rest/v1/rpc/claim_task_slot",
+                "authentication": "predefinedCredentialType",
+                "nodeCredentialType": "supabaseApi",
+                "sendHeaders": true,
+                "headerParameters": {
+                    "parameters": [
+                        {
+                            "name": "Content-Type",
+                            "value": "application/json"
+                        },
+                        {
+                            "name": "Accept",
+                            "value": "application/json"
+                        }
+                    ]
+                },
+                "sendBody": true,
+                "specifyBody": "json",
+                "jsonBody": "={{ JSON.stringify({\n  p_account: $json.webhook_payload.context.account_name || '',\n  p_assignee: $json.webhook_payload.context.assignee_email || $json.webhook_payload.context.user_email || '',\n  p_subject: $json.webhook_payload.fields.Subject || '',\n  p_activity_uid: $json.webhook_payload.context.activity_uid || ''\n}) }}",
+                "options": {}
+            },
+            "id": "a7041c07-4eee-456c-978d-a5b14273f6c1",
+            "name": "Claim Task Slot",
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4.2,
+            "position": [
+                4192,
+                496
+            ],
+            "alwaysOutputData": true,
+            "onError": "continueRegularOutput",
+            "credentials": {
+                "supabaseApi": {
+                    "id": "ASRWWkQ0RSMOpNF1",
+                    "name": "Supabase account"
+                }
+            }
+        },
+        {
+            "parameters": {
+                "jsCode": "// Normalize PostgREST scalar response: true/false as raw JSON body.\n// n8n wraps this in different shapes depending on version.\nconst item = $input.first();\nconst body = item.json;\nlet claimed = false;\nif (body === true) claimed = true;\nelse if (typeof body === 'object' && body !== null) {\n  // Check common wrappers\n  if (body.claim_task_slot === true) claimed = true;\n  else if (Array.isArray(body) && body[0] === true) claimed = true;\n  else if (body.data === true) claimed = true;\n}\n// Pass the original webhook_payload through so Send Tasks to CRM still has it\nconst payload = $('Prepare Task Payloads').all()[item.pairedItem?.item ?? 0]?.json?.webhook_payload;\nreturn [{ json: { claimed, webhook_payload: payload } }];"
+            },
+            "id": "bbd7cbc7-32df-4a71-8e5b-27d55e40797b",
+            "name": "Parse Claim Result",
+            "type": "n8n-nodes-base.code",
+            "typeVersion": 2,
+            "position": [
+                4416,
+                496
+            ]
+        },
+        {
+            "parameters": {
+                "conditions": {
+                    "options": {
+                        "version": 2,
+                        "leftValue": "",
+                        "caseSensitive": true,
+                        "typeValidation": "strict"
+                    },
+                    "conditions": [
+                        {
+                            "id": "d3c7473a-f18e-4c0c-94c7-40fa23f2f64c",
+                            "leftValue": "={{ $json.claimed }}",
+                            "rightValue": true,
+                            "operator": {
+                                "type": "boolean",
+                                "operation": "true",
+                                "singleValue": true
+                            }
+                        }
+                    ],
+                    "combinator": "and"
+                },
+                "options": {}
+            },
+            "id": "6b84ba2a-d8df-4b06-8683-82a3f77ad97f",
+            "name": "Task Claimed?",
+            "type": "n8n-nodes-base.if",
+            "typeVersion": 2.2,
+            "position": [
+                4640,
+                496
+            ]
         }
     ],
     "connections": {
@@ -1124,7 +1227,7 @@
             "main": [
                 [
                     {
-                        "node": "Send Tasks to CRM",
+                        "node": "Claim Task Slot",
                         "type": "main",
                         "index": 0
                     }
@@ -1229,6 +1332,40 @@
                     }
                 ]
             ]
+        },
+        "Claim Task Slot": {
+            "main": [
+                [
+                    {
+                        "node": "Parse Claim Result",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Parse Claim Result": {
+            "main": [
+                [
+                    {
+                        "node": "Task Claimed?",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Task Claimed?": {
+            "main": [
+                [
+                    {
+                        "node": "Send Tasks to CRM",
+                        "type": "main",
+                        "index": 0
+                    }
+                ],
+                []
+            ]
         }
     },
     "settings": {
@@ -1252,9 +1389,9 @@
     },
     "meta": null,
     "pinData": {},
-    "versionId": "50397a69-6891-43d4-baa3-95b87638c77a",
-    "activeVersionId": "50397a69-6891-43d4-baa3-95b87638c77a",
-    "versionCounter": 188,
+    "versionId": "fd62a9a8-cd96-49fa-8ff4-85934ef49fa6",
+    "activeVersionId": "fd62a9a8-cd96-49fa-8ff4-85934ef49fa6",
+    "versionCounter": 202,
     "triggerCount": 1,
     "shared": [
         {
@@ -1275,11 +1412,18 @@
             }
         }
     ],
-    "tags": [],
+    "tags": [
+        {
+            "updatedAt": "2026-04-14T15:24:13.856Z",
+            "createdAt": "2026-04-14T15:24:13.856Z",
+            "id": "A3cmbix0aYnoWMKm",
+            "name": "subplot"
+        }
+    ],
     "activeVersion": {
-        "updatedAt": "2026-04-08T15:32:05.858Z",
-        "createdAt": "2026-04-08T15:32:05.858Z",
-        "versionId": "50397a69-6891-43d4-baa3-95b87638c77a",
+        "updatedAt": "2026-04-17T15:44:49.219Z",
+        "createdAt": "2026-04-17T15:44:49.219Z",
+        "versionId": "fd62a9a8-cd96-49fa-8ff4-85934ef49fa6",
         "workflowId": "JhDuCvZdFN4PFTOW",
         "nodes": [
             {
@@ -1297,7 +1441,7 @@
                     },
                     "sendBody": true,
                     "specifyBody": "string",
-                    "body": "client_id=YOUR_CLIENT_ID&client_secret=YOUR_CLIENT_SECRET&grant_type=client_credentials",
+                    "body": "client_id=Yl1JnBIr7yzb&client_secret=2rT0SWrgRN9fCYwu1BkFgeaFXeyBGNgTwb5GfeywkIeYEJvE&grant_type=client_credentials",
                     "options": {}
                 },
                 "id": "429b2c07-d2f6-42d0-a833-6f22f3092026",
@@ -1780,7 +1924,7 @@
             },
             {
                 "parameters": {
-                    "jsCode": "// Build Workato payloads for auto-saving recap to CRM\nconst data = $('Parse Recap Output').first().json;\nconst recap = data.recap;\nconst m = data.meeting;\n\n// Build description from recap parts\nconst descParts = [];\nif (recap.summary) descParts.push('Summary: ' + recap.summary);\nif (recap.keyDecisions && recap.keyDecisions.length > 0) {\n  descParts.push('Key Decisions:\\n' + recap.keyDecisions.map(d => '- ' + d).join('\\n'));\n}\nif (recap.tasks && recap.tasks.length > 0) {\n  descParts.push('Action Items:\\n' + recap.tasks.map(t =>\n    '- ' + t.description + (t.owner ? ' (' + t.owner + ')' : '')\n  ).join('\\n'));\n}\nconst description = descParts.join('\\n\\n');\n\n// Activity payload for logging the meeting recap\nconst activityPayload = {\n  action: 'log_activity',\n  salesforce_object: 'Event',\n  fields: {\n    Subject: m.subject || 'Customer Meeting',\n    Description: description,\n    ActivityDate: m.dayStr || new Date().toISOString().split('T')[0],\n    meeting_category: recap.meetingCategory || null,\n    cs_category: recap.csCategory || null,\n  },\n  context: {\n    user_email: data.email || '',\n    account_name: m.accountName || '',\n    activity_uid: m.activityUid || '',\n    prepend_description: true,\n  }\n};\n\n// Parse due date hints into actual dates\nfunction parseDueDate(hint) {\n  if (!hint) return '';\n  const now = new Date();\n  const lower = hint.toLowerCase().trim();\n  if (lower === 'today') return now.toISOString().split('T')[0];\n  if (lower === 'tomorrow') {\n    const d = new Date(now); d.setDate(d.getDate() + 1);\n    return d.toISOString().split('T')[0];\n  }\n  if (lower === 'this week' || lower === 'end of week') {\n    const d = new Date(now);\n    const dayOfWeek = d.getDay();\n    d.setDate(d.getDate() + (5 - dayOfWeek));\n    return d.toISOString().split('T')[0];\n  }\n  if (lower === 'next week') {\n    const d = new Date(now);\n    d.setDate(d.getDate() + 7);\n    return d.toISOString().split('T')[0];\n  }\n  // Try parsing as a date string\n  const parsed = new Date(hint);\n  if (!isNaN(parsed.getTime())) return parsed.toISOString().split('T')[0];\n  // Default: 1 week from now\n  const d = new Date(now); d.setDate(d.getDate() + 7);\n  return d.toISOString().split('T')[0];\n}\n\n// Task payloads\nconst taskPayloads = (recap.tasks || []).map(t => ({\n  action: 'create_task',\n  salesforce_object: 'Task',\n  fields: {\n    Subject: t.description || 'Follow-up task',\n    Description: 'From meeting: ' + (m.subject || '') + ' with ' + (m.accountName || '') +\n      (t.due_hint ? '\\nDue: ' + t.due_hint : ''),\n    ActivityDate: parseDueDate(t.due_hint),\n    Status: 'Not Started',\n    Priority: 'Normal',\n    TaskDuration: t.duration_minutes || 30,\n    Category: t.task_category || '',\n  },\n  context: {\n    user_email: data.email || '',\n    account_name: m.accountName || '',\n    meeting_subject: m.subject || '',\n    assignee_name: t.owner || '',\n    assignee_email: t.owner_email || '',\n    assignee_role: t.assignee_role || '',\n  }\n}));\n\nreturn [{ json: {\n  ...data,\n  activityPayload,\n  taskPayloads,\n  taskCount: taskPayloads.length,\n}}];"
+                    "jsCode": "// Build Workato payloads for auto-saving recap to CRM\nconst data = $('Parse Recap Output').first().json;\nconst recap = data.recap;\nconst m = data.meeting;\n\n// Build description from recap parts\nconst descParts = [];\nif (recap.summary) descParts.push('Summary: ' + recap.summary);\nif (recap.keyDecisions && recap.keyDecisions.length > 0) {\n  descParts.push('Key Decisions:\\n' + recap.keyDecisions.map(d => '- ' + d).join('\\n'));\n}\nif (recap.tasks && recap.tasks.length > 0) {\n  descParts.push('Action Items:\\n' + recap.tasks.map(t =>\n    '- ' + t.description + (t.owner ? ' (' + t.owner + ')' : '')\n  ).join('\\n'));\n}\nconst description = descParts.join('\\n\\n');\n\n// Activity payload for logging the meeting recap\nconst activityPayload = {\n  action: 'log_activity',\n  salesforce_object: 'Event',\n  fields: {\n    Subject: m.subject || 'Customer Meeting',\n    Description: description,\n    ActivityDate: m.dayStr || new Date().toISOString().split('T')[0],\n    meeting_category: recap.meetingCategory || null,\n    cs_category: recap.csCategory || null,\n  },\n  context: {\n    user_email: data.email || '',\n    account_name: m.accountName || '',\n    activity_uid: m.activityUid || '',\n    prepend_description: true,\n  }\n};\n\n// Parse due date hints into actual dates\nfunction parseDueDate(hint) {\n  if (!hint) return '';\n  const now = new Date();\n  const lower = hint.toLowerCase().trim();\n  if (lower === 'today') return now.toISOString().split('T')[0];\n  if (lower === 'tomorrow') {\n    const d = new Date(now); d.setDate(d.getDate() + 1);\n    return d.toISOString().split('T')[0];\n  }\n  if (lower === 'this week' || lower === 'end of week') {\n    const d = new Date(now);\n    const dayOfWeek = d.getDay();\n    d.setDate(d.getDate() + (5 - dayOfWeek));\n    return d.toISOString().split('T')[0];\n  }\n  if (lower === 'next week') {\n    const d = new Date(now);\n    d.setDate(d.getDate() + 7);\n    return d.toISOString().split('T')[0];\n  }\n  // Try parsing as a date string\n  const parsed = new Date(hint);\n  if (!isNaN(parsed.getTime())) return parsed.toISOString().split('T')[0];\n  // Default: 1 week from now\n  const d = new Date(now); d.setDate(d.getDate() + 7);\n  return d.toISOString().split('T')[0];\n}\n\n// Task payloads\nconst taskPayloads = (recap.tasks || []).map(t => ({\n  action: 'create_task',\n  salesforce_object: 'Task',\n  fields: {\n    Subject: t.description || 'Follow-up task',\n    Description: 'From meeting: ' + (m.subject || '') + ' with ' + (m.accountName || '') +\n      (t.due_hint ? '\\nDue: ' + t.due_hint : ''),\n    ActivityDate: parseDueDate(t.due_hint),\n    Status: 'Not Started',\n    Priority: 'Normal',\n    TaskDuration: t.duration_minutes || 30,\n    Category: t.task_category || '',\n  },\n  context: {\n    user_email: data.email || '',\n    account_name: m.accountName || '',\n    meeting_subject: m.subject || '',\n    activity_uid: m.activityUid || '',\n    assignee_name: t.owner || '',\n    assignee_email: t.owner_email || '',\n    assignee_role: t.assignee_role || '',\n  }\n}));\n\nreturn [{ json: {\n  ...data,\n  activityPayload,\n  taskPayloads,\n  taskCount: taskPayloads.length,\n}}];"
                 },
                 "id": "a12def0c-378d-4524-8835-426755f10bb0",
                 "name": "Build Auto-Save Payload",
@@ -1860,7 +2004,7 @@
                 "type": "n8n-nodes-base.httpRequest",
                 "typeVersion": 4.2,
                 "position": [
-                    3968,
+                    4864,
                     496
                 ],
                 "continueOnFail": true
@@ -2100,6 +2244,109 @@
                     928
                 ],
                 "continueOnFail": true
+            },
+            {
+                "id": "e1308dc4-34ce-4f24-aa99-c28e50a51e7f",
+                "name": "Sticky Note",
+                "type": "n8n-nodes-base.stickyNote",
+                "typeVersion": 1,
+                "position": [
+                    256,
+                    44
+                ],
+                "parameters": {
+                    "content": "## Follow-up Cron\n\n9am + 4pm PT weekday cron. Matches users to ended meetings, runs Claude recap agent, auto-saves to Salesforce via Workato, creates tasks, fires task resolution, sends compact recap card + detail thread to Slack. 36 nodes.",
+                    "width": 600,
+                    "height": 200
+                }
+            },
+            {
+                "parameters": {
+                    "method": "POST",
+                    "url": "https://rhrlnkbphxntxxxcrgvv.supabase.co/rest/v1/rpc/claim_task_slot",
+                    "authentication": "predefinedCredentialType",
+                    "nodeCredentialType": "supabaseApi",
+                    "sendHeaders": true,
+                    "headerParameters": {
+                        "parameters": [
+                            {
+                                "name": "Content-Type",
+                                "value": "application/json"
+                            },
+                            {
+                                "name": "Accept",
+                                "value": "application/json"
+                            }
+                        ]
+                    },
+                    "sendBody": true,
+                    "specifyBody": "json",
+                    "jsonBody": "={{ JSON.stringify({\n  p_account: $json.webhook_payload.context.account_name || '',\n  p_assignee: $json.webhook_payload.context.assignee_email || $json.webhook_payload.context.user_email || '',\n  p_subject: $json.webhook_payload.fields.Subject || '',\n  p_activity_uid: $json.webhook_payload.context.activity_uid || ''\n}) }}",
+                    "options": {}
+                },
+                "id": "a7041c07-4eee-456c-978d-a5b14273f6c1",
+                "name": "Claim Task Slot",
+                "type": "n8n-nodes-base.httpRequest",
+                "typeVersion": 4.2,
+                "position": [
+                    4192,
+                    496
+                ],
+                "alwaysOutputData": true,
+                "onError": "continueRegularOutput",
+                "credentials": {
+                    "supabaseApi": {
+                        "id": "ASRWWkQ0RSMOpNF1",
+                        "name": "Supabase account"
+                    }
+                }
+            },
+            {
+                "parameters": {
+                    "jsCode": "// Normalize PostgREST scalar response: true/false as raw JSON body.\n// n8n wraps this in different shapes depending on version.\nconst item = $input.first();\nconst body = item.json;\nlet claimed = false;\nif (body === true) claimed = true;\nelse if (typeof body === 'object' && body !== null) {\n  // Check common wrappers\n  if (body.claim_task_slot === true) claimed = true;\n  else if (Array.isArray(body) && body[0] === true) claimed = true;\n  else if (body.data === true) claimed = true;\n}\n// Pass the original webhook_payload through so Send Tasks to CRM still has it\nconst payload = $('Prepare Task Payloads').all()[item.pairedItem?.item ?? 0]?.json?.webhook_payload;\nreturn [{ json: { claimed, webhook_payload: payload } }];"
+                },
+                "id": "bbd7cbc7-32df-4a71-8e5b-27d55e40797b",
+                "name": "Parse Claim Result",
+                "type": "n8n-nodes-base.code",
+                "typeVersion": 2,
+                "position": [
+                    4416,
+                    496
+                ]
+            },
+            {
+                "parameters": {
+                    "conditions": {
+                        "options": {
+                            "version": 2,
+                            "leftValue": "",
+                            "caseSensitive": true,
+                            "typeValidation": "strict"
+                        },
+                        "conditions": [
+                            {
+                                "id": "d3c7473a-f18e-4c0c-94c7-40fa23f2f64c",
+                                "leftValue": "={{ $json.claimed }}",
+                                "rightValue": true,
+                                "operator": {
+                                    "type": "boolean",
+                                    "operation": "true",
+                                    "singleValue": true
+                                }
+                            }
+                        ],
+                        "combinator": "and"
+                    },
+                    "options": {}
+                },
+                "id": "6b84ba2a-d8df-4b06-8683-82a3f77ad97f",
+                "name": "Task Claimed?",
+                "type": "n8n-nodes-base.if",
+                "typeVersion": 2.2,
+                "position": [
+                    4640,
+                    496
+                ]
             }
         ],
         "connections": {
@@ -2399,7 +2646,7 @@
                 "main": [
                     [
                         {
-                            "node": "Send Tasks to CRM",
+                            "node": "Claim Task Slot",
                             "type": "main",
                             "index": 0
                         }
@@ -2504,6 +2751,40 @@
                         }
                     ]
                 ]
+            },
+            "Claim Task Slot": {
+                "main": [
+                    [
+                        {
+                            "node": "Parse Claim Result",
+                            "type": "main",
+                            "index": 0
+                        }
+                    ]
+                ]
+            },
+            "Parse Claim Result": {
+                "main": [
+                    [
+                        {
+                            "node": "Task Claimed?",
+                            "type": "main",
+                            "index": 0
+                        }
+                    ]
+                ]
+            },
+            "Task Claimed?": {
+                "main": [
+                    [
+                        {
+                            "node": "Send Tasks to CRM",
+                            "type": "main",
+                            "index": 0
+                        }
+                    ],
+                    []
+                ]
             }
         },
         "authors": "Scott Metcalf",
@@ -2512,18 +2793,18 @@
         "autosaved": false,
         "workflowPublishHistory": [
             {
-                "createdAt": "2026-04-08T15:32:05.971Z",
-                "id": 2052,
+                "createdAt": "2026-04-17T15:44:49.314Z",
+                "id": 2281,
                 "workflowId": "JhDuCvZdFN4PFTOW",
-                "versionId": "50397a69-6891-43d4-baa3-95b87638c77a",
+                "versionId": "fd62a9a8-cd96-49fa-8ff4-85934ef49fa6",
                 "event": "activated",
                 "userId": "bfa163c1-bd53-4c0f-b0ba-8dc3626f7c79"
             },
             {
-                "createdAt": "2026-04-08T15:32:05.936Z",
-                "id": 2051,
+                "createdAt": "2026-04-17T15:44:49.293Z",
+                "id": 2280,
                 "workflowId": "JhDuCvZdFN4PFTOW",
-                "versionId": "50397a69-6891-43d4-baa3-95b87638c77a",
+                "versionId": "fd62a9a8-cd96-49fa-8ff4-85934ef49fa6",
                 "event": "deactivated",
                 "userId": "bfa163c1-bd53-4c0f-b0ba-8dc3626f7c79"
             }
