@@ -13,7 +13,7 @@ A proactive, AI-powered sales assistant delivered through your team's chat platf
 | **⏱ Deploy Time** | 2–4 hours |
 | **🔧 Workflows** | 27 importable n8n JSONs |
 | **🤖 LLM** | Any — Claude, ChatGPT, Gemini, Mistral |
-| **📡 Data** | People.ai MCP + Query API |
+| **📡 Data** | Backstory MCP + Query API |
 | **💬 Delivery** | Slack, Teams, or Google Chat |
 
 ---
@@ -52,7 +52,7 @@ The assistant runs on a three-layer stack — no custom backend code required.
 |-------|-----------|------|
 | **Orchestration** | n8n | Scheduling, API routing, conditional logic, message delivery |
 | **Reasoning** | LLM (Claude, ChatGPT, Gemini, etc.) | Synthesizes data into natural language briefings and recommendations |
-| **Intelligence** | People.ai API + MCP | Engagement scores, activity signals, deal health, stakeholder data |
+| **Intelligence** | Backstory API + MCP | Engagement scores, activity signals, deal health, stakeholder data |
 | **Delivery** | Slack, Teams, or Google Chat | All user interaction — onboarding, digests, commands, approvals |
 | **Data Store** | PostgreSQL | Multi-tenant user/org data, message logs, pending actions |
 
@@ -65,7 +65,7 @@ The assistant runs on a three-layer stack — no custom backend code required.
                     ┌───────┴───────┐
                     │               │
               ┌─────▼─────┐  ┌─────▼──────┐
-              │    LLM     │  │ People.ai  │
+              │    LLM     │  │ Backstory  │
               │ (Reasoning)│  │ (Intel)    │
               └───────────┘  └────────────┘
                     │

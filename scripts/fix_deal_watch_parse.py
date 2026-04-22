@@ -2,7 +2,7 @@
 """
 Fix Deal Watch Cron: Parse and Classify CSV header mismatches.
 
-The People.ai Insights API returns different column headers than expected:
+The Backstory Insights API returns different column headers than expected:
   - "Record ID" not "CRM ID"
   - "Amount (Converted)" not "Converted Amount"
   - "Opportunity Engagement Level" not "Engagement Level"

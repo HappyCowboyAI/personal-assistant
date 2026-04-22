@@ -4,7 +4,7 @@ Add followup_draft and followup_skip button handling to the Interactive Events H
 
 When a user clicks [Draft Follow-up] in the proactive follow-up prompt:
 1. Update message → "Drafting follow-up..."
-2. Claude agent + People.ai MCP drafts the email
+2. Claude agent + Backstory MCP drafts the email
 3. Post draft as a thread reply
 4. Update original message → "Draft posted in thread"
 
@@ -31,7 +31,7 @@ HEADERS = {"X-N8N-API-KEY": N8N_API_KEY, "Content-Type": "application/json"}
 
 # Credentials
 ANTHROPIC_CRED = {"id": "rlAz7ZSl4y6AwRUq", "name": "Anthropic account 2"}
-MCP_CRED = {"id": "wvV5pwBeIL7f2vLG", "name": "People.ai MCP Multi-Header"}
+MCP_CRED = {"id": "wvV5pwBeIL7f2vLG", "name": "Backstory MCP Multi-Header"}
 SLACK_CRED = {"id": "LluVuiMJ8NUbAiG7", "name": "Slackbot Auth Token"}
 
 
@@ -98,11 +98,11 @@ const meetingSubjectNote = meetingSubject
 
 let systemPrompt = `You are ${assistantName}, a personal sales assistant for ${repName}.
 
-You have access to People.ai MCP tools for CRM data, account activity, meeting details, and engagement data.
+You have access to Backstory MCP tools for CRM data, account activity, meeting details, and engagement data.
 
 **FOLLOW-UP EMAIL DRAFT MODE**
 
-The user just had a meeting with ${accountName}${meetingSubjectNote}. Use People.ai MCP tools to:
+The user just had a meeting with ${accountName}${meetingSubjectNote}. Use Backstory MCP tools to:
 1. Check the account's current deal status and stage
 2. Review recent engagement and activity
 3. Look up the participants to personalize the email
@@ -373,7 +373,7 @@ const channelId = (payload.channel && payload.channel.id) ? payload.channel.id :
     })
     print(f"  Added 'Anthropic Chat Model (Followup)'")
 
-    # 5e. People.ai MCP (Followup)
+    # 5e. Backstory MCP (Followup)
     mcp_id = uid()
     nodes.append({
         "parameters": {
@@ -382,13 +382,13 @@ const channelId = (payload.channel && payload.channel.id) ? payload.channel.id :
             "options": {},
         },
         "id": mcp_id,
-        "name": "People.ai MCP (Followup)",
+        "name": "Backstory MCP (Followup)",
         "type": "@n8n/n8n-nodes-langchain.mcpClientTool",
         "typeVersion": 1.2,
         "position": [base_x + 700, base_y + 200],
         "credentials": {"httpMultipleHeadersAuth": MCP_CRED},
     })
-    print(f"  Added 'People.ai MCP (Followup)'")
+    print(f"  Added 'Backstory MCP (Followup)'")
 
     # 5f. Post Draft Reply (thread reply to original message)
     reply_id = uid()
@@ -485,7 +485,7 @@ const channelId = (payload.channel && payload.channel.id) ? payload.channel.id :
             [{"node": "Followup Draft Agent", "type": "ai_languageModel", "index": 0}]
         ]
     }
-    connections["People.ai MCP (Followup)"] = {
+    connections["Backstory MCP (Followup)"] = {
         "ai_tool": [
             [{"node": "Followup Draft Agent", "type": "ai_tool", "index": 0}]
         ]

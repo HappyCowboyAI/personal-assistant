@@ -9,7 +9,7 @@ When a user sees a silent account in their silence contract alert, the natural n
 Add "Draft Follow-up" as the first option in the silence alert overflow menu. When selected:
 
 1. A "Drafting..." message appears in a thread under the alert
-2. A Claude agent with People.ai MCP tools researches the account and its contacts
+2. A Claude agent with Backstory MCP tools researches the account and its contacts
 3. The agent drafts a re-engagement email with recommended recipients
 4. The "Drafting..." message is replaced with the polished draft
 
@@ -30,7 +30,7 @@ Each silent account's `[...]` menu now has 4 options:
 
 The agent gets a system prompt distinct from the post-meeting follow-up prompt. Key instructions:
 
-**Contact research** — Use People.ai MCP to:
+**Contact research** — Use Backstory MCP to:
 1. Look up the account's engaged contacts (roles, titles, last activity dates)
 2. Identify the best recipient(s) — prioritize contacts the rep has had direct interaction with, and decision-makers relevant to open opportunities
 3. Surface secondary contacts worth CC'ing if appropriate
@@ -55,12 +55,12 @@ _Reply in this thread to adjust the tone, recipients, or ask me to revise._
 
 **Rules:**
 - 150-250 words in the email body
-- Reference specific context from People.ai (deals, last activity, engagement patterns)
+- Reference specific context from Backstory (deals, last activity, engagement patterns)
 - Include a clear next step / call to action
 - Use contact names, not generic "team"
 - If there are open opportunities, weave that context in naturally
 - Note how long since last engagement in the To/CC lines
-- If People.ai returns no engaged contacts, tell the user: "I couldn't find recent contacts for this account. Try reaching out to your last known contact or check Salesforce for the account team."
+- If Backstory returns no engaged contacts, tell the user: "I couldn't find recent contacts for this account. Try reaching out to your last known contact or check Salesforce for the account team."
 - Keep under 3000 characters total (Slack limit)
 
 ## Workflow Changes
@@ -101,7 +101,7 @@ Outputs:
 **Re-engagement Draft Agent** (new Agent trio):
 - Agent node with re-engagement system prompt
 - Anthropic Chat Model (Claude Sonnet 4.5)
-- People.ai MCP client tool (production endpoint: `https://mcp.people.ai/mcp`, credential: `wvV5pwBeIL7f2vLG`)
+- Backstory MCP client tool (production endpoint: `https://mcp.people.ai/mcp`, credential: `wvV5pwBeIL7f2vLG`)
 - Separate from the existing Followup Draft Agent (different system prompt)
 - `continueOnFail: true` — if the agent errors, the flow continues
 
@@ -118,7 +118,7 @@ User clicks [...] → "Draft Follow-up" on a silent account
   → Route Silence Action parses actionCode = 'fd'
   → Post Drafting Message (thread: "Drafting a follow-up for *Elastic*...")
   → Build Re-engagement Prompt (system prompt + account context)
-  → Re-engagement Draft Agent (Claude + People.ai MCP)
+  → Re-engagement Draft Agent (Claude + Backstory MCP)
   → Post Draft to Thread (chat.update → replaces "Drafting..." with draft)
 
 User clicks [...] → "Snooze 7d" / "Snooze 30d" / "Mark as Lost"

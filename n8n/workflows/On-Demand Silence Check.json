@@ -95,7 +95,7 @@
         {
             "parameters": {
                 "mode": "runOnceForAllItems",
-                "jsCode": "const data = $input.first().json;\nconst today = new Date().toISOString().split('T')[0];\nconst scope = data.digestScope || data.digest_scope || 'my_deals';\nconst repName = data.repName || '';\nconst userAccounts = data.userAccounts || [];\nconst totalAccountCount = data.totalAccountCount || 0;\nconst assistantName = data.assistantName || data.assistant_name || 'Aria';\nconst assistantEmoji = data.assistantEmoji || data.assistant_emoji || ':robot_face:';\nconst assistantPersona = data.assistantPersona || data.assistant_persona || '';\n\nif (userAccounts.length === 0) {\n  return [{ json: { ...data, silencePrompt: '', systemPrompt: '', skip: true, skipReason: 'No accounts found for ' + repName, assistantName, assistantEmoji } }];\n}\n\nconst accountList = userAccounts.map(a => `\u2022 ${a}`).join('\\n');\n\nlet scopeContext;\nif (scope === 'my_deals') {\n  scopeContext = `These are accounts where ${repName} is the owner or CSM.`;\n} else if (scope === 'team_deals') {\n  scopeContext = `These are your team's top accounts by deal value.`;\n} else {\n  scopeContext = `These are the top ${userAccounts.length} accounts by deal value (of ${totalAccountCount} total with open opportunities).`;\n}\n\nconst prompt = `Check these specific accounts for engagement gaps. For each account below, check if there has been any customer-facing activity (emails, meetings, or calls) in the past 5 or more days. ${scopeContext}\n\n${accountList}\n\nToday's date is ${today}. Report any that have gone silent (5+ days with no activity).`;\n\nconst systemPrompt = `You are ${assistantName}, a proactive sales assistant.${assistantPersona ? ' Your personality: ' + assistantPersona + '.' : ''} You detect \"silence contracts\" \u2014 accounts where customer engagement has gone quiet.\n\nUsing the People.ai tools, check accounts for engagement gaps:\n1. For each account, check the most recent customer-facing activity (emails, meetings, calls)\n2. Identify accounts where the last activity was more than 5 days ago\n\nClassify each silent account by severity:\n- \"info\" (5-9 days): Getting quiet\n- \"warning\" (10-20 days): Gone silent\n- \"critical\" (21+ days): Relationship at risk\n\nCRITICAL: End your response with a JSON code block:\n\\`\\`\\`json\n{\n  \"silent_accounts\": [\n    {\n      \"account_name\": \"Account Name\",\n      \"days_silent\": 14,\n      \"last_activity_date\": \"2026-02-17\",\n      \"last_activity_type\": \"email\",\n      \"severity\": \"warning\"\n    }\n  ]\n}\n\\`\\`\\`\nIf no accounts are silent, return: \\`\\`\\`json\\n{\"silent_accounts\": []}\\n\\`\\`\\`\nDo NOT include text after the JSON block.`;\n\nreturn [{ json: { ...data, silencePrompt: prompt, systemPrompt, assistantName, assistantEmoji } }];"
+                "jsCode": "const data = $input.first().json;\nconst today = new Date().toISOString().split('T')[0];\nconst scope = data.digestScope || data.digest_scope || 'my_deals';\nconst repName = data.repName || '';\nconst userAccounts = data.userAccounts || [];\nconst totalAccountCount = data.totalAccountCount || 0;\nconst assistantName = data.assistantName || data.assistant_name || 'Aria';\nconst assistantEmoji = data.assistantEmoji || data.assistant_emoji || ':robot_face:';\nconst assistantPersona = data.assistantPersona || data.assistant_persona || '';\n\nif (userAccounts.length === 0) {\n  return [{ json: { ...data, silencePrompt: '', systemPrompt: '', skip: true, skipReason: 'No accounts found for ' + repName, assistantName, assistantEmoji } }];\n}\n\nconst accountList = userAccounts.map(a => `\u2022 ${a}`).join('\\n');\n\nlet scopeContext;\nif (scope === 'my_deals') {\n  scopeContext = `These are accounts where ${repName} is the owner or CSM.`;\n} else if (scope === 'team_deals') {\n  scopeContext = `These are your team's top accounts by deal value.`;\n} else {\n  scopeContext = `These are the top ${userAccounts.length} accounts by deal value (of ${totalAccountCount} total with open opportunities).`;\n}\n\nconst prompt = `Check these specific accounts for engagement gaps. For each account below, check if there has been any customer-facing activity (emails, meetings, or calls) in the past 5 or more days. ${scopeContext}\n\n${accountList}\n\nToday's date is ${today}. Report any that have gone silent (5+ days with no activity).`;\n\nconst systemPrompt = `You are ${assistantName}, a proactive sales assistant.${assistantPersona ? ' Your personality: ' + assistantPersona + '.' : ''} You detect \"silence contracts\" \u2014 accounts where customer engagement has gone quiet.\n\nUsing the Backstory tools, check accounts for engagement gaps:\n1. For each account, check the most recent customer-facing activity (emails, meetings, calls)\n2. Identify accounts where the last activity was more than 5 days ago\n\nClassify each silent account by severity:\n- \"info\" (5-9 days): Getting quiet\n- \"warning\" (10-20 days): Gone silent\n- \"critical\" (21+ days): Relationship at risk\n\nCRITICAL: End your response with a JSON code block:\n\\`\\`\\`json\n{\n  \"silent_accounts\": [\n    {\n      \"account_name\": \"Account Name\",\n      \"days_silent\": 14,\n      \"last_activity_date\": \"2026-02-17\",\n      \"last_activity_type\": \"email\",\n      \"severity\": \"warning\"\n    }\n  ]\n}\n\\`\\`\\`\nIf no accounts are silent, return: \\`\\`\\`json\\n{\"silent_accounts\": []}\\n\\`\\`\\`\nDo NOT include text after the JSON block.`;\n\nreturn [{ json: { ...data, silencePrompt: prompt, systemPrompt, assistantName, assistantEmoji } }];"
             },
             "id": "ddb1a8d6-05e1-45ed-9c13-76f72f9291a6",
             "name": "Build Silence Prompt",
@@ -156,7 +156,7 @@
                 "options": {}
             },
             "id": "b6919adf-c1a9-40e6-9dd6-16a1f9f41d78",
-            "name": "People.ai MCP",
+            "name": "Backstory MCP",
             "type": "@n8n/n8n-nodes-langchain.mcpClientTool",
             "typeVersion": 1.2,
             "position": [
@@ -166,7 +166,7 @@
             "credentials": {
                 "httpMultipleHeadersAuth": {
                     "id": "wvV5pwBeIL7f2vLG",
-                    "name": "People.ai MCP Multi-Header"
+                    "name": "Backstory MCP Multi-Header"
                 }
             }
         },
@@ -379,7 +379,7 @@
                 ]
             ]
         },
-        "People.ai MCP": {
+        "Backstory MCP": {
             "ai_tool": [
                 [
                     {
@@ -561,7 +561,7 @@
             {
                 "parameters": {
                     "mode": "runOnceForAllItems",
-                    "jsCode": "const data = $input.first().json;\nconst today = new Date().toISOString().split('T')[0];\nconst scope = data.digestScope || data.digest_scope || 'my_deals';\nconst repName = data.repName || '';\nconst userAccounts = data.userAccounts || [];\nconst totalAccountCount = data.totalAccountCount || 0;\nconst assistantName = data.assistantName || data.assistant_name || 'Aria';\nconst assistantEmoji = data.assistantEmoji || data.assistant_emoji || ':robot_face:';\nconst assistantPersona = data.assistantPersona || data.assistant_persona || '';\n\nif (userAccounts.length === 0) {\n  return [{ json: { ...data, silencePrompt: '', systemPrompt: '', skip: true, skipReason: 'No accounts found for ' + repName, assistantName, assistantEmoji } }];\n}\n\nconst accountList = userAccounts.map(a => `\u2022 ${a}`).join('\\n');\n\nlet scopeContext;\nif (scope === 'my_deals') {\n  scopeContext = `These are accounts where ${repName} is the owner or CSM.`;\n} else if (scope === 'team_deals') {\n  scopeContext = `These are your team's top accounts by deal value.`;\n} else {\n  scopeContext = `These are the top ${userAccounts.length} accounts by deal value (of ${totalAccountCount} total with open opportunities).`;\n}\n\nconst prompt = `Check these specific accounts for engagement gaps. For each account below, check if there has been any customer-facing activity (emails, meetings, or calls) in the past 5 or more days. ${scopeContext}\n\n${accountList}\n\nToday's date is ${today}. Report any that have gone silent (5+ days with no activity).`;\n\nconst systemPrompt = `You are ${assistantName}, a proactive sales assistant.${assistantPersona ? ' Your personality: ' + assistantPersona + '.' : ''} You detect \"silence contracts\" \u2014 accounts where customer engagement has gone quiet.\n\nUsing the People.ai tools, check accounts for engagement gaps:\n1. For each account, check the most recent customer-facing activity (emails, meetings, calls)\n2. Identify accounts where the last activity was more than 5 days ago\n\nClassify each silent account by severity:\n- \"info\" (5-9 days): Getting quiet\n- \"warning\" (10-20 days): Gone silent\n- \"critical\" (21+ days): Relationship at risk\n\nCRITICAL: End your response with a JSON code block:\n\\`\\`\\`json\n{\n  \"silent_accounts\": [\n    {\n      \"account_name\": \"Account Name\",\n      \"days_silent\": 14,\n      \"last_activity_date\": \"2026-02-17\",\n      \"last_activity_type\": \"email\",\n      \"severity\": \"warning\"\n    }\n  ]\n}\n\\`\\`\\`\nIf no accounts are silent, return: \\`\\`\\`json\\n{\"silent_accounts\": []}\\n\\`\\`\\`\nDo NOT include text after the JSON block.`;\n\nreturn [{ json: { ...data, silencePrompt: prompt, systemPrompt, assistantName, assistantEmoji } }];"
+                    "jsCode": "const data = $input.first().json;\nconst today = new Date().toISOString().split('T')[0];\nconst scope = data.digestScope || data.digest_scope || 'my_deals';\nconst repName = data.repName || '';\nconst userAccounts = data.userAccounts || [];\nconst totalAccountCount = data.totalAccountCount || 0;\nconst assistantName = data.assistantName || data.assistant_name || 'Aria';\nconst assistantEmoji = data.assistantEmoji || data.assistant_emoji || ':robot_face:';\nconst assistantPersona = data.assistantPersona || data.assistant_persona || '';\n\nif (userAccounts.length === 0) {\n  return [{ json: { ...data, silencePrompt: '', systemPrompt: '', skip: true, skipReason: 'No accounts found for ' + repName, assistantName, assistantEmoji } }];\n}\n\nconst accountList = userAccounts.map(a => `\u2022 ${a}`).join('\\n');\n\nlet scopeContext;\nif (scope === 'my_deals') {\n  scopeContext = `These are accounts where ${repName} is the owner or CSM.`;\n} else if (scope === 'team_deals') {\n  scopeContext = `These are your team's top accounts by deal value.`;\n} else {\n  scopeContext = `These are the top ${userAccounts.length} accounts by deal value (of ${totalAccountCount} total with open opportunities).`;\n}\n\nconst prompt = `Check these specific accounts for engagement gaps. For each account below, check if there has been any customer-facing activity (emails, meetings, or calls) in the past 5 or more days. ${scopeContext}\n\n${accountList}\n\nToday's date is ${today}. Report any that have gone silent (5+ days with no activity).`;\n\nconst systemPrompt = `You are ${assistantName}, a proactive sales assistant.${assistantPersona ? ' Your personality: ' + assistantPersona + '.' : ''} You detect \"silence contracts\" \u2014 accounts where customer engagement has gone quiet.\n\nUsing the Backstory tools, check accounts for engagement gaps:\n1. For each account, check the most recent customer-facing activity (emails, meetings, calls)\n2. Identify accounts where the last activity was more than 5 days ago\n\nClassify each silent account by severity:\n- \"info\" (5-9 days): Getting quiet\n- \"warning\" (10-20 days): Gone silent\n- \"critical\" (21+ days): Relationship at risk\n\nCRITICAL: End your response with a JSON code block:\n\\`\\`\\`json\n{\n  \"silent_accounts\": [\n    {\n      \"account_name\": \"Account Name\",\n      \"days_silent\": 14,\n      \"last_activity_date\": \"2026-02-17\",\n      \"last_activity_type\": \"email\",\n      \"severity\": \"warning\"\n    }\n  ]\n}\n\\`\\`\\`\nIf no accounts are silent, return: \\`\\`\\`json\\n{\"silent_accounts\": []}\\n\\`\\`\\`\nDo NOT include text after the JSON block.`;\n\nreturn [{ json: { ...data, silencePrompt: prompt, systemPrompt, assistantName, assistantEmoji } }];"
                 },
                 "id": "ddb1a8d6-05e1-45ed-9c13-76f72f9291a6",
                 "name": "Build Silence Prompt",
@@ -622,7 +622,7 @@
                     "options": {}
                 },
                 "id": "b6919adf-c1a9-40e6-9dd6-16a1f9f41d78",
-                "name": "People.ai MCP",
+                "name": "Backstory MCP",
                 "type": "@n8n/n8n-nodes-langchain.mcpClientTool",
                 "typeVersion": 1.2,
                 "position": [
@@ -632,7 +632,7 @@
                 "credentials": {
                     "httpMultipleHeadersAuth": {
                         "id": "wvV5pwBeIL7f2vLG",
-                        "name": "People.ai MCP Multi-Header"
+                        "name": "Backstory MCP Multi-Header"
                     }
                 }
             },
@@ -845,7 +845,7 @@
                     ]
                 ]
             },
-            "People.ai MCP": {
+            "Backstory MCP": {
                 "ai_tool": [
                     [
                         {

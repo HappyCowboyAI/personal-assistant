@@ -2,7 +2,7 @@
 Fix: Email drafts should be signed by the requesting rep, not the account AE.
 
 The agent defaults to signing as whoever it finds as the account owner in
-People.ai, but the email should always be signed by the person who asked
+Backstory, but the email should always be signed by the person who asked
 for the draft.
 
 Updates three prompts:

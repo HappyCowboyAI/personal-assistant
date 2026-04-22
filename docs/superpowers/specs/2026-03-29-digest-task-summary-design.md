@@ -14,7 +14,7 @@ Add a "Tasks" section to the morning Sales Digest that surfaces overdue and due-
 | When to surface tasks? | In the morning digest only (no separate DM) | Avoids notification fatigue, fits existing daily touchpoint |
 | When to show the section? | Only when actionable (overdue or due this week) | Keeps digest lean on quiet days |
 | Level of detail? | Summary line + top 3-5 most urgent tasks by name | Enough context to know what's slipping without bloating the digest |
-| Data source? | Workato SOQL query against Salesforce | People.ai Query API does not sync SF Task objects |
+| Data source? | Workato SOQL query against Salesforce | Backstory Query API does not sync SF Task objects |
 
 ## Design
 

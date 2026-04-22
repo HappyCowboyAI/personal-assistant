@@ -498,7 +498,7 @@ git commit -m "feat: auto-save meeting recaps and tasks to CRM, replace review g
 
 - [ ] **Step 1: Update `log_activity` action in Workato**
 
-In the Workato recipe "People.ai Assistant — Save to Salesforce":
+In the Workato recipe "Backstory Assistant — Save to Salesforce":
 
 1. After the SOQL lookup finds the Event, build the update payload conditionally:
    - **Meeting Category:** If `Event.Meeting_Category IS NULL` → set to `fields.meeting_category`. If already set → skip.
@@ -525,7 +525,7 @@ Send a test payload manually to verify:
 
 - [ ] **Step 1: Trigger a test recap**
 
-Wait for the next Follow-up Cron run (9am or 4pm PT), or trigger manually by having a recent customer meeting in People.ai data.
+Wait for the next Follow-up Cron run (9am or 4pm PT), or trigger manually by having a recent customer meeting in Backstory data.
 
 - [ ] **Step 2: Verify auto-save**
 

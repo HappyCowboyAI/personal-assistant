@@ -6,14 +6,14 @@
 
 **Architecture:** A new `conversations` table tracks active threads. Every agent workflow appends a "conversation bookend" (3 nodes) to create a record and log messages. The Slack Events Handler intercepts thread replies to active conversations and routes them to a shared "Continue Conversation" sub-workflow that loads history, re-invokes the correct agent with context, and posts the reply back to the same thread.
 
-**Tech Stack:** n8n workflows (modified via Python scripts + n8n REST API), Supabase (PostgreSQL), Slack API, Anthropic Claude API with People.ai MCP tools.
+**Tech Stack:** n8n workflows (modified via Python scripts + n8n REST API), Supabase (PostgreSQL), Slack API, Anthropic Claude API with Backstory MCP tools.
 
 **Design Doc:** `docs/plans/2026-03-03-multi-turn-conversations-design.md`
 
 **Key patterns from this codebase:**
 - Python scripts use `fetch_workflow()` / `push_workflow()` / `sync_local()` to modify n8n workflows via API
 - Supabase inserts use HTTP Request nodes (not Supabase node) per MEMORY.md
-- Credential IDs: Supabase `ASRWWkQ0RSMOpNF1`, Anthropic `rlAz7ZSl4y6AwRUq`, People.ai MCP `wvV5pwBeIL7f2vLG`, Slack `LluVuiMJ8NUbAiG7`
+- Credential IDs: Supabase `ASRWWkQ0RSMOpNF1`, Anthropic `rlAz7ZSl4y6AwRUq`, Backstory MCP `wvV5pwBeIL7f2vLG`, Slack `LluVuiMJ8NUbAiG7`
 - n8n workflow activation: `POST /api/v1/workflows/{id}/activate`
 - executeWorkflowTrigger needs `inputSource: "passthrough"` to activate
 - Always fetch live workflow before modifying (live may differ from local)
@@ -127,7 +127,7 @@ The script creates a new workflow with these nodes:
 5. **Log Inbound** — HTTP POST to Supabase REST: insert message with role='user'
 6. **Build Agent Context** — Code node: reconstructs `[{role, content}]` array from history, applies ~4000 token budget, prepends system prompt from `agent_config`, appends new user message. If final turn, appends "This is the final exchange" instruction.
 7. **Conversation Agent** — Anthropic Chat Model node with dynamic system prompt from expression
-8. **People.ai MCP Tool** — MCP tool node connected to the agent, using People.ai credential
+8. **Backstory MCP Tool** — MCP tool node connected to the agent, using Backstory credential
 9. **Post Response** — HTTP POST to Slack `chat.postMessage` with `thread_ts`, personalized `username`/`icon_emoji`
 10. **Log Outbound** — HTTP POST to Supabase REST: insert message with role='assistant'
 11. **Update Conversation** — HTTP PATCH to Supabase REST: increment turn_count, slide expires_at, set status='active' (or 'completed' if final turn)

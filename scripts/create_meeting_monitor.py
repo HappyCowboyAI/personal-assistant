@@ -1,7 +1,7 @@
 """
 Create: Meeting Data Monitor workflow.
 
-Polls People.ai every 30 min (5am-8pm PT weekdays) for today's meetings
+Polls Backstory every 30 min (5am-8pm PT weekdays) for today's meetings
 involving Scott Metcalf and Shreyas Gore. Reports what data is available
 for each meeting so we can observe ingestion latency.
 
@@ -66,7 +66,7 @@ get_auth_token = {
 
 build_query = {
     "parameters": {
-        "jsCode": """// Build People.ai activity export query for today's meetings
+        "jsCode": """// Build Backstory activity export query for today's meetings
 const tz = 'America/Los_Angeles';
 const now = new Date();
 

@@ -64,8 +64,8 @@ def get_sales_digest_code():
 # UPDATED CODE NODES
 # ============================================================
 
-# Build Query — use correct timestamp format for People.ai
-CRON_BUILD_QUERY_CODE = r"""// Build People.ai activity export query for today's upcoming external meetings
+# Build Query — use correct timestamp format for Backstory
+CRON_BUILD_QUERY_CODE = r"""// Build Backstory activity export query for today's upcoming external meetings
 const tz = 'America/Los_Angeles';
 const now = new Date();
 
@@ -106,7 +106,7 @@ return [{ json: { query: JSON.stringify(query) } }];
 """
 
 # Parse Meetings — handle actual CSV column names (display names, not slugs)
-CRON_PARSE_MEETINGS_CODE = r"""// Parse CSV from People.ai activity export
+CRON_PARSE_MEETINGS_CODE = r"""// Parse CSV from Backstory activity export
 // API returns display names: "Activity", "Activity date", "Subject", "Account (name)", etc.
 // Timestamps are ISO format (e.g., "2026-02-24 16:00:00+00:00"), not epoch ms
 const raw = $('Fetch Today Meetings').first().json;

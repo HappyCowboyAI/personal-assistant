@@ -25,7 +25,7 @@ HEADERS = {"X-N8N-API-KEY": N8N_API_KEY, "Content-Type": "application/json"}
 # ── Credential IDs (live n8n instance) ─────────────────────────────────
 SUPABASE_CRED = {"id": "ASRWWkQ0RSMOpNF1", "name": "Supabase account"}
 ANTHROPIC_CRED = {"id": "rlAz7ZSl4y6AwRUq", "name": "Anthropic account 2"}
-MCP_CRED = {"id": "wvV5pwBeIL7f2vLG", "name": "People.ai MCP Multi-Header"}
+MCP_CRED = {"id": "wvV5pwBeIL7f2vLG", "name": "Backstory MCP Multi-Header"}
 SLACK_CRED = {"id": "LluVuiMJ8NUbAiG7", "name": "Slackbot Auth Token"}
 
 # ── URLs ───────────────────────────────────────────────────────────────
@@ -300,12 +300,12 @@ def make_switch_rule(output_key, left_expr, right_value):
 def make_agent_trio(agent_name, suffix, system_prompt_expr, user_prompt_expr,
                     position, connections):
     """
-    Create a Claude Agent + Anthropic Chat Model + People.ai MCP trio.
+    Create a Claude Agent + Anthropic Chat Model + Backstory MCP trio.
     Adds all three nodes and wires sub-node connections.
     Returns the list of 3 nodes.
     """
     model_name = f"Anthropic Chat Model ({suffix})"
-    mcp_name = f"People.ai MCP ({suffix})"
+    mcp_name = f"Backstory MCP ({suffix})"
 
     agent_node = {
         "parameters": {

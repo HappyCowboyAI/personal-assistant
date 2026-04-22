@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Add People.ai deep links to Sales Digest and Meeting Brief workflows.
+Add Backstory deep links to Sales Digest and Meeting Brief workflows.
 - Sales Digest: Include CRM ID in opp table + instruct Claude to add links
 - Meeting Brief: Add opportunity link to deal context if CRM ID available
 - URL format: https://app.people.ai/opportunities/{crmId}
@@ -93,8 +93,8 @@ def upgrade_sales_digest(wf):
 
             # Add deep link instruction to the MCP rules section
             old_mcp = "Do NOT use MCP to search for or list opportunities"
-            new_mcp = """DEEP LINKS — when mentioning a deal, include a People.ai link using the CRM ID from the data table:
-<https://app.people.ai/opportunities/CRMID|View in People.ai> (replace CRMID with the actual CRM ID)
+            new_mcp = """DEEP LINKS — when mentioning a deal, include a Backstory link using the CRM ID from the data table:
+<https://app.people.ai/opportunities/CRMID|View in Backstory> (replace CRMID with the actual CRM ID)
 
 Do NOT use MCP to search for or list opportunities"""
 
@@ -132,16 +132,16 @@ const hasOpportunity = !!(opportunityName && opportunityName !== 'N/A' && opport
             if old_has_opp in code and "opportunityCrmId" not in code:
                 code = code.replace(old_has_opp, new_has_opp)
 
-                # Add People.ai link to deal context block
+                # Add Backstory link to deal context block
                 old_context_block = "Engagement: ${opportunityEngagement}\n`;"
                 new_context_block = """Engagement: ${opportunityEngagement}
-${opportunityCrmId ? 'People.ai: https://app.people.ai/opportunities/' + opportunityCrmId : ''}
+${opportunityCrmId ? 'Backstory: https://app.people.ai/opportunities/' + opportunityCrmId : ''}
 `;"""
                 code = code.replace(old_context_block, new_context_block)
 
                 # Add deep link instruction to system prompt
                 old_prepare = "Prepare a 90-second meeting prep briefing"
-                new_prepare = """When mentioning a deal, include a People.ai link: <https://app.people.ai/opportunities/CRMID|View in People.ai>
+                new_prepare = """When mentioning a deal, include a Backstory link: <https://app.people.ai/opportunities/CRMID|View in Backstory>
 
 Prepare a 90-second meeting prep briefing"""
                 if "DEEP LINKS" not in code and "people.ai/opportunities" not in code.split("Prepare a 90")[0]:
@@ -215,7 +215,7 @@ def main():
     print("\nDone! Deep links added to:")
     print("  - Sales Digest: CRM ID in opp table + deep link instruction in prompts")
     print("  - On-Demand Digest: same updates (shares code pattern)")
-    print("  - Meeting Brief: CRM ID + People.ai link in deal context")
+    print("  - Meeting Brief: CRM ID + Backstory link in deal context")
     print("\n  Link format: https://app.people.ai/opportunities/{crmId}")
     print("  Note: Insights and Deal Watch workflows already include deep links from creation.")
 

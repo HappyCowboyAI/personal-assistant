@@ -46,7 +46,7 @@ def main():
     old_block = (
         "'**FOLLOW-UP EMAIL DRAFT MODE**',\n"
         "    '',\n"
-        "    'The user wants to draft a follow-up email. Use People.ai MCP tools to:',\n"
+        "    'The user wants to draft a follow-up email. Use Backstory MCP tools to:',\n"
         "    '1. Find the most recent meeting with the mentioned account',\n"
         "    '2. Get meeting participants and their roles',\n"
         "    '3. Check current deal status, stage, and next steps',\n"
@@ -58,7 +58,7 @@ def main():
         "    '',\n"
         "    \"Today\\'s date is \" + new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }) + \".\",\n"
         "    '',\n"
-        "    'The user wants to draft a follow-up email. Use People.ai MCP tools to:',\n"
+        "    'The user wants to draft a follow-up email. Use Backstory MCP tools to:',\n"
         "    '1. Find the most recent meeting with the mentioned account',\n"
         "    '2. Get meeting participants and their roles',\n"
         "    '3. Check current deal status, stage, and next steps',\n"

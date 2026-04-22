@@ -153,7 +153,7 @@ const emoji = data.assistantEmoji || ':robot_face:';
 
 if (r === 'help') {
   // --- Conversation-first help ---
-  text = "*Just ask me anything* \u2014 I have access to your People.ai CRM data and can answer questions about accounts, deals, engagement, and pipeline.\n\n" +
+  text = "*Just ask me anything* \u2014 I have access to your Backstory CRM data and can answer questions about accounts, deals, engagement, and pipeline.\n\n" +
     "Try things like:\n" +
     "\u2022 _\"What's happening with AMD?\"_\n" +
     "\u2022 _\"Which deals are at risk?\"_\n" +
@@ -196,7 +196,7 @@ if (r === 'help') {
       "\u2022 `presentation Q1 engineering review for Cisco`\n" +
       "\u2022 `presentation competitive landscape for AMD`\n" +
       "\u2022 `presentation onboarding progress for Acme`\n\n" +
-      "I'll pull data from People.ai and build the slides. Takes about 2 minutes.\n\n" +
+      "I'll pull data from Backstory and build the slides. Takes about 2 minutes.\n\n" +
       "_Or just ask naturally: \"I need a presentation on MCP for AMD\"_",
 
     'bbr': "*`bbr` \u2014 Business Review Presentation*\n\n" +

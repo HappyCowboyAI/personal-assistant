@@ -91,7 +91,7 @@ def main():
     print("\n2. Updating Parse Meetings to extract participant emails...")
     parse_meetings = find_node(nodes, "Parse Meetings")
 
-    new_parse_code = r"""// Parse CSV from People.ai activity export
+    new_parse_code = r"""// Parse CSV from Backstory activity export
 // Headers include: Activity, Activity date, Subject,
 // Activity Participants (Email), Activity Participants (Name),
 // Activity Participants (External), Account (id), Account (name), etc.

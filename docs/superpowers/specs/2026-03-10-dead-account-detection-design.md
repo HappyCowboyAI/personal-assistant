@@ -147,6 +147,6 @@ On overflow action, the Interactive Events Handler receives `payload.message.blo
 
 ## Auto-Unmute
 
-Deferred to a future iteration. The agent only reports silent accounts — it does not report accounts that have resumed activity. Detecting resumed activity on muted accounts would require a separate mechanism (e.g., a periodic check that queries People.ai for recent activity on muted accounts). For now, users can re-trigger alerts by letting snoozes expire naturally, or activity resumption will be noticed organically.
+Deferred to a future iteration. The agent only reports silent accounts — it does not report accounts that have resumed activity. Detecting resumed activity on muted accounts would require a separate mechanism (e.g., a periodic check that queries Backstory for recent activity on muted accounts). For now, users can re-trigger alerts by letting snoozes expire naturally, or activity resumption will be noticed organically.
 
 Snooze expiry is the primary "auto-unmute": when `muted_until` passes, the account returns to normal alerting on the next cron run.

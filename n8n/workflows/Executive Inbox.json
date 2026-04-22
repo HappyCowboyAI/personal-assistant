@@ -149,7 +149,7 @@
     {
       "parameters": {
         "promptType": "define",
-        "text": "=Identify the People.ai account for this email sender.\n\nSender: {{ $json.senderEmail }}\nDomain: {{ $json.senderDomain }}\n\nUse find_account to search by domain. Return ONLY JSON:\n- Found: {\"accountFound\":true,\"accountName\":\"...\",\"accountId\":12345,\"accountDomain\":\"...\"}\n- Not found: {\"accountFound\":false,\"accountName\":\"Unknown\",\"accountId\":null,\"accountDomain\":\"{{ $json.senderDomain }}\"}",
+        "text": "=Identify the Backstory account for this email sender.\n\nSender: {{ $json.senderEmail }}\nDomain: {{ $json.senderDomain }}\n\nUse find_account to search by domain. Return ONLY JSON:\n- Found: {\"accountFound\":true,\"accountName\":\"...\",\"accountId\":12345,\"accountDomain\":\"...\"}\n- Not found: {\"accountFound\":false,\"accountName\":\"Unknown\",\"accountId\":null,\"accountDomain\":\"{{ $json.senderDomain }}\"}",
         "hasOutputParser": true,
         "options": {}
       },
@@ -211,7 +211,7 @@
         }
       },
       "id": "a99b6f4f-1a9e-4657-b757-4e8257a1426d",
-      "name": "People.ai MCP: Lookup",
+      "name": "Backstory MCP: Lookup",
       "type": "@n8n/n8n-nodes-langchain.mcpClientTool",
       "typeVersion": 1.2,
       "position": [
@@ -221,7 +221,7 @@
       "credentials": {
         "httpMultipleHeadersAuth": {
           "id": "wvV5pwBeIL7f2vLG",
-          "name": "People.ai MCP Multi-Header"
+          "name": "Backstory MCP Multi-Header"
         }
       }
     },
@@ -318,7 +318,7 @@
         }
       },
       "id": "60993611-8388-41dd-bf12-d83739974c9a",
-      "name": "People.ai MCP: Agent",
+      "name": "Backstory MCP: Agent",
       "type": "@n8n/n8n-nodes-langchain.mcpClientTool",
       "typeVersion": 1.2,
       "position": [
@@ -328,13 +328,13 @@
       "credentials": {
         "httpMultipleHeadersAuth": {
           "id": "wvV5pwBeIL7f2vLG",
-          "name": "People.ai MCP Multi-Header"
+          "name": "Backstory MCP Multi-Header"
         }
       }
     },
     {
       "parameters": {
-        "jsCode": "// \u2500\u2500 Add Signature \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n// Agent only outputs {output} \u2014 get email context from Prepare Email Text\nconst emailCtx = $('Prepare Email Text').first().json;\n\nlet output = items[0].json.output;\n\n// Normalise: agent may return a plain string or an object\nif (typeof output === 'string') {\n  try { output = JSON.parse(output); }\n  catch(e) { output = { subject: 'Re: ' + (emailCtx.subject || ''), message: output }; }\n}\nif (!output || typeof output !== 'object') {\n  output = { subject: 'Re: ' + (emailCtx.subject || ''), message: '[Draft unavailable]' };\n}\nif (!output.message) { output.message = ''; }\n\n// Strip markdown bold/italic\noutput.message = output.message\n  .replace(/\\*\\*([^*]+)\\*\\*/g, '$1')\n  .replace(/\\*([^*]+)\\*/g, '$1');\n\nconst isAutoSend = !!(emailCtx.isAutoSend);\nconst disclaimer = isAutoSend\n  ? '\\n\\n---\\nThis response was drafted and sent by my AI assistant powered by People.ai. It reflects my perspective on the context of your email. Replies come directly to me \\u2014 I review all responses handled by my assistant.'\n  : '';\nconst sig = '\\n\\nRegards,\\n\\nScott Metcalf' + disclaimer;\nconst orig = emailCtx.senderName\n  ? emailCtx.senderName + ' <' + emailCtx.senderEmail + '>'\n  : emailCtx.senderEmail || '';\nlet dateStr = '';\ntry {\n  const d = new Date(emailCtx.date || Number(emailCtx.internalDate));\n  if (!isNaN(d)) dateStr = d.toLocaleString('en-US', {\n    weekday:'short', year:'numeric', month:'short',\n    day:'numeric', hour:'2-digit', minute:'2-digit'\n  });\n} catch(e) {}\n\nconst ccLine = emailCtx.originalCcLine ? '\\nCC: ' + emailCtx.originalCcLine : '';\noutput.message += sig\n  + '\\n\\n------- Original Message -------'\n  + '\\nFrom: ' + orig\n  + (dateStr ? '\\nDate: ' + dateStr : '')\n  + '\\nSubject: ' + (emailCtx.originalSubject || emailCtx.subject || '')\n  + ccLine\n  + '\\n\\n' + (emailCtx.originalBody || emailCtx.text || '');\n\n// Pass email context through so Save Draft can read it\nreturn items.map(i => ({ json: { ...emailCtx, ...i.json, output } }));\n"
+        "jsCode": "// \u2500\u2500 Add Signature \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n// Agent only outputs {output} \u2014 get email context from Prepare Email Text\nconst emailCtx = $('Prepare Email Text').first().json;\n\nlet output = items[0].json.output;\n\n// Normalise: agent may return a plain string or an object\nif (typeof output === 'string') {\n  try { output = JSON.parse(output); }\n  catch(e) { output = { subject: 'Re: ' + (emailCtx.subject || ''), message: output }; }\n}\nif (!output || typeof output !== 'object') {\n  output = { subject: 'Re: ' + (emailCtx.subject || ''), message: '[Draft unavailable]' };\n}\nif (!output.message) { output.message = ''; }\n\n// Strip markdown bold/italic\noutput.message = output.message\n  .replace(/\\*\\*([^*]+)\\*\\*/g, '$1')\n  .replace(/\\*([^*]+)\\*/g, '$1');\n\nconst isAutoSend = !!(emailCtx.isAutoSend);\nconst disclaimer = isAutoSend\n  ? '\\n\\n---\\nThis response was drafted and sent by my AI assistant powered by Backstory. It reflects my perspective on the context of your email. Replies come directly to me \\u2014 I review all responses handled by my assistant.'\n  : '';\nconst sig = '\\n\\nRegards,\\n\\nScott Metcalf' + disclaimer;\nconst orig = emailCtx.senderName\n  ? emailCtx.senderName + ' <' + emailCtx.senderEmail + '>'\n  : emailCtx.senderEmail || '';\nlet dateStr = '';\ntry {\n  const d = new Date(emailCtx.date || Number(emailCtx.internalDate));\n  if (!isNaN(d)) dateStr = d.toLocaleString('en-US', {\n    weekday:'short', year:'numeric', month:'short',\n    day:'numeric', hour:'2-digit', minute:'2-digit'\n  });\n} catch(e) {}\n\nconst ccLine = emailCtx.originalCcLine ? '\\nCC: ' + emailCtx.originalCcLine : '';\noutput.message += sig\n  + '\\n\\n------- Original Message -------'\n  + '\\nFrom: ' + orig\n  + (dateStr ? '\\nDate: ' + dateStr : '')\n  + '\\nSubject: ' + (emailCtx.originalSubject || emailCtx.subject || '')\n  + ccLine\n  + '\\n\\n' + (emailCtx.originalBody || emailCtx.text || '');\n\n// Pass email context through so Save Draft can read it\nreturn items.map(i => ({ json: { ...emailCtx, ...i.json, output } }));\n"
       },
       "id": "92da98b2-be15-47e8-a8d6-623c7f83fd35",
       "name": "Add Signature",
@@ -1181,7 +1181,7 @@
         ]
       ]
     },
-    "People.ai MCP: Lookup": {
+    "Backstory MCP: Lookup": {
       "ai_tool": [
         [
           {
@@ -1247,7 +1247,7 @@
         ]
       ]
     },
-    "People.ai MCP: Agent": {
+    "Backstory MCP: Agent": {
       "ai_tool": [
         [
           {
@@ -1757,7 +1757,7 @@
       {
         "parameters": {
           "promptType": "define",
-          "text": "=Identify the People.ai account for this email sender.\n\nSender: {{ $json.senderEmail }}\nDomain: {{ $json.senderDomain }}\n\nUse find_account to search by domain. Return ONLY JSON:\n- Found: {\"accountFound\":true,\"accountName\":\"...\",\"accountId\":12345,\"accountDomain\":\"...\"}\n- Not found: {\"accountFound\":false,\"accountName\":\"Unknown\",\"accountId\":null,\"accountDomain\":\"{{ $json.senderDomain }}\"}",
+          "text": "=Identify the Backstory account for this email sender.\n\nSender: {{ $json.senderEmail }}\nDomain: {{ $json.senderDomain }}\n\nUse find_account to search by domain. Return ONLY JSON:\n- Found: {\"accountFound\":true,\"accountName\":\"...\",\"accountId\":12345,\"accountDomain\":\"...\"}\n- Not found: {\"accountFound\":false,\"accountName\":\"Unknown\",\"accountId\":null,\"accountDomain\":\"{{ $json.senderDomain }}\"}",
           "hasOutputParser": true,
           "options": {}
         },
@@ -1819,7 +1819,7 @@
           }
         },
         "id": "a99b6f4f-1a9e-4657-b757-4e8257a1426d",
-        "name": "People.ai MCP: Lookup",
+        "name": "Backstory MCP: Lookup",
         "type": "@n8n/n8n-nodes-langchain.mcpClientTool",
         "typeVersion": 1.2,
         "position": [
@@ -1829,7 +1829,7 @@
         "credentials": {
           "httpMultipleHeadersAuth": {
             "id": "wvV5pwBeIL7f2vLG",
-            "name": "People.ai MCP Multi-Header"
+            "name": "Backstory MCP Multi-Header"
           }
         }
       },
@@ -1926,7 +1926,7 @@
           }
         },
         "id": "60993611-8388-41dd-bf12-d83739974c9a",
-        "name": "People.ai MCP: Agent",
+        "name": "Backstory MCP: Agent",
         "type": "@n8n/n8n-nodes-langchain.mcpClientTool",
         "typeVersion": 1.2,
         "position": [
@@ -1936,13 +1936,13 @@
         "credentials": {
           "httpMultipleHeadersAuth": {
             "id": "wvV5pwBeIL7f2vLG",
-            "name": "People.ai MCP Multi-Header"
+            "name": "Backstory MCP Multi-Header"
           }
         }
       },
       {
         "parameters": {
-          "jsCode": "// \u2500\u2500 Add Signature \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n// Agent only outputs {output} \u2014 get email context from Prepare Email Text\nconst emailCtx = $('Prepare Email Text').first().json;\n\nlet output = items[0].json.output;\n\n// Normalise: agent may return a plain string or an object\nif (typeof output === 'string') {\n  try { output = JSON.parse(output); }\n  catch(e) { output = { subject: 'Re: ' + (emailCtx.subject || ''), message: output }; }\n}\nif (!output || typeof output !== 'object') {\n  output = { subject: 'Re: ' + (emailCtx.subject || ''), message: '[Draft unavailable]' };\n}\nif (!output.message) { output.message = ''; }\n\n// Strip markdown bold/italic\noutput.message = output.message\n  .replace(/\\*\\*([^*]+)\\*\\*/g, '$1')\n  .replace(/\\*([^*]+)\\*/g, '$1');\n\nconst isAutoSend = !!(emailCtx.isAutoSend);\nconst disclaimer = isAutoSend\n  ? '\\n\\n---\\nThis response was drafted and sent by my AI assistant powered by People.ai. It reflects my perspective on the context of your email. Replies come directly to me \\u2014 I review all responses handled by my assistant.'\n  : '';\nconst sig = '\\n\\nRegards,\\n\\nScott Metcalf' + disclaimer;\nconst orig = emailCtx.senderName\n  ? emailCtx.senderName + ' <' + emailCtx.senderEmail + '>'\n  : emailCtx.senderEmail || '';\nlet dateStr = '';\ntry {\n  const d = new Date(emailCtx.date || Number(emailCtx.internalDate));\n  if (!isNaN(d)) dateStr = d.toLocaleString('en-US', {\n    weekday:'short', year:'numeric', month:'short',\n    day:'numeric', hour:'2-digit', minute:'2-digit'\n  });\n} catch(e) {}\n\nconst ccLine = emailCtx.originalCcLine ? '\\nCC: ' + emailCtx.originalCcLine : '';\noutput.message += sig\n  + '\\n\\n------- Original Message -------'\n  + '\\nFrom: ' + orig\n  + (dateStr ? '\\nDate: ' + dateStr : '')\n  + '\\nSubject: ' + (emailCtx.originalSubject || emailCtx.subject || '')\n  + ccLine\n  + '\\n\\n' + (emailCtx.originalBody || emailCtx.text || '');\n\n// Pass email context through so Save Draft can read it\nreturn items.map(i => ({ json: { ...emailCtx, ...i.json, output } }));\n"
+          "jsCode": "// \u2500\u2500 Add Signature \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n// Agent only outputs {output} \u2014 get email context from Prepare Email Text\nconst emailCtx = $('Prepare Email Text').first().json;\n\nlet output = items[0].json.output;\n\n// Normalise: agent may return a plain string or an object\nif (typeof output === 'string') {\n  try { output = JSON.parse(output); }\n  catch(e) { output = { subject: 'Re: ' + (emailCtx.subject || ''), message: output }; }\n}\nif (!output || typeof output !== 'object') {\n  output = { subject: 'Re: ' + (emailCtx.subject || ''), message: '[Draft unavailable]' };\n}\nif (!output.message) { output.message = ''; }\n\n// Strip markdown bold/italic\noutput.message = output.message\n  .replace(/\\*\\*([^*]+)\\*\\*/g, '$1')\n  .replace(/\\*([^*]+)\\*/g, '$1');\n\nconst isAutoSend = !!(emailCtx.isAutoSend);\nconst disclaimer = isAutoSend\n  ? '\\n\\n---\\nThis response was drafted and sent by my AI assistant powered by Backstory. It reflects my perspective on the context of your email. Replies come directly to me \\u2014 I review all responses handled by my assistant.'\n  : '';\nconst sig = '\\n\\nRegards,\\n\\nScott Metcalf' + disclaimer;\nconst orig = emailCtx.senderName\n  ? emailCtx.senderName + ' <' + emailCtx.senderEmail + '>'\n  : emailCtx.senderEmail || '';\nlet dateStr = '';\ntry {\n  const d = new Date(emailCtx.date || Number(emailCtx.internalDate));\n  if (!isNaN(d)) dateStr = d.toLocaleString('en-US', {\n    weekday:'short', year:'numeric', month:'short',\n    day:'numeric', hour:'2-digit', minute:'2-digit'\n  });\n} catch(e) {}\n\nconst ccLine = emailCtx.originalCcLine ? '\\nCC: ' + emailCtx.originalCcLine : '';\noutput.message += sig\n  + '\\n\\n------- Original Message -------'\n  + '\\nFrom: ' + orig\n  + (dateStr ? '\\nDate: ' + dateStr : '')\n  + '\\nSubject: ' + (emailCtx.originalSubject || emailCtx.subject || '')\n  + ccLine\n  + '\\n\\n' + (emailCtx.originalBody || emailCtx.text || '');\n\n// Pass email context through so Save Draft can read it\nreturn items.map(i => ({ json: { ...emailCtx, ...i.json, output } }));\n"
         },
         "id": "92da98b2-be15-47e8-a8d6-623c7f83fd35",
         "name": "Add Signature",
@@ -2789,7 +2789,7 @@
           ]
         ]
       },
-      "People.ai MCP: Lookup": {
+      "Backstory MCP: Lookup": {
         "ai_tool": [
           [
             {
@@ -2855,7 +2855,7 @@
           ]
         ]
       },
-      "People.ai MCP: Agent": {
+      "Backstory MCP: Agent": {
         "ai_tool": [
           [
             {

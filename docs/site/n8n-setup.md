@@ -63,18 +63,18 @@ The workflows ship with Anthropic (Claude) configured, but any n8n-supported LLM
 
 > After importing workflows, swap the Anthropic Chat Model node for your provider's model node and update the credential reference.
 
-### People.ai MCP (Multi-Header Auth)
+### Backstory MCP (Multi-Header Auth)
 
 | Field | Value |
 |-------|-------|
 | Type | HTTP Multiple Headers Auth |
-| Headers | As provided by your People.ai account team |
+| Headers | As provided by your Backstory account team |
 
-> The MCP endpoint is used for real-time CRM queries during agent reasoning. Your People.ai team will provide the required authentication headers.
+> The MCP endpoint is used for real-time CRM queries during agent reasoning. Your Backstory team will provide the required authentication headers.
 
-### People.ai Query API (OAuth)
+### Backstory Query API (OAuth)
 
-The Sales Digest workflow uses People.ai's Query API with OAuth client credentials to fetch pipeline data. The client ID and secret are embedded in the workflow's authentication node — update them after import.
+The Sales Digest workflow uses Backstory's Query API with OAuth client credentials to fetch pipeline data. The client ID and secret are embedded in the workflow's authentication node — update them after import.
 
 ### Database Connection
 
@@ -130,11 +130,11 @@ After importing each workflow:
 |-----------|-----------------|-------------------|----------------------|
 | Chat message delivery (HTTP Request) | Slack Bot Token | Azure Bot / MS Teams API | Google Service Account |
 | LLM Chat Model | LLM Provider API (Anthropic, OpenAI, Google, etc.) | LLM Provider API | LLM Provider API |
-| People.ai MCP Client | People.ai MCP (Multi-Header) | People.ai MCP (Multi-Header) | People.ai MCP (Multi-Header) |
+| Backstory MCP Client | Backstory MCP (Multi-Header) | Backstory MCP (Multi-Header) | Backstory MCP (Multi-Header) |
 | Database nodes | Database Connection | Database Connection | Database Connection |
-| People.ai Query API (HTTP Request) | Update OAuth token node | Update OAuth token node | Update OAuth token node |
+| Backstory Query API (HTTP Request) | Update OAuth token node | Update OAuth token node | Update OAuth token node |
 
-> The LLM, People.ai, and database credentials are the same regardless of chat platform. Only the message delivery and event handling nodes change.
+> The LLM, Backstory, and database credentials are the same regardless of chat platform. Only the message delivery and event handling nodes change.
 
 ## Update Webhook URLs
 

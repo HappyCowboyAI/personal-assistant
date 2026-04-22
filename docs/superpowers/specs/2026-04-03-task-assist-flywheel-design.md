@@ -146,7 +146,7 @@ if (assistable.length > 0) {
 ### Slack output
 
 ```
-📋 Google · Thu, 8:30 AM — People.ai  AI Agent Onboarding
+📋 Google · Thu, 8:30 AM — Backstory  AI Agent Onboarding
 ✅ I saved this recap to CRM and created 3 tasks. Check the thread for details!
 
 🤖 I can help with 1 of these:

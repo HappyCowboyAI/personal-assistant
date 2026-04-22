@@ -30,13 +30,13 @@ def fix_dm_prompt(wf):
 
     OLD = (
         "'*To:* {Name} ({email@company.com}) — ALWAYS include email addresses. "
-        "Use People.ai MCP to look up contact emails. If you cannot find an email, still include the name.',\n"
+        "Use Backstory MCP to look up contact emails. If you cannot find an email, still include the name.',\n"
         "    '*Subject:* {concise subject line}',"
     )
 
     NEW = (
         "'*To:* {Name} ({email@company.com}) — ALWAYS include email addresses. "
-        "Use People.ai MCP to look up contact emails. If you cannot find an email, still include the name.',\n"
+        "Use Backstory MCP to look up contact emails. If you cannot find an email, still include the name.',\n"
         "    '*CC:* {Other meeting participants with emails — include internal team and external contacts}',\n"
         "    '*Subject:* {concise subject line}',"
     )

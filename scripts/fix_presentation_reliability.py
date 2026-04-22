@@ -9,7 +9,7 @@ Problem: Presentations come out with only 2 slides (fallback) because:
 
 Fixes:
 1. Improve Parse Slide JSON to detect agent errors and log them
-2. Make Confluence MCP optional (remove it as a required tool — People.ai MCP is enough)
+2. Make Confluence MCP optional (remove it as a required tool — Backstory MCP is enough)
 3. Strengthen the system prompt to emphasize JSON-only output
 4. Add error recovery: if agent fails, create a basic presentation from the prompt alone
 """
@@ -121,9 +121,9 @@ CRITICAL OUTPUT RULES:
 
 const RESEARCH_INSTRUCTIONS = `
 RESEARCH TOOLS — USE WHEN RELEVANT:
-You have access to People.ai MCP tools for account intelligence, sales data, and engagement metrics.
+You have access to Backstory MCP tools for account intelligence, sales data, and engagement metrics.
 
-- If the topic involves customers, accounts, deals, or pipeline, use People.ai tools to gather real data.
+- If the topic involves customers, accounts, deals, or pipeline, use Backstory tools to gather real data.
 - Use find_account, get_account_status, ask_sales_ai_about_account to pull engagement data.
 - If tools return no results or error, proceed without them — create the best presentation you can from context alone.
 - NEVER let a tool failure prevent you from generating the slide JSON.
@@ -255,7 +255,7 @@ def upgrade_presentation_workflow(wf):
             changes += 1
             break
 
-    # --- 3. Remove Confluence MCP as a tool (keep People.ai MCP) ---
+    # --- 3. Remove Confluence MCP as a tool (keep Backstory MCP) ---
     # The Confluence MCP SSE connection is unreliable and causes agent failures.
     # If it's needed later, it can be re-added once the credential/endpoint is stable.
     confluence_node = None
@@ -301,7 +301,7 @@ def main():
 
     print("\nDone! Presentation workflow should now be more reliable:")
     print("  - Stronger JSON-only output instructions")
-    print("  - Removed unreliable Confluence MCP (People.ai MCP remains)")
+    print("  - Removed unreliable Confluence MCP (Backstory MCP remains)")
     print("  - Better JSON extraction with multiple strategies")
     print("  - Meaningful fallback deck instead of empty 2 slides")
 

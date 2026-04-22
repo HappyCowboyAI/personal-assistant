@@ -18,7 +18,7 @@ REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 HEADERS = {"X-N8N-API-KEY": N8N_API_KEY, "Content-Type": "application/json"}
 
 SIMPLE_MATCH_CODE = r"""// Match meetings to prep-enabled users
-// The People.ai export API doesn't return participant/owner data,
+// The Backstory export API doesn't return participant/owner data,
 // so we send briefs to all prep-enabled users for all external meetings
 // within their prep window. Correct for exec-level visibility.
 const meetingsData = $('Parse Meetings').first().json;

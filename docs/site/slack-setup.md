@@ -23,7 +23,7 @@ The assistant delivers all output through your team's chat platform. This guide 
 
 1. Go to [api.slack.com/apps](https://api.slack.com/apps)
 2. Click **Create New App** → **From scratch**
-3. Name: `People.ai Assistant` (or your preferred name)
+3. Name: `Backstory Assistant` (or your preferred name)
 4. Select your workspace
 5. Click **Create App**
 
@@ -42,7 +42,7 @@ Navigate to **OAuth & Permissions** and add these **Bot Token Scopes**:
 | `im:write` | Open DM conversations with users |
 | `channels:history` | Read messages in public channels (for multi-turn thread conversations) |
 | `users:read` | Get user info (name, timezone) |
-| `users:read.email` | Get user email for People.ai matching |
+| `users:read.email` | Get user email for Backstory matching |
 
 #### Optional Scopes (for future features)
 
@@ -230,7 +230,7 @@ The n8n workflow's "Parse Blocks" node would need a Teams-specific variant that 
 3. Enable the **Google Chat API**
 4. Navigate to **APIs & Services → Google Chat API → Configuration**
 5. Configure:
-   - **App name:** `People.ai Assistant`
+   - **App name:** `Backstory Assistant`
    - **Avatar URL:** Your assistant's avatar image
    - **Description:** Pipeline intelligence assistant
    - **Functionality:** Check "Receive 1:1 messages" and "Join spaces and group conversations"
@@ -302,4 +302,4 @@ When deploying on Teams or Google Chat instead of Slack, these workflow componen
 | **Interactive handler** | `/webhook/slack-interactive` | Same endpoint as events | Same endpoint as events |
 | **User lookup** | `users.info` API | Microsoft Graph `users` API | Google People API or Workspace Directory |
 
-> The core logic (People.ai data fetch → AI agent → parse output → deliver) stays the same across all platforms. Only the delivery and event-handling layers change.
+> The core logic (Backstory data fetch → AI agent → parse output → deliver) stays the same across all platforms. Only the delivery and event-handling layers change.

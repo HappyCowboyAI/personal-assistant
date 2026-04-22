@@ -1,5 +1,5 @@
 # Slack Formatting Guide for n8n Workflows
-## Reference for Claude Code — People.ai Personal Assistant
+## Reference for Claude Code — Backstory Personal Assistant
 
 > This document defines all formatting rules, Block Kit patterns, best practices, and image handling for building visually compelling Slack messages in n8n. Always follow these guidelines when generating or modifying n8n workflow JSON or Slack message payloads.
 
@@ -272,7 +272,7 @@ Use for timestamps, metadata, and source attribution. Renders in small gray text
   "elements": [
     {
       "type": "mrkdwn",
-      "text": "People.ai intelligence • Generated at 6:02 AM PT • Monday, Feb 23, 2026"
+      "text": "Backstory intelligence • Generated at 6:02 AM PT • Monday, Feb 23, 2026"
     }
   ]
 }
@@ -287,11 +287,11 @@ With an inline icon:
     {
       "type": "image",
       "image_url": "https://yourdomain.com/icons/peopleai-16.png",
-      "alt_text": "People.ai"
+      "alt_text": "Backstory"
     },
     {
       "type": "mrkdwn",
-      "text": "Powered by People.ai intelligence"
+      "text": "Powered by Backstory intelligence"
     }
   ]
 }
@@ -501,7 +501,7 @@ This is the target output the agent should produce. Instruct Claude to output JS
       "elements": [
         {
           "type": "mrkdwn",
-          "text": "People.ai intelligence • Monday, Feb 23, 2026 • 6:02 AM PT"
+          "text": "Backstory intelligence • Monday, Feb 23, 2026 • 6:02 AM PT"
         }
       ]
     }

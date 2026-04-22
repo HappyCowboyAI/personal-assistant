@@ -31,7 +31,7 @@ Scan for signals → Surface candidates → Nudge account team → Track to outc
 
 - **No Supabase dependency** — data lives in Salesforce for productizability
 - **n8n for orchestration only** — crons, Slack delivery, Claude agent calls
-- **People.ai MCP for signals** — engagement scores, activity data, deal history
+- **Backstory MCP for signals** — engagement scores, activity data, deal history
 - **Slack for delivery** — personalized DMs, interactive buttons, channel digests
 - **Generic framework** — same workflow handles any initiative type, only the Claude prompt changes
 
@@ -80,7 +80,7 @@ Schedule Trigger (weekly)
   → Get Active Initiatives (Salesforce SOQL: Campaign_Initiative__c WHERE Status = Active)
   → Split In Batches (per initiative)
     → Get Scoring Criteria (from initiative record)
-    → Query People.ai MCP (engagement scores, activity data matching criteria)
+    → Query Backstory MCP (engagement scores, activity data matching criteria)
     → Score Candidates (Claude agent: rank accounts, explain rationale)
     → Get Existing Candidates (Salesforce: Initiative_Candidate__c for this initiative)
     → Filter New Candidates (Code: skip accounts already tracked)
@@ -97,7 +97,7 @@ Schedule Trigger (daily, 9am)
   → Split In Batches (per candidate)
     → Get Initiative Details (type, context)
     → Build Nudge Message (Claude agent: personalized message based on initiative type,
-        account context from People.ai, nudge count)
+        account context from Backstory, nudge count)
     → Resolve Slack User (map Assigned_To email → Slack user ID)
     → Send Nudge DM (Slack chat.postMessage with interactive buttons:
         "Working on it" / "Need help" / "Skip" / "Done")
@@ -116,7 +116,7 @@ Webhook (Slack block_actions)
     → "Need help" → Notify initiative owner, offer to draft content
     → "Skip" → Modal: ask for skip reason → Update stage to Skipped
     → "Done" → Update stage to Completed, notify initiative owner
-    → "Draft Story" → Claude agent generates draft from People.ai data
+    → "Draft Story" → Claude agent generates draft from Backstory data
         → Attach to Salesforce record → DM draft to account owner for review
 ```
 
@@ -144,7 +144,7 @@ Score 0-100 and explain your rationale.
 ```
 You are nudging {assigned_to} about {account} for the "{initiative_name}" program.
 This is nudge #{nudge_count}. Previous stage: {stage}.
-Context from People.ai: {engagement_summary}.
+Context from Backstory: {engagement_summary}.
 Write a brief, friendly Slack message (3-4 sentences) that:
 - References specific recent activity or signals
 - Makes a clear ask
@@ -157,10 +157,10 @@ Write a brief, friendly Slack message (3-4 sentences) that:
 
 1. **Salesforce setup**: Create the two custom objects with fields above
 2. **Seed data**: Kimberly manually creates the first `Campaign_Initiative__c` for testimonials
-3. **Scan workflow**: Weekly cron that queries People.ai for high-engagement renewed accounts, scores them with Claude, creates candidate records
+3. **Scan workflow**: Weekly cron that queries Backstory for high-engagement renewed accounts, scores them with Claude, creates candidate records
 4. **Nudge workflow**: Daily cron that DMs account owners with context and buttons
 5. **Interactive handler**: Button clicks update Salesforce stages
-6. **Draft generation**: "Draft Story" button triggers Claude to write a testimonial framework from People.ai data
+6. **Draft generation**: "Draft Story" button triggers Claude to write a testimonial framework from Backstory data
 
 ### Phase 2: AI Innovation Initiative (internal, add-on)
 
@@ -170,14 +170,14 @@ Write a brief, friendly Slack message (3-4 sentences) that:
 
 ### Phase 3: Productize
 
-- Package as a People.ai feature: "Initiative Tracking"
-- Customer creates initiatives in Salesforce, agent runs against their People.ai data
+- Package as a Backstory feature: "Initiative Tracking"
+- Customer creates initiatives in Salesforce, agent runs against their Backstory data
 - Configuration UI for scoring criteria (or Claude-powered natural language config: "Find me accounts that renewed in the last 6 months with engagement scores above 80")
 - Reporting dashboard in Salesforce
 
 ## Key Decisions Still Open
 
-1. **Salesforce auth in n8n**: Need OAuth credentials for People.ai's Salesforce instance. Do we use a service account or connected app?
+1. **Salesforce auth in n8n**: Need OAuth credentials for Backstory's Salesforce instance. Do we use a service account or connected app?
 2. **Slack user resolution**: How do we map Salesforce User → Slack user ID? Options: email match against Slack users.list, or store Slack IDs on the Salesforce User record
 3. **Scope of first initiative**: Should the testimonial MVP auto-discover candidates (fully agentic) or start with Kimberly seeding candidates manually (agent just nudges and drafts)?
 4. **Channel vs DM**: Should pipeline updates go to a shared channel (#testimonial-pipeline) or just DM the initiative owner?
@@ -188,7 +188,7 @@ Write a brief, friendly Slack message (3-4 sentences) that:
 Jason's insight: "This would be valuable to other software customers." The framework maps to a real market need:
 
 - **Every B2B company** has overlay teams struggling with the same coordination problem
-- **People.ai's unique advantage**: the engagement signals that power candidate scoring already exist in the platform
+- **Backstory's unique advantage**: the engagement signals that power candidate scoring already exist in the platform
 - **Natural extension**: "We already tell you who's engaged. Now we help your overlay teams act on it."
 - **Differentiation**: Not just a pipeline tracker — it's AI-powered candidate discovery + personalized nudging + content generation
 

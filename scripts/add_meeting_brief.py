@@ -2,7 +2,7 @@
 """
 Add Meeting Brief feature:
 1. Creates a Meeting Brief sub-workflow (Claude agent generates prep brief)
-2. Creates a Meeting Prep Cron workflow (polls People.ai every 15 min for upcoming external meetings)
+2. Creates a Meeting Prep Cron workflow (polls Backstory every 15 min for upcoming external meetings)
 3. Updates help text in Slack Events Handler
 """
 
@@ -21,7 +21,7 @@ HEADERS = {"X-N8N-API-KEY": N8N_API_KEY, "Content-Type": "application/json"}
 SLACK_CRED = {"id": "LluVuiMJ8NUbAiG7", "name": "Slackbot Auth Token"}
 SUPABASE_CRED = {"id": "ASRWWkQ0RSMOpNF1", "name": "Supabase account"}
 ANTHROPIC_CRED = {"id": "rlAz7ZSl4y6AwRUq", "name": "Anthropic account 2"}
-MCP_CRED = {"id": "wvV5pwBeIL7f2vLG", "name": "People.ai MCP Multi-Header"}
+MCP_CRED = {"id": "wvV5pwBeIL7f2vLG", "name": "Backstory MCP Multi-Header"}
 PAI_CLIENT_BODY = "client_id=YOUR_CLIENT_ID&client_secret=YOUR_CLIENT_SECRET&grant_type=client_credentials"
 
 
@@ -165,7 +165,7 @@ Time: ${minutesUntil ? 'In ' + minutesUntil : 'Today'}
 Participants: ${participants || 'Not available'}
 ${dealContext}
 
-You have access to People.ai MCP tools. Use them to research:
+You have access to Backstory MCP tools. Use them to research:
 - The account's engagement history and recent activity (emails, meetings, calls)
 - Each participant's role, title, and recent touchpoints
 - ${hasOpportunity ? 'Deal progression, engagement trends, and risk signals for this opportunity' : 'Any open opportunities or past deals with this account'}
@@ -178,8 +178,8 @@ Prepare a 90-second meeting prep briefing following this structure:
 3. People in the Room — for each external participant: who they are, their role, last touchpoint, any signals. If you can't find info, say so briefly.
 4. What to Ask About (2-3 items) — specific questions based on recent activity, deal status, or engagement patterns. Make these actionable and conversation-ready.
 5. Watch Out For (1-2 items) — risks, sensitivities, or things that could derail the meeting. Missing activity, declining engagement, competitor signals, etc.
-${hasOpportunity ? '6. Deal Status — two-column fields: key deal metrics (stage, amount, close date, engagement)' : '6. Account Intel — two-column fields: key account metrics from People.ai'}
-7. Context footer — "People.ai meeting intelligence • ${currentDate} • ${timeStr} PT"
+${hasOpportunity ? '6. Deal Status — two-column fields: key deal metrics (stage, amount, close date, engagement)' : '6. Account Intel — two-column fields: key account metrics from Backstory'}
+7. Context footer — "Backstory meeting intelligence • ${currentDate} • ${timeStr} PT"
 
 Keep it tight — they're reading this before walking into the meeting.
 
@@ -190,7 +190,7 @@ const agentPrompt = `Prepare a meeting brief for ${repName} who has a meeting wi
 Meeting subject: ${meetingSubject}
 Participants: ${participants || 'Unknown — research the account contacts'}
 
-Use the People.ai MCP tools to research:
+Use the Backstory MCP tools to research:
 1. The account "${accountName}" — engagement history, recent activity
 2. Each participant listed — role, title, recent touchpoints, engagement
 3. ${hasOpportunity ? 'The opportunity "' + opportunityName + '" — deal health, progression, risks' : 'Any open opportunities or past deals with "' + accountName + '"'}
@@ -217,7 +217,7 @@ return [{
 # ============================================================
 # MEETING PREP CRON — main orchestration code
 # ============================================================
-CRON_PARSE_MEETINGS_CODE = r"""// Parse CSV from People.ai activity export into meeting objects
+CRON_PARSE_MEETINGS_CODE = r"""// Parse CSV from Backstory activity export into meeting objects
 const csvData = $('Fetch Today Meetings').first().json.data;
 
 if (!csvData) {
@@ -373,7 +373,7 @@ if (results.length === 0) {
 return results.map(r => ({ json: r }));
 """
 
-CRON_BUILD_QUERY_CODE = r"""// Build the People.ai activity export query for today's external meetings
+CRON_BUILD_QUERY_CODE = r"""// Build the Backstory activity export query for today's external meetings
 // Uses millisecond epoch timestamps
 const tz = 'America/Los_Angeles';
 const now = new Date();
@@ -539,7 +539,7 @@ return [{ json: { ...input, channelId: dmChannel } }];"""
             "position": [1088, 624],
             "credentials": {"anthropicApi": ANTHROPIC_CRED}
         },
-        # 7. People.ai MCP (sub-node)
+        # 7. Backstory MCP (sub-node)
         {
             "parameters": {
                 "endpointUrl": "https://mcp-canary.people.ai/mcp",
@@ -547,7 +547,7 @@ return [{ json: { ...input, channelId: dmChannel } }];"""
                 "options": {}
             },
             "id": uid(),
-            "name": "People.ai MCP",
+            "name": "Backstory MCP",
             "type": "@n8n/n8n-nodes-langchain.mcpClientTool",
             "typeVersion": 1.2,
             "position": [1216, 624],
@@ -595,7 +595,7 @@ return [{ json: { ...input, channelId: dmChannel } }];"""
         "Resolve Meeting Identity": {"main": [[{"node": "Meeting Brief Agent", "type": "main", "index": 0}]]},
         "Meeting Brief Agent": {"main": [[{"node": "Parse Blocks", "type": "main", "index": 0}]]},
         "Anthropic Chat Model": {"ai_languageModel": [[{"node": "Meeting Brief Agent", "type": "ai_languageModel", "index": 0}]]},
-        "People.ai MCP": {"ai_tool": [[{"node": "Meeting Brief Agent", "type": "ai_tool", "index": 0}]]},
+        "Backstory MCP": {"ai_tool": [[{"node": "Meeting Brief Agent", "type": "ai_tool", "index": 0}]]},
         "Parse Blocks": {"main": [[{"node": "Send Meeting Brief", "type": "main", "index": 0}]]}
     }
 
@@ -932,7 +932,7 @@ def main():
     print(f"\nDone!")
     print(f"  Meeting Brief workflow: {meeting_brief_id}")
     print(f"  Meeting Prep Cron: {cron_id} (active, every 15 min)")
-    print(f"  Flow: Cron polls People.ai → matches meetings to users → fires Meeting Brief sub-workflow")
+    print(f"  Flow: Cron polls Backstory → matches meetings to users → fires Meeting Brief sub-workflow")
     print(f"  Dedup: logs to messages table with activity_uid, skips already-sent briefs")
 
 

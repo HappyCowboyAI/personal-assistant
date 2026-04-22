@@ -9,7 +9,7 @@
 
 ## Summary
 
-A customer-facing admin deployment guide for the People.ai Personal Assistant, published as a GitHub Pages site from the existing repository. Built with Docsify (client-side markdown renderer), styled to the Backstory brand guide, with multi-page sidebar navigation.
+A customer-facing admin deployment guide for the Backstory Personal Assistant, published as a GitHub Pages site from the existing repository. Built with Docsify (client-side markdown renderer), styled to the Backstory brand guide, with multi-page sidebar navigation.
 
 **Audience:** Admins and IT teams deploying the assistant for their organization.
 
@@ -119,7 +119,7 @@ All content uses placeholder values. No real credentials, IDs, tokens, or URLs f
 | API keys | `your-api-key-here` |
 | Database URLs | `postgresql://host:5432/dbname` |
 | Slack bot tokens | `xoxb-your-bot-token` |
-| People.ai client ID/secret | `your-client-id` / `your-client-secret` |
+| Backstory client ID/secret | `your-client-id` / `your-client-secret` |
 | Webhook URLs | `https://your-n8n-instance.com/webhook/...` |
 | Slack user IDs | `U0EXAMPLE` |
 | n8n credential IDs | `your-credential-id` |
@@ -133,7 +133,7 @@ All content uses placeholder values. No real credentials, IDs, tokens, or URLs f
 - SQL DDL from migration files is safe to include (no credentials in schema definitions)
 - Workflow JSON snippets show structure only — credential blocks replaced with placeholders
 - No content sourced from MEMORY.md or memory files
-- The n8n `Get Auth Token` node body (contains real People.ai client_id/secret) must never appear
+- The n8n `Get Auth Token` node body (contains real Backstory client_id/secret) must never appear
 - `.gitignore` verified before publishing to ensure no `.env` or secrets files in `docs/site/`
 
 ---
@@ -142,10 +142,10 @@ All content uses placeholder values. No real credentials, IDs, tokens, or URLs f
 
 ### 1. Overview (README.md)
 
-**Source:** Adapted from `people-ai-personal-assistant.md`
+**Source:** Adapted from `backstory-personal-assistant.md`
 
 - What the Personal Assistant is and what it does for sales reps
-- Architecture overview: n8n (orchestration) → Claude (reasoning) → People.ai (intelligence) → Slack (delivery) → PostgreSQL (data)
+- Architecture overview: n8n (orchestration) → Claude (reasoning) → Backstory (intelligence) → Slack (delivery) → PostgreSQL (data)
 - Text-based architecture diagram
 - What admins are setting up and what the end result looks like
 - Link to each setup section
@@ -159,7 +159,7 @@ All content uses placeholder values. No real credentials, IDs, tokens, or URLs f
   - PostgreSQL-compatible database (Supabase, RDS, self-hosted, etc.)
   - n8n instance (cloud or self-hosted)
   - Anthropic API key
-  - People.ai API credentials (client ID + secret for OAuth, MCP auth headers)
+  - Backstory API credentials (client ID + secret for OAuth, MCP auth headers)
 - Minimum permissions/roles for each service
 - Network requirements (webhook endpoints must be publicly accessible)
 
@@ -193,8 +193,8 @@ All content uses placeholder values. No real credentials, IDs, tokens, or URLs f
 - Credential configuration with placeholder examples:
   - Slack bot token (HTTP Header Auth)
   - Anthropic API key
-  - People.ai MCP (Multi-Header Auth)
-  - People.ai OAuth (client credentials for Query API)
+  - Backstory MCP (Multi-Header Auth)
+  - Backstory OAuth (client credentials for Query API)
   - Database connection (Supabase API or direct PostgreSQL)
 - Activating workflows
 - Verifying webhook endpoints are reachable
@@ -252,7 +252,7 @@ No credential IDs, webhook URLs, or internal implementation details — just wha
   - Slack: bot not posting, wrong assistant name, missing emoji
   - Database: migration errors, RLS blocking queries
   - n8n: workflow not triggering, credential errors, webhook timeouts
-  - People.ai: auth failures, empty data exports, MCP connection issues
+  - Backstory: auth failures, empty data exports, MCP connection issues
 - Verification steps: how to test each integration independently
 - FAQ: digest not arriving, onboarding stuck, how to re-trigger a digest
 

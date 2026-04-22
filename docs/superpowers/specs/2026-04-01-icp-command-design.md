@@ -6,7 +6,7 @@
 
 ## Overview
 
-Add an `icp` command to the People.ai Personal Assistant with three modes:
+Add an `icp` command to the Backstory Personal Assistant with three modes:
 
 | Command | Mode | What it does | Runtime |
 |---------|------|-------------|---------|
@@ -64,7 +64,7 @@ One new sub-workflow ("ICP Analysis") receives a payload and branches by mode.
 
 Ported from `icp_calibration_v1.json` (28 nodes). Core flow:
 
-1. **Get Auth Token** — People.ai OAuth client credentials
+1. **Get Auth Token** — Backstory OAuth client credentials
 2. **Fetch Winners** (parallel) — Insights API export: `closed_won_opportunities_last_fyear > 0`, top 30
 3. **Fetch Losers** (parallel) — Insights API export: `closed_lost_opportunities_last_fyear > 0 AND closed_won == 0`, top 30
 4. **Parse CSVs** — Extract metrics from pipe-delimited response
@@ -75,7 +75,7 @@ Ported from `icp_calibration_v1.json` (28 nodes). Core flow:
    - Contact Velocity: `(people_7d / people_30d) * 4.286`
    - Stakeholder Breadth: `people_contacted_30d / 4.3`
 6. **Select Top 15 Winners** — Stratified by revenue tier (5 top, 5 mid, 5 bottom)
-7. **Loop Deep Dives** — For each of 15 winners, Claude + People.ai MCP extracts:
+7. **Loop Deep Dives** — For each of 15 winners, Claude + Backstory MCP extracts:
    - Meeting cadence, meeting ratio, exec ratio
    - Committee formation, engagement arc
    - Executive entry timing
@@ -85,20 +85,20 @@ Ported from `icp_calibration_v1.json` (28 nodes). Core flow:
 
 ### Mode: Targets
 
-1. **Get Auth Token** — People.ai OAuth
+1. **Get Auth Token** — Backstory OAuth
 2. **Fetch Accounts** — Insights API with ownership filter based on `digestScope`:
    - `my_deals` (AE): `ootb_account_original_owner = user email`
    - `team_deals` (Manager): `ootb_account_original_owner IN (user email + direct reports)`
    - `top_pipeline` (Exec): no owner filter
 3. **Filter Low Engagement** — Code node filters to accounts with low activity but ICP-matching firmographics
-4. **Targets Agent** — Claude + People.ai MCP scores and ranks target accounts
+4. **Targets Agent** — Claude + Backstory MCP scores and ranks target accounts
 5. **Post to DM** — Compact ranked list with ICP scores
 
 For Manager scope: the user hierarchy (manager → reports) is fetched via Query API user object export, same pattern as the Sales Digest workflow.
 
 ### Mode: Compare
 
-1. **Compare Agent** — Claude + People.ai MCP with system prompt containing ICP benchmarks. Agent calls:
+1. **Compare Agent** — Claude + Backstory MCP with system prompt containing ICP benchmarks. Agent calls:
    - `find_account(companyName)` — locate the account
    - `get_account_status(account_id)` — engagement metrics
    - `get_engaged_people(account_id)` — stakeholder details
@@ -195,11 +195,11 @@ All existing credentials in the oppassistant n8n instance:
 | Credential | ID | Usage |
 |-----------|-----|-------|
 | Anthropic | `rlAz7ZSl4y6AwRUq` | Claude Sonnet for analysis agents |
-| People.ai MCP | `wvV5pwBeIL7f2vLG` | MCP tools (deep dives, compare) |
+| Backstory MCP | `wvV5pwBeIL7f2vLG` | MCP tools (deep dives, compare) |
 | Slack Auth | `LluVuiMJ8NUbAiG7` | chat.postMessage for results |
 | Supabase | `ASRWWkQ0RSMOpNF1` | User lookup (identity, digestScope) |
 
-People.ai OAuth client credentials for Query API (same as Silence Contract Monitor):
+Backstory OAuth client credentials for Query API (same as Silence Contract Monitor):
 - `client_id`: hardcoded in Get Auth Token node
 - `client_secret`: hardcoded in Get Auth Token node
 - Token endpoint: `https://api.people.ai/v3/auth/tokens`

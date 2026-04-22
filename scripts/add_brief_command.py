@@ -20,7 +20,7 @@ HEADERS = {"X-N8N-API-KEY": N8N_API_KEY, "Content-Type": "application/json"}
 SLACK_CRED = {"id": "LluVuiMJ8NUbAiG7", "name": "Slackbot Auth Token"}
 SUPABASE_CRED = {"id": "ASRWWkQ0RSMOpNF1", "name": "Supabase account"}
 ANTHROPIC_CRED = {"id": "rlAz7ZSl4y6AwRUq", "name": "Anthropic account 2"}
-MCP_CRED = {"id": "wvV5pwBeIL7f2vLG", "name": "People.ai MCP Multi-Header"}
+MCP_CRED = {"id": "wvV5pwBeIL7f2vLG", "name": "Backstory MCP Multi-Header"}
 PAI_CLIENT_BODY = "client_id=YOUR_CLIENT_ID&client_secret=YOUR_CLIENT_SECRET&grant_type=client_credentials"
 
 
@@ -239,7 +239,7 @@ def create_on_demand_digest():
             "position": [1968, 624],
             "credentials": {"anthropicApi": ANTHROPIC_CRED}
         },
-        # 11. People.ai MCP (sub-node of Digest Agent)
+        # 11. Backstory MCP (sub-node of Digest Agent)
         {
             "parameters": {
                 "endpointUrl": "https://mcp-canary.people.ai/mcp",
@@ -247,7 +247,7 @@ def create_on_demand_digest():
                 "options": {}
             },
             "id": uid(),
-            "name": "People.ai MCP",
+            "name": "Backstory MCP",
             "type": "@n8n/n8n-nodes-langchain.mcpClientTool",
             "typeVersion": 1.2,
             "position": [2096, 624],
@@ -299,7 +299,7 @@ def create_on_demand_digest():
         "Resolve Identity": {"main": [[{"node": "Digest Agent", "type": "main", "index": 0}]]},
         "Digest Agent": {"main": [[{"node": "Parse Blocks", "type": "main", "index": 0}]]},
         "Anthropic Chat Model": {"ai_languageModel": [[{"node": "Digest Agent", "type": "ai_languageModel", "index": 0}]]},
-        "People.ai MCP": {"ai_tool": [[{"node": "Digest Agent", "type": "ai_tool", "index": 0}]]},
+        "Backstory MCP": {"ai_tool": [[{"node": "Digest Agent", "type": "ai_tool", "index": 0}]]},
         "Parse Blocks": {"main": [[{"node": "Send Digest", "type": "main", "index": 0}]]}
     }
 

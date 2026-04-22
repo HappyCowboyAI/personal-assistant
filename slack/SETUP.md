@@ -1,12 +1,12 @@
 # Slack Bot Setup Guide
 
-This guide walks through setting up the Slack bot for the People.ai Personal Assistant.
+This guide walks through setting up the Slack bot for the Backstory Personal Assistant.
 
 ## Create Slack App
 
 1. Go to [api.slack.com/apps](https://api.slack.com/apps)
 2. Click **Create New App** → **From scratch**
-3. Name: `People.ai Assistant` (or your preferred name)
+3. Name: `Backstory Assistant` (or your preferred name)
 4. Select your workspace
 5. Click **Create App**
 

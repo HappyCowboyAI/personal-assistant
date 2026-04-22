@@ -2,11 +2,11 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Build an AI-powered Task Resolution Engine that detects completed tasks via People.ai SalesAI and auto-marks them in CRM, with two entry points: meeting recaps and a 2x daily scheduled job.
+**Goal:** Build an AI-powered Task Resolution Engine that detects completed tasks via Backstory SalesAI and auto-marks them in CRM, with two entry points: meeting recaps and a 2x daily scheduled job.
 
 **Architecture:** New callback handler workflow collects open tasks from Workato, groups by account, runs a Claude + MCP agent per account to evaluate task completion, then fires Workato `update_task` for resolved items. Integrates into the existing recap flow and a new scheduled cron.
 
-**Tech Stack:** n8n workflows (API-managed via Python), Workato webhook (async callback), Claude Sonnet 4.5, People.ai MCP, Supabase (pending_actions for callback state)
+**Tech Stack:** n8n workflows (API-managed via Python), Workato webhook (async callback), Claude Sonnet 4.5, Backstory MCP, Supabase (pending_actions for callback state)
 
 **Spec:** `docs/superpowers/specs/2026-04-02-task-resolution-engine-design.md`
 
@@ -127,7 +127,7 @@ WORKATO_READ_URL = "https://webhooks.workato.com/webhooks/rest/cfff4d3a-6f27-4ba
 SUPABASE_URL = "https://rhrlnkbphxntxxxcrgvv.supabase.co"
 SUPABASE_CRED = {"supabaseApi": {"id": "ASRWWkQ0RSMOpNF1", "name": "Supabase account"}}
 ANTHROPIC_CRED = {"anthropicApi": {"id": "rlAz7ZSl4y6AwRUq", "name": "Anthropic account 2"}}
-MCP_CRED = {"httpMultipleHeadersAuth": {"id": "wvV5pwBeIL7f2vLG", "name": "People.ai MCP Multi-Header"}}
+MCP_CRED = {"httpMultipleHeadersAuth": {"id": "wvV5pwBeIL7f2vLG", "name": "Backstory MCP Multi-Header"}}
 SLACK_CRED = {"httpHeaderAuth": {"id": "LluVuiMJ8NUbAiG7", "name": "Slackbot Auth Token"}}
 PEOPLEGLASS_TASKS = "https://glass.people.ai/sheet/0250d214-84ba-48e4-b272-6839c03462f5"
 
@@ -306,7 +306,7 @@ return accountGroups.map(g => ({ json: { ...meta, ...g, requestId: callbackData.
     })
 
     # ── Resolution Agent ──
-    AGENT_SYSTEM = r"""You are a task resolution analyst. You evaluate whether CRM tasks have been completed based on recent account activity from People.ai SalesAI.
+    AGENT_SYSTEM = r"""You are a task resolution analyst. You evaluate whether CRM tasks have been completed based on recent account activity from Backstory SalesAI.
 
 RULES:
 - Only mark a task COMPLETE if there is CLEAR evidence the work was done
@@ -315,7 +315,7 @@ RULES:
 - Be conservative — false completions are worse than missed completions
 - Output ONLY valid JSON, no prose"""
 
-    AGENT_PROMPT = r"""={{ "Review these open CRM tasks for " + $json.accountName + ":\n\n" + $json.taskList + "\n\nUse People.ai SalesAI tools (ask_sales_ai_about_account) to check recent activity, emails, and meeting outcomes for " + $json.accountName + ".\n\nFor each task, determine if it was completed based on evidence from recent activity.\n\nOutput JSON:\n{\n  \"account_name\": \"" + $json.accountName + "\",\n  \"results\": [\n    {\"id\": \"SF_TASK_ID\", \"status\": \"COMPLETE\" or \"OPEN\", \"evidence\": \"one-line reason\"}\n  ]\n}" }}"""
+    AGENT_PROMPT = r"""={{ "Review these open CRM tasks for " + $json.accountName + ":\n\n" + $json.taskList + "\n\nUse Backstory SalesAI tools (ask_sales_ai_about_account) to check recent activity, emails, and meeting outcomes for " + $json.accountName + ".\n\nFor each task, determine if it was completed based on evidence from recent activity.\n\nOutput JSON:\n{\n  \"account_name\": \"" + $json.accountName + "\",\n  \"results\": [\n    {\"id\": \"SF_TASK_ID\", \"status\": \"COMPLETE\" or \"OPEN\", \"evidence\": \"one-line reason\"}\n  ]\n}" }}"""
 
     nodes.append({
         "id": str(uuid.uuid4()),
@@ -345,10 +345,10 @@ RULES:
         "credentials": ANTHROPIC_CRED,
     })
 
-    # ── People.ai MCP (Resolution) ──
+    # ── Backstory MCP (Resolution) ──
     nodes.append({
         "id": str(uuid.uuid4()),
-        "name": "People.ai MCP (Resolution)",
+        "name": "Backstory MCP (Resolution)",
         "type": "@n8n/n8n-nodes-langchain.mcpClientTool",
         "typeVersion": 1.2,
         "position": [1600, 0],
@@ -556,7 +556,7 @@ return [{ json: {
         ]},
         "Resolution Agent": {"main": [[{"node": "Parse Resolution Results", "type": "main", "index": 0}]]},
         "Anthropic Chat Model (Resolution)": {"ai_languageModel": [[{"node": "Resolution Agent", "type": "ai_languageModel", "index": 0}]]},
-        "People.ai MCP (Resolution)": {"ai_tool": [[{"node": "Resolution Agent", "type": "ai_tool", "index": 0}]]},
+        "Backstory MCP (Resolution)": {"ai_tool": [[{"node": "Resolution Agent", "type": "ai_tool", "index": 0}]]},
         "Parse Resolution Results": {"main": [[{"node": "Prepare Completion Payloads", "type": "main", "index": 0}]]},
         "Prepare Completion Payloads": {"main": [[{"node": "Mark Task Complete", "type": "main", "index": 0}]]},
         "Mark Task Complete": {"main": [[{"node": "Loop Accounts", "type": "main", "index": 0}]]},

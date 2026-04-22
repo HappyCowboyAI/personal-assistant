@@ -6,7 +6,7 @@
 
 **Architecture:** The Follow-up Cron (9am + 4pm PT) detects ended meetings with ingested transcript data and generates AI recaps. The recap is delivered as a rich Slack Block Kit message with interactive buttons for: creating SF Tasks (via Workato webhook), saving the recap as a SF Activity (via Workato), and drafting a follow-up email (existing flow). The Interactive Events Handler gains new action routes for recap interactions.
 
-**Tech Stack:** n8n workflows (Follow-up Cron, Interactive Events Handler), Claude Sonnet 4.5 via Anthropic API, People.ai MCP for transcript/activity data, Slack Block Kit with interactive buttons, Workato webhook for Salesforce writes, Supabase for logging/dedup.
+**Tech Stack:** n8n workflows (Follow-up Cron, Interactive Events Handler), Claude Sonnet 4.5 via Anthropic API, Backstory MCP for transcript/activity data, Slack Block Kit with interactive buttons, Workato webhook for Salesforce writes, Supabase for logging/dedup.
 
 ---
 
@@ -26,14 +26,14 @@ When user clicks "Draft Follow-up" button:
 ```
 Route Action (followup_draft) → Is Draft Followup? → Post Drafting Message →
 Build Re-engagement Prompt → Update Msg - Drafting → Build Followup Context →
-Followup Draft Agent (Claude + People.ai MCP) → Format Draft with Mailto →
+Followup Draft Agent (Claude + Backstory MCP) → Format Draft with Mailto →
 Post Draft Reply → Update Msg - Done
 ```
 
 ### Key Design Decisions
 - **Recap replaces the current follow-up prompt** — not an additional message. The recap IS the post-meeting touchpoint.
 - **Workato webhook is generic** — receives `{object, recordId, fields, action}` and writes to SF. One Workato recipe covers Tasks, Activities, and future SF writes.
-- **Recap is AI-generated from People.ai transcript data** — no user input required. The 9am/4pm cadence ensures transcript ingestion (3-4 hour delay) is complete.
+- **Recap is AI-generated from Backstory transcript data** — no user input required. The 9am/4pm cadence ensures transcript ingestion (3-4 hour delay) is complete.
 - **Tasks are extracted by the AI** — presented as interactive buttons, each creating a SF Task via Workato when clicked.
 - **"Draft Follow-up" remains available** — but now it's enriched with recap context instead of raw MCP lookup.
 - **Dedup stays on `messages` table** — same `user_id:activity_uid` pattern, new `message_type: 'meeting_recap'`.
@@ -71,7 +71,7 @@ The Workato webhook URL will be stored as an n8n credential or environment varia
 ### Modified Workflows
 - **Follow-up Cron** (`JhDuCvZdFN4PFTOW`) — Replace `Build Follow-up Prompt` with recap agent flow. Nodes modified/added:
   - `Build Follow-up Prompt` → renamed to `Build Recap Prompt` — now builds a recap agent prompt instead of simple button list
-  - New: `Recap Agent` — Claude Sonnet 4.5 + People.ai MCP, generates structured meeting recap
+  - New: `Recap Agent` — Claude Sonnet 4.5 + Backstory MCP, generates structured meeting recap
   - New: `Parse Recap Output` — extracts summary, tasks, sentiment from agent JSON output
   - New: `Build Recap Blocks` — constructs Block Kit message with interactive buttons
   - `Send Follow-up Prompt` → renamed to `Send Recap` — sends the recap message
@@ -98,10 +98,10 @@ The Workato webhook URL will be stored as an n8n credential or environment varia
 
 ## Task 1: Recap Agent — Replace Follow-up Prompt with AI Recap Generation
 
-**What:** Replace the simple "Draft Follow-up?" button prompt with an AI agent that generates a structured meeting recap from People.ai transcript data.
+**What:** Replace the simple "Draft Follow-up?" button prompt with an AI agent that generates a structured meeting recap from Backstory transcript data.
 
 **Files:**
-- Modify: Follow-up Cron workflow `JhDuCvZdFN4PFTOW` — nodes: `Build Follow-up Prompt`, add `Recap Agent`, `Anthropic Chat Model (Recap)`, `People.ai MCP (Recap)`, `Parse Recap Output`
+- Modify: Follow-up Cron workflow `JhDuCvZdFN4PFTOW` — nodes: `Build Follow-up Prompt`, add `Recap Agent`, `Anthropic Chat Model (Recap)`, `Backstory MCP (Recap)`, `Parse Recap Output`
 - Script: `scripts/build_meeting_recap.py`
 
 **Current state:** `Build Follow-up Prompt` creates a Block Kit message listing meetings with "Draft Follow-up" buttons. No AI processing at the cron level.
@@ -161,7 +161,7 @@ MEETING CONTEXT:
 - Time: {meetingTime}
 - Participants: {participants}
 
-Use People.ai MCP tools to research this meeting:
+Use Backstory MCP tools to research this meeting:
 1. Find the meeting transcript, notes, topics discussed, and action items
 2. Look up participant roles and recent engagement
 3. Check the related opportunity status if one exists
@@ -228,7 +228,7 @@ MEETING CONTEXT:
 - Time: ${m.dayStr} ${m.timeStr}
 - Participants: ${m.participants || 'Unknown'}
 
-Use People.ai MCP tools to research this meeting:
+Use Backstory MCP tools to research this meeting:
 1. Find the meeting transcript, notes, topics discussed, and action items
 2. Look up participant roles and recent engagement history
 3. Check the related opportunity status if one exists
@@ -263,7 +263,7 @@ RULES:
 
   const agentPrompt = `Generate a meeting recap for my ${m.subject} meeting with ${m.accountName}.` +
     (m.participants ? ` Participants: ${m.participants}.` : '') +
-    ` Use People.ai MCP tools to find transcript data, topics, and action items.` +
+    ` Use Backstory MCP tools to find transcript data, topics, and action items.` +
     ` Output ONLY the JSON object.`;
 
   results.push({
@@ -287,7 +287,7 @@ return results;"""
 
 - [ ] **Step 3: Add Recap Agent nodes**
 
-Add three new nodes: `Recap Agent` (langchain agent), `Anthropic Chat Model (Recap)`, `People.ai MCP (Recap)`. The agent processes one meeting at a time (each item from Build Recap Context).
+Add three new nodes: `Recap Agent` (langchain agent), `Anthropic Chat Model (Recap)`, `Backstory MCP (Recap)`. The agent processes one meeting at a time (each item from Build Recap Context).
 
 ```python
 # Position relative to existing nodes
@@ -314,7 +314,7 @@ nodes.append({
     "credentials": {"anthropicApi": {"id": "rlAz7ZSl4y6AwRUq", "name": "Anthropic account 2"}}
 })
 
-# People.ai MCP for Recap
+# Backstory MCP for Recap
 recap_mcp_id = str(uuid.uuid4())
 nodes.append({
     "parameters": {
@@ -322,11 +322,11 @@ nodes.append({
         "authentication": "multipleHeadersAuth"
     },
     "id": recap_mcp_id,
-    "name": "People.ai MCP (Recap)",
+    "name": "Backstory MCP (Recap)",
     "type": "@n8n/n8n-nodes-langchain.mcpClientTool",
     "typeVersion": 1.2,
     "position": [rc_pos[0] + 550, rc_pos[1] + 150],
-    "credentials": {"httpMultipleHeadersAuth": {"id": "wvV5pwBeIL7f2vLG", "name": "People.ai MCP Multi-Header"}}
+    "credentials": {"httpMultipleHeadersAuth": {"id": "wvV5pwBeIL7f2vLG", "name": "Backstory MCP Multi-Header"}}
 })
 
 # Recap Agent (typeVersion 1.7 to match live agents, continueOnFail: true to not break cron loop)
@@ -352,7 +352,7 @@ nodes.append({
 connections["Anthropic Chat Model (Recap)"] = {
     "ai_languageModel": [[{"node": "Recap Agent", "type": "ai_languageModel", "index": 0}]]
 }
-connections["People.ai MCP (Recap)"] = {
+connections["Backstory MCP (Recap)"] = {
     "ai_tool": [[{"node": "Recap Agent", "type": "ai_tool", "index": 0}]]
 }
 ```
@@ -570,7 +570,7 @@ blocks.push({
 blocks.push({
   type: "context",
   elements: [
-    { type: "mrkdwn", text: "People.ai meeting intelligence • Type `stop followups` to pause" }
+    { type: "mrkdwn", text: "Backstory meeting intelligence • Type `stop followups` to pause" }
   ]
 });
 
@@ -694,7 +694,7 @@ sync_local(result, "Follow-up Cron.json")
 
 Run the workflow manually in n8n. Verify:
 - Build Recap Context outputs one item per meeting with systemPrompt/agentPrompt
-- Recap Agent calls People.ai MCP tools and returns JSON
+- Recap Agent calls Backstory MCP tools and returns JSON
 - Parse Recap Output extracts summary, tasks, sentiment
 - Build Recap Blocks produces valid Block Kit JSON
 - Slack message renders with recap content and buttons
@@ -1100,8 +1100,8 @@ Update the existing `Build Followup Context` to check for `recapContext` in the 
 
     # Add recapContext injection after the existing context parsing
     # Find where the systemPrompt is being built and add recap context
-    old_known_context = "## KNOWN MEETING CONTEXT (from People.ai Query API — confirmed data):"
-    new_known_context = """## KNOWN MEETING CONTEXT (from People.ai Query API — confirmed data):"""
+    old_known_context = "## KNOWN MEETING CONTEXT (from Backstory Query API — confirmed data):"
+    new_known_context = """## KNOWN MEETING CONTEXT (from Backstory Query API — confirmed data):"""
 
     # Add after the meeting context section, before CRITICAL: DATA LATENCY PROTOCOL
     old_latency = "## CRITICAL: DATA LATENCY PROTOCOL"

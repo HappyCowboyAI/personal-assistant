@@ -49,7 +49,7 @@ def fix_schedule(wf):
 
 # ── 2. Build Query: last 24 hours instead of today only ───────────────
 
-NEW_BUILD_QUERY = r"""// Build People.ai export query for meetings in the last 24 hours
+NEW_BUILD_QUERY = r"""// Build Backstory export query for meetings in the last 24 hours
 // At 9am: catches yesterday afternoon meetings (4h+ delay means they're ready)
 // At 3pm: catches this morning's meetings (ended by 11am, 4h+ elapsed)
 const now = Date.now();

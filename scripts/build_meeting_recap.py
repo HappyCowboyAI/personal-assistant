@@ -4,7 +4,7 @@ Evolves Follow-up Cron from simple prompt to AI-generated recap with SF actions.
 
 Modifies the Follow-up Cron workflow (JhDuCvZdFN4PFTOW):
 - Renames Build Follow-up Prompt → Build Recap Context (rewritten code)
-- Adds Recap Agent + Anthropic Chat Model (Recap) + People.ai MCP (Recap)
+- Adds Recap Agent + Anthropic Chat Model (Recap) + Backstory MCP (Recap)
 - Adds Parse Recap Output Code node
 - Adds Build Recap Blocks Code node
 - Renames Send Follow-up Prompt → Send Recap
@@ -68,7 +68,7 @@ MEETING CONTEXT:
 - Time: ${m.dayStr} ${m.timeStr}
 - Participants: ${m.participants || 'Unknown'}
 
-Use People.ai MCP tools to research this meeting:
+Use Backstory MCP tools to research this meeting:
 1. Find the meeting transcript, notes, topics discussed, and action items
 2. Look up participant roles and recent engagement history
 3. Check the related opportunity status if one exists
@@ -103,7 +103,7 @@ RULES:
 
   const agentPrompt = `Generate a meeting recap for my ${m.subject} meeting with ${m.accountName}.` +
     (m.participants ? ` Participants: ${m.participants}.` : '') +
-    ` Use People.ai MCP tools to find transcript data, topics, and action items.` +
+    ` Use Backstory MCP tools to find transcript data, topics, and action items.` +
     ` Output ONLY the JSON object.`;
 
   results.push({
@@ -149,7 +149,7 @@ return results;"""
         "credentials": {"anthropicApi": {"id": "rlAz7ZSl4y6AwRUq", "name": "Anthropic account 2"}}
     })
 
-    # People.ai MCP (Recap)
+    # Backstory MCP (Recap)
     recap_mcp_id = str(uuid.uuid4())
     nodes.append({
         "parameters": {
@@ -157,11 +157,11 @@ return results;"""
             "authentication": "multipleHeadersAuth"
         },
         "id": recap_mcp_id,
-        "name": "People.ai MCP (Recap)",
+        "name": "Backstory MCP (Recap)",
         "type": "@n8n/n8n-nodes-langchain.mcpClientTool",
         "typeVersion": 1.2,
         "position": [rc_pos[0] + 550, rc_pos[1] + 150],
-        "credentials": {"httpMultipleHeadersAuth": {"id": "wvV5pwBeIL7f2vLG", "name": "People.ai MCP Multi-Header"}}
+        "credentials": {"httpMultipleHeadersAuth": {"id": "wvV5pwBeIL7f2vLG", "name": "Backstory MCP Multi-Header"}}
     })
 
     # Recap Agent
@@ -187,10 +187,10 @@ return results;"""
     connections["Anthropic Chat Model (Recap)"] = {
         "ai_languageModel": [[{"node": "Recap Agent", "type": "ai_languageModel", "index": 0}]]
     }
-    connections["People.ai MCP (Recap)"] = {
+    connections["Backstory MCP (Recap)"] = {
         "ai_tool": [[{"node": "Recap Agent", "type": "ai_tool", "index": 0}]]
     }
-    print("  Added Recap Agent + Anthropic Chat Model (Recap) + People.ai MCP (Recap)")
+    print("  Added Recap Agent + Anthropic Chat Model (Recap) + Backstory MCP (Recap)")
 
     # ── Step 4: Add Parse Recap Output node ───────────────────────────────
     parse_recap_id = str(uuid.uuid4())
@@ -397,7 +397,7 @@ blocks.push({
 blocks.push({
   type: "context",
   elements: [
-    { type: "mrkdwn", text: "People.ai meeting intelligence • Type `stop followups` to pause" }
+    { type: "mrkdwn", text: "Backstory meeting intelligence • Type `stop followups` to pause" }
   ]
 });
 

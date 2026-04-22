@@ -21,7 +21,7 @@ HEADERS = {"X-N8N-API-KEY": N8N_API_KEY, "Content-Type": "application/json"}
 SLACK_CRED = {"id": "LluVuiMJ8NUbAiG7", "name": "Slackbot Auth Token"}
 SUPABASE_CRED = {"id": "ASRWWkQ0RSMOpNF1", "name": "Supabase account"}
 ANTHROPIC_CRED = {"id": "rlAz7ZSl4y6AwRUq", "name": "Anthropic account 2"}
-MCP_CRED = {"id": "wvV5pwBeIL7f2vLG", "name": "People.ai MCP Multi-Header"}
+MCP_CRED = {"id": "wvV5pwBeIL7f2vLG", "name": "Backstory MCP Multi-Header"}
 PAI_CLIENT_BODY = "client_id=YOUR_CLIENT_ID&client_secret=YOUR_CLIENT_SECRET&grant_type=client_credentials"
 
 
@@ -589,7 +589,7 @@ MRKDWN RULES (inside all text fields):
 - NO standard markdown links [text](url) — use <https://url|text>
 - NO dash bullets (-)
 
-DEEP LINKS — make the deal or account NAME itself a clickable link. Do NOT add a separate "View in People.ai" line.
+DEEP LINKS — make the deal or account NAME itself a clickable link. Do NOT add a separate "View in Backstory" line.
 - For opportunities: <https://app.people.ai/opportunities/CRMID|Deal Name Here> (replace CRMID with the CRM ID from the data table, and "Deal Name Here" with the actual opportunity name)
 - For accounts: <https://app.people.ai/accounts/CRMID|Account Name Here>
 - Example: *<https://app.people.ai/opportunities/006abc123|PwC - ClosePlan Pilot>* | Closes May 31
@@ -630,10 +630,10 @@ Scope: ${scopeLabel}`;
 }
 
 const footer = digestScope === 'team_deals'
-  ? `People.ai team intelligence \u2022 ${currentDate} \u2022 ${timeStr} PT`
+  ? `Backstory team intelligence \u2022 ${currentDate} \u2022 ${timeStr} PT`
   : digestScope === 'top_pipeline'
-    ? `People.ai executive intelligence \u2022 ${currentDate} \u2022 ${timeStr} PT`
-    : `People.ai pipeline intelligence \u2022 ${currentDate} \u2022 ${timeStr} PT`;
+    ? `Backstory executive intelligence \u2022 ${currentDate} \u2022 ${timeStr} PT`
+    : `Backstory pipeline intelligence \u2022 ${currentDate} \u2022 ${timeStr} PT`;
 
 // === Build type-specific prompts ===
 function buildPrompts(type) {
@@ -649,7 +649,7 @@ ${summaryLine}
 Classification: engagement < 25, OR (engagement < 50 AND days_in_stage > 45 AND no meetings in 30d)
 ${data.stalledTable}
 
-You have access to People.ai MCP tools. Use them ONLY for qualitative context on the top 3-5 stalled deals:
+You have access to Backstory MCP tools. Use them ONLY for qualitative context on the top 3-5 stalled deals:
 - Recent activity timeline (when did engagement drop?)
 - Stakeholder analysis (who is/isn't engaged?)
 - Historical patterns (has this account gone cold before?)
@@ -660,7 +660,7 @@ Write a pipeline intelligence briefing as a recovery specialist:
 
 1. Header \u2014 "${emojiClean} Stalled Deals \u2014 ${assistantName}"
 2. Stall Summary (2-3 sentences) \u2014 how many deals are stalled, total value at risk, common patterns
-3. Recovery Priority (top 3-5 deals) \u2014 for each: what stalled, how long, recommended recovery action. Make the deal name a clickable People.ai link. Use \ud83d\udd34 \u26a0\ufe0f indicators.
+3. Recovery Priority (top 3-5 deals) \u2014 for each: what stalled, how long, recommended recovery action. Make the deal name a clickable Backstory link. Use \ud83d\udd34 \u26a0\ufe0f indicators.
 4. Patterns \u2014 common stall signals across deals (single-threaded, no exec, dark accounts)
 5. Recovery Playbook \u2014 2-3 concrete actions to revive the highest-value stalled deals this week
 6. Context footer \u2014 "${footer}"
@@ -669,7 +669,7 @@ ${blockKitRules}`;
 
     const agentPrompt = `Generate a stalled deals intelligence report for ${repName}. ${data.stalledCount} stalled deals are loaded in your system prompt.
 
-Use People.ai MCP tools to investigate the top ${Math.min(data.stalledCount, 5)} stalled deals: look for when engagement dropped, who the last contacts were, and any signals of life.
+Use Backstory MCP tools to investigate the top ${Math.min(data.stalledCount, 5)} stalled deals: look for when engagement dropped, who the last contacts were, and any signals of life.
 
 Output ONLY the Block Kit JSON object, nothing else.`;
 
@@ -686,7 +686,7 @@ ${summaryLine}
 Classification: 2+ risk signals from (no exec engagement, email responsiveness < 0.3, < 3 people engaged, exec coverage < 10%)
 ${data.riskTable}
 
-You have access to People.ai MCP tools. Use them ONLY for qualitative context on the top 3-5 at-risk deals:
+You have access to Backstory MCP tools. Use them ONLY for qualitative context on the top 3-5 at-risk deals:
 - Risk signal validation (confirm the quantitative flags with activity data)
 - Stakeholder map (who should be engaged but isn't?)
 - Competitive signals or deal blockers
@@ -697,7 +697,7 @@ Write a pipeline intelligence briefing as a risk analyst:
 
 1. Header \u2014 "${emojiClean} At-Risk Deals \u2014 ${assistantName}"
 2. Risk Summary (2-3 sentences) \u2014 how many deals at risk, total value exposed, most common risk signals
-3. Critical Risks (top 3-5 deals) \u2014 for each: specific risk signals, severity, recommended mitigation. Make the deal name a clickable People.ai link. Use \u26a0\ufe0f \ud83d\udd34 indicators.
+3. Critical Risks (top 3-5 deals) \u2014 for each: specific risk signals, severity, recommended mitigation. Make the deal name a clickable Backstory link. Use \u26a0\ufe0f \ud83d\udd34 indicators.
 4. Risk Patterns \u2014 systemic issues across at-risk deals (e.g., exec engagement gap, single-threading)
 5. Mitigation Plan \u2014 2-3 prioritized actions to address the biggest risks this week
 6. Context footer \u2014 "${footer}"
@@ -706,7 +706,7 @@ ${blockKitRules}`;
 
     const agentPrompt = `Generate an at-risk deals intelligence report for ${repName}. ${data.riskCount} at-risk deals are loaded.
 
-Use People.ai MCP tools to validate risk signals on the top ${Math.min(data.riskCount, 5)} at-risk deals: check activity gaps, stakeholder coverage, and engagement trends.
+Use Backstory MCP tools to validate risk signals on the top ${Math.min(data.riskCount, 5)} at-risk deals: check activity gaps, stakeholder coverage, and engagement trends.
 
 Output ONLY the Block Kit JSON object, nothing else.`;
 
@@ -724,7 +724,7 @@ Classification: engagement >= 50 AND meetings > 0 AND zero open opportunities
 These are accounts showing buying signals but with no opportunity created in CRM.
 ${data.hiddenTable}
 
-You have access to People.ai MCP tools. Use them ONLY for qualitative context on the top 3-5 hidden opportunity accounts:
+You have access to Backstory MCP tools. Use them ONLY for qualitative context on the top 3-5 hidden opportunity accounts:
 - Recent activity details (who is meeting with whom?)
 - Account history (any past opportunities, closed-lost deals?)
 - Engagement trajectory (rising or stable?)
@@ -735,7 +735,7 @@ Write a pipeline intelligence briefing as a pipeline advisor:
 
 1. Header \u2014 "${emojiClean} Hidden Opportunities \u2014 ${assistantName}"
 2. Discovery Summary (2-3 sentences) \u2014 how many hidden opp accounts found, what engagement signals suggest
-3. Top Discoveries (top 3-5 accounts) \u2014 for each: engagement level, who is active, what suggests an opportunity. Make the deal name a clickable People.ai link. Use \ud83d\udc8e \ud83d\udcc8 indicators.
+3. Top Discoveries (top 3-5 accounts) \u2014 for each: engagement level, who is active, what suggests an opportunity. Make the deal name a clickable Backstory link. Use \ud83d\udc8e \ud83d\udcc8 indicators.
 4. Why These Matter \u2014 what the engagement data tells us about buying intent
 5. Next Steps \u2014 2-3 actions to qualify and convert the highest-potential hidden opportunities
 6. Context footer \u2014 "${footer}"
@@ -744,7 +744,7 @@ ${blockKitRules}`;
 
     const agentPrompt = `Generate a hidden opportunities intelligence report for ${repName}. ${data.hiddenCount} accounts with high engagement but no open opportunities are loaded.
 
-Use People.ai MCP tools to investigate the top ${Math.min(data.hiddenCount, 5)} accounts: look for recent meeting activity, past deal history, and engagement patterns that suggest buying intent.
+Use Backstory MCP tools to investigate the top ${Math.min(data.hiddenCount, 5)} accounts: look for recent meeting activity, past deal history, and engagement patterns that suggest buying intent.
 
 Output ONLY the Block Kit JSON object, nothing else.`;
 
@@ -761,7 +761,7 @@ ${summaryLine}
 Classification: engagement >= 70 AND 2+ acceleration signals (upcoming meetings >= 2, exec activities >= 3, meetings in 30d >= 4)
 ${data.acceleratingTable}
 
-You have access to People.ai MCP tools. Use them ONLY for qualitative context on the top 3-5 accelerating deals:
+You have access to Backstory MCP tools. Use them ONLY for qualitative context on the top 3-5 accelerating deals:
 - Momentum validation (confirm velocity with activity data)
 - Stakeholder engagement depth (multithreaded? exec sponsor?)
 - Close readiness signals (what needs to happen to close?)
@@ -772,7 +772,7 @@ Write a pipeline intelligence briefing as a close specialist:
 
 1. Header \u2014 "${emojiClean} Accelerating Deals \u2014 ${assistantName}"
 2. Momentum Summary (2-3 sentences) \u2014 how many deals accelerating, total value in motion, key drivers
-3. Top Movers (top 3-5 deals) \u2014 for each: acceleration signals, engagement strength, what to do to maintain momentum. Make the deal name a clickable People.ai link. Use \ud83d\ude80 \ud83d\udd25 \u2705 indicators.
+3. Top Movers (top 3-5 deals) \u2014 for each: acceleration signals, engagement strength, what to do to maintain momentum. Make the deal name a clickable Backstory link. Use \ud83d\ude80 \ud83d\udd25 \u2705 indicators.
 4. Acceleration Patterns \u2014 what's working across these deals (exec engagement, meeting cadence, multithreading)
 5. Close Playbook \u2014 2-3 actions to keep momentum and accelerate toward close
 6. Context footer \u2014 "${footer}"
@@ -781,7 +781,7 @@ ${blockKitRules}`;
 
     const agentPrompt = `Generate an accelerating deals intelligence report for ${repName}. ${data.acceleratingCount} accelerating deals are loaded.
 
-Use People.ai MCP tools to validate momentum on the top ${Math.min(data.acceleratingCount, 5)} deals: check recent activity cadence, stakeholder depth, and close readiness.
+Use Backstory MCP tools to validate momentum on the top ${Math.min(data.acceleratingCount, 5)} deals: check recent activity cadence, stakeholder depth, and close readiness.
 
 Output ONLY the Block Kit JSON object, nothing else.`;
 
@@ -808,14 +808,14 @@ ${data.hiddenTable}
 
 Healthy deals: ${data.healthyCount} (not shown \u2014 no action needed)
 
-You have access to People.ai MCP tools. Use them to investigate the top 2-3 deals in each category for qualitative context.
+You have access to Backstory MCP tools. Use them to investigate the top 2-3 deals in each category for qualitative context.
 Do NOT use MCP to list or search for opportunities \u2014 they are already classified above.
 
 Write a comprehensive pipeline intelligence briefing:
 
 1. Header \u2014 "${emojiClean} Pipeline Intelligence \u2014 ${assistantName}"
 2. Pipeline Pulse (2-3 sentences) \u2014 overall health, biggest risks, biggest opportunities
-3. \ud83d\udd34 Stalled Deals \u2014 top 2-3 stalled deals with recovery recommendations. Make deal names clickable People.ai links.
+3. \ud83d\udd34 Stalled Deals \u2014 top 2-3 stalled deals with recovery recommendations. Make deal names clickable Backstory links.
 4. \u26a0\ufe0f At-Risk Deals \u2014 top 2-3 at-risk deals with mitigation steps. Include deep links.
 5. \ud83d\ude80 Accelerating Deals \u2014 top 2-3 deals with momentum. What to do to close. Include deep links.
 6. \ud83d\udc8e Hidden Opportunities \u2014 top 2-3 accounts with no opp but high engagement. Include deep links.
@@ -826,7 +826,7 @@ ${blockKitRules}`;
 
   const agentPrompt = `Generate a comprehensive pipeline intelligence report for ${repName}. All deals are classified and loaded above across 4 categories.
 
-Use People.ai MCP tools to investigate the top 2-3 deals in each category: validate signals, get recent activity context, and assess deal/account health.
+Use Backstory MCP tools to investigate the top 2-3 deals in each category: validate signals, get recent activity context, and assess deal/account health.
 
 Output ONLY the Block Kit JSON object, nothing else.`;
 
@@ -1098,7 +1098,7 @@ def create_insights_workflow():
             "position": [1748, 624],
             "credentials": {"anthropicApi": ANTHROPIC_CRED}
         },
-        # 14. People.ai MCP (sub-node of Insights Agent)
+        # 14. Backstory MCP (sub-node of Insights Agent)
         {
             "parameters": {
                 "endpointUrl": "https://mcp-canary.people.ai/mcp",
@@ -1106,7 +1106,7 @@ def create_insights_workflow():
                 "options": {}
             },
             "id": uid(),
-            "name": "People.ai MCP",
+            "name": "Backstory MCP",
             "type": "@n8n/n8n-nodes-langchain.mcpClientTool",
             "typeVersion": 1.2,
             "position": [1876, 624],
@@ -1165,7 +1165,7 @@ def create_insights_workflow():
         "Insights Agent": {"main": [[{"node": "Parse Blocks", "type": "main", "index": 0}]]},
         # Sub-node connections
         "Anthropic Chat Model": {"ai_languageModel": [[{"node": "Insights Agent", "type": "ai_languageModel", "index": 0}]]},
-        "People.ai MCP": {"ai_tool": [[{"node": "Insights Agent", "type": "ai_tool", "index": 0}]]},
+        "Backstory MCP": {"ai_tool": [[{"node": "Insights Agent", "type": "ai_tool", "index": 0}]]},
         "Parse Blocks": {"main": [[{"node": "Send Insights", "type": "main", "index": 0}]]}
     }
 

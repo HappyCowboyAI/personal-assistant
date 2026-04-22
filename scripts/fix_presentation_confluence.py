@@ -113,7 +113,7 @@ RESEARCH WORKFLOW:
 1. Read the user prompt carefully — identify what topics need research.
 2. Search Confluence for relevant internal docs (try 2-3 searches with different terms).
 3. Read the most relevant Confluence pages to extract real data and context.
-4. If the topic involves accounts/customers/deals, also query People.ai MCP.
+4. If the topic involves accounts/customers/deals, also query Backstory MCP.
 5. Synthesize findings into structured, data-rich slides with real information.
 
 IMPORTANT:
@@ -181,9 +181,9 @@ def main():
     print(f"  HTTP 200, {len(result['nodes'])} nodes")
     sync_local(result, "Backstory Presentation.json")
 
-    print("\nDone! Presentation agent now uses Confluence + People.ai MCP.")
+    print("\nDone! Presentation agent now uses Confluence + Backstory MCP.")
     print("  Confluence: search internal docs, pull real data into slides")
-    print("  People.ai: account intelligence, engagement metrics")
+    print("  Backstory: account intelligence, engagement metrics")
     print("  Test: presentation Q1 engineering review")
 
 

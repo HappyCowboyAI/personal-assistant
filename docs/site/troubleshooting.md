@@ -79,7 +79,7 @@ If Row-Level Security is enabled but the API requests aren't setting the organiz
    ```
 4. You should receive the challenge string back
 
-## People.ai Issues
+## Backstory Issues
 
 ### Authentication failures (401)
 
@@ -89,13 +89,13 @@ If Row-Level Security is enabled but the API requests aren't setting the organiz
      -H "Content-Type: application/x-www-form-urlencoded" \
      -d "client_id=your-client-id&client_secret=your-client-secret&grant_type=client_credentials"
    ```
-2. **MCP endpoint:** Verify the multi-header authentication values with your People.ai account team
+2. **MCP endpoint:** Verify the multi-header authentication values with your Backstory account team
 
 ### Query API returns empty data
 
 1. Confirm your service account has access to the relevant data
 2. Check the export filter — ensure `ootb_opportunity_is_closed` is set to `false` for open opportunities
-3. Verify the column slugs in the export request match the People.ai schema
+3. Verify the column slugs in the export request match the Backstory schema
 
 ### MCP connection fails in agent node
 
@@ -176,5 +176,5 @@ To trigger for a single user, you can also use the On-Demand Digest sub-workflow
 If you're stuck after working through this page:
 
 1. Check the n8n execution logs — they show the full data flow for each run
-2. Verify each integration independently (Slack, database, People.ai, LLM provider)
-3. Contact your People.ai account team for API access issues
+2. Verify each integration independently (Slack, database, Backstory, LLM provider)
+3. Contact your Backstory account team for API access issues

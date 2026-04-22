@@ -1,4 +1,4 @@
--- People.ai Personal Assistant - Consolidated Schema
+-- Backstory Personal Assistant - Consolidated Schema
 -- Designed for multi-tenancy from day one
 -- Includes: core tables, assistant emoji, assistant persona
 
@@ -58,7 +58,7 @@ CREATE TABLE pending_actions (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     user_id UUID REFERENCES users(id) ON DELETE CASCADE,
     action_type TEXT NOT NULL, -- 'send_email', 'update_crm'
-    opportunity_id TEXT,       -- People.ai opportunity ID
+    opportunity_id TEXT,       -- Backstory opportunity ID
     draft_content TEXT NOT NULL,
     context JSONB DEFAULT '{}',
     status TEXT DEFAULT 'pending', -- 'pending', 'approved', 'rejected', 'expired'

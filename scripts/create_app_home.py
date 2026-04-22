@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Create App Home page for People.ai Personal Assistant.
+Create App Home page for Backstory Personal Assistant.
 - Modifies Slack Events Handler (QuQbIaWetunUOFUW): adds app_home_opened route
 - Creates new Interactive Events Handler workflow (~27 nodes)
 - Activates the Interactive Events Handler

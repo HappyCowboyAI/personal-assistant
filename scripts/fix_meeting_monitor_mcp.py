@@ -2,7 +2,7 @@
 Fix: Add MCP probe to Meeting Data Monitor.
 
 After getting today's meetings from the Query API, for each unique account
-with a completed meeting, uses an AI Agent + People.ai MCP to check if
+with a completed meeting, uses an AI Agent + Backstory MCP to check if
 SalesAI has transcript/enrichment data for that meeting.
 
 New flow:
@@ -177,7 +177,7 @@ const prompt = `Check the most recent activity for the account "${account}". ` +
   `- NOT_ENRICHED: [what data you do have, e.g. "only calendar metadata"]\\n` +
   `Be concise. One line only.`;
 
-const systemPrompt = 'You are a data availability checker. Use People.ai MCP tools to look up recent activity for the specified account. ' +
+const systemPrompt = 'You are a data availability checker. Use Backstory MCP tools to look up recent activity for the specified account. ' +
   'Check if the specific meeting has discussion content (topics, action items, notes) or just calendar metadata. ' +
   'Reply in the exact format requested. Be brief and factual.';
 

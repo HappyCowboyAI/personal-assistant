@@ -1,6 +1,6 @@
 # Getting Started
 
-This guide walks through setting up the People.ai Personal Assistant from scratch.
+This guide walks through setting up the Backstory Personal Assistant from scratch.
 
 ## Prerequisites
 
@@ -8,7 +8,7 @@ This guide walks through setting up the People.ai Personal Assistant from scratc
 - [Supabase](https://supabase.com) project (free tier works for dev)
 - [Anthropic API](https://console.anthropic.com) key
 - [Slack workspace](https://slack.com) with admin access
-- People.ai API access
+- Backstory API access
 
 ## Step 1: Create Supabase Project
 
@@ -46,7 +46,7 @@ This creates:
 
 ```sql
 INSERT INTO organizations (name, slug, default_assistant_name)
-VALUES ('People.ai', 'peopleai', 'Aria');
+VALUES ('Backstory', 'peopleai', 'Aria');
 ```
 
 ### Add Yourself as a Test User
@@ -89,8 +89,8 @@ Create these credentials in n8n (Settings → Credentials → Add Credential):
 | **Supabase** | Supabase API | Project URL + Service Role Key from Step 1 |
 | **Slack** | Slack API | Bot User OAuth Token (`xoxb-...`) from Step 3 |
 | **Anthropic** | Anthropic API | Your API key from console.anthropic.com |
-| **People.ai API** | HTTP Header Auth | `Authorization: Bearer YOUR_KEY` |
-| **People.ai MCP** | HTTP Multi-Header Auth | Headers for `https://mcp.people.ai/mcp` endpoint |
+| **Backstory API** | HTTP Header Auth | `Authorization: Bearer YOUR_KEY` |
+| **Backstory MCP** | HTTP Multi-Header Auth | Headers for `https://mcp.people.ai/mcp` endpoint |
 
 ### Import Workflows
 
@@ -112,15 +112,15 @@ Configure these in your Slack app:
 | Interactivity | `https://<n8n>/webhook/slack-interactive` |
 | `/bs` slash command | `https://<n8n>/webhook/bs` |
 
-## Step 5: Connect People.ai
+## Step 5: Connect Backstory
 
 ### API Authentication
 
-People.ai uses OAuth or API keys. Configure the HTTP Header Auth credential in n8n with your access method.
+Backstory uses OAuth or API keys. Configure the HTTP Header Auth credential in n8n with your access method.
 
 ### MCP Integration
 
-The Backstory workflow uses People.ai's MCP server at `https://mcp.people.ai/mcp` for live CRM queries. This requires multi-header authentication configured in n8n.
+The Backstory workflow uses Backstory's MCP server at `https://mcp.people.ai/mcp` for live CRM queries. This requires multi-header authentication configured in n8n.
 
 ### Required Endpoints (for non-MCP workflows)
 
@@ -162,12 +162,12 @@ The Backstory workflow uses People.ai's MCP server at `https://mcp.people.ai/mcp
 ### Claude response is empty
 - Check Anthropic API key is valid
 - Review the prompt data in n8n execution logs
-- Ensure `pipeline_data` is being populated from People.ai
+- Ensure `pipeline_data` is being populated from Backstory
 
-### People.ai returns 401
+### Backstory returns 401
 - Verify API key/token is current
 - Check the user's `peopleai_user_id` is correct
-- Review People.ai API documentation for auth format
+- Review Backstory API documentation for auth format
 
 ### Slash command times out
 - Slack requires a response within 3 seconds — the workflow must acknowledge immediately
@@ -182,4 +182,4 @@ Once everything is working:
 3. **Iterate on prompts** based on what's useful vs. noise
 4. **Move to Month 2** — Pre-Meeting Briefing workflow
 
-See the project plan in `people-ai-personal-assistant.md` for the full roadmap.
+See the project plan in `backstory-personal-assistant.md` for the full roadmap.

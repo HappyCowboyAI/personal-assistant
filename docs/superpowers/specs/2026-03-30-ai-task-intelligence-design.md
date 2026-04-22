@@ -7,7 +7,7 @@
 
 Two passive AI features that make open Salesforce tasks smarter without requiring rep action:
 
-1. **MCP-Enriched Task Coaching** — overdue/due-today tasks in the morning digest get AI-generated coaching tips grounded in real People.ai activity data
+1. **MCP-Enriched Task Coaching** — overdue/due-today tasks in the morning digest get AI-generated coaching tips grounded in real Backstory activity data
 2. **Smart Completion Suggestions** — after a meeting recap, the assistant identifies open tasks that were likely addressed and suggests marking them done
 
 Both features layer onto existing infrastructure (digest task summary, meeting recap pipeline, Workato SF bridge).
@@ -55,7 +55,7 @@ Enrich Task Context (NEW node, Code)
     → outputs list of unique accounts needing MCP enrichment
 
 Fetch Task Activity (NEW node, MCP or HTTP)
-    → for each unique account (max 3), call People.ai MCP:
+    → for each unique account (max 3), call Backstory MCP:
       - get_recent_account_activity or ask_sales_ai_about_account
       - pull: last meeting date, last email date, engagement score, recent activity summary
     → aggregate results keyed by account name
@@ -103,17 +103,17 @@ Only generate coaching tips for tasks that have ACCOUNT CONTEXT. Tasks without c
 | Node | Type | Position | Purpose |
 |------|------|----------|---------|
 | Enrich Task Context | Code | After Filter Urgent Tasks | Deduplicate by account, select top 3 |
-| Fetch Task Activity | MCP Client Tool or HTTP | After Enrich Task Context | People.ai activity per account |
+| Fetch Task Activity | MCP Client Tool or HTTP | After Enrich Task Context | Backstory activity per account |
 | Build Enriched Task Context | Code | After Fetch Task Activity | Merge task + activity data for prompt |
 
 ### MCP Call Details
 
-Using People.ai MCP (`https://mcp.people.ai/mcp` or canary endpoint):
+Using Backstory MCP (`https://mcp.people.ai/mcp` or canary endpoint):
 
 - **Tool:** `get_recent_account_activity` or `ask_sales_ai_about_account`
 - **Input:** account name
 - **Desired output:** last meeting date, last email date, engagement score, engagement trend, notable recent events
-- **Credential:** `wvV5pwBeIL7f2vLG` (People.ai MCP Multi-Header)
+- **Credential:** `wvV5pwBeIL7f2vLG` (Backstory MCP Multi-Header)
 - **Timeout:** 15 seconds per call
 - **Fallback:** if call fails, omit coaching tip for that task's account
 
@@ -250,7 +250,7 @@ Both features reuse existing components:
 | Workato `get_tasks_digest` action | Both | Yes (built today) |
 | Supabase pending_actions bridge | Both | Yes (built today) |
 | 8-second Wait + Read pattern | Both | Yes (built today) |
-| People.ai MCP tools | Feature 1 | Yes (used by Backstory, Digest Agent) |
+| Backstory MCP tools | Feature 1 | Yes (used by Backstory, Digest Agent) |
 | task_complete_* handler | Feature 2 | Yes (Interactive Events Handler) |
 | Claude agent with MCP | Feature 1 | Yes (Digest Agent node) |
 | Claude agent for matching | Feature 2 | New call, but same pattern as recap agent |

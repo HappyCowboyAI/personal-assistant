@@ -158,7 +158,7 @@ You have two powerful research tools. Use them BEFORE generating slides to gathe
 RESEARCH WORKFLOW:
 1. Read the user prompt carefully.
 2. Search Confluence for relevant internal docs (2-3 searches).
-3. If the topic involves accounts/customers/deals, query People.ai MCP.
+3. If the topic involves accounts/customers/deals, query Backstory MCP.
 4. Synthesize findings into structured, data-rich slides.
 5. Use real numbers, names, and facts from your research — never fabricate data.
 

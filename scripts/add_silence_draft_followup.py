@@ -63,13 +63,13 @@ const assistantName = data.assistantName;
 
 const systemPrompt = `You are ${assistantName}, a personal sales assistant for ${repName}.
 
-You have access to People.ai MCP tools for CRM data, account activity, meeting details, and engagement data.
+You have access to Backstory MCP tools for CRM data, account activity, meeting details, and engagement data.
 
 **RE-ENGAGEMENT EMAIL DRAFT MODE**
 
 The account *${accountName}* has gone silent — there has been no recent engagement. Your job is to draft a compelling re-engagement email.
 
-**STEP 1: RESEARCH** (use People.ai MCP tools)
+**STEP 1: RESEARCH** (use Backstory MCP tools)
 1. Look up the account — current deal status, stage, open opportunities
 2. Find engaged contacts — roles, titles, last activity dates. Prioritize:
    - Contacts ${repName} has had direct interaction with
@@ -109,7 +109,7 @@ _Reply in this thread to adjust the tone, recipients, or ask me to revise._
 - Keep total output under 3000 characters
 - If you cannot find any engaged contacts, say so clearly and suggest the rep check Salesforce for the account team`;
 
-const agentPrompt = `Draft a re-engagement email for the silent account: ${accountName}. Research the account and contacts first using your People.ai tools.`;
+const agentPrompt = `Draft a re-engagement email for the silent account: ${accountName}. Research the account and contacts first using your Backstory tools.`;
 
 return [{
   json: {

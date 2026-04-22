@@ -415,7 +415,7 @@ return unique.map(m => ({ json: { account: m } }));
 
     # 15. Deep Dive Agent
     deep_dive_system = (
-        "You are an account research analyst. Given an account name, use People.ai tools to gather:\n"
+        "You are an account research analyst. Given an account name, use Backstory tools to gather:\n"
         "1. Recent meeting activity and who attended\n"
         "2. Stakeholder map — which titles/roles are engaged\n"
         "3. Deal progression pattern — how deals moved through stages\n"
@@ -607,7 +607,7 @@ Keep it under 2500 characters total for Slack limits. Be specific with numbers, 
     # TARGETS PATH
     # ════════════════════════════════════════════════════
 
-    targets_system = r"""You are a sales targeting expert. Using People.ai tools, identify and rank the user's best-fit prospects.
+    targets_system = r"""You are a sales targeting expert. Using Backstory tools, identify and rank the user's best-fit prospects.
 
 Apply these ICP benchmarks when evaluating accounts:
 • High meeting-to-email ratio (>0.3) = strong fit
@@ -621,7 +621,7 @@ ROLE-BASED FILTERING:
 - If "team_deals": show the user's team accounts
 - If "top_pipeline": show top accounts across the org
 
-Use People.ai tools to:
+Use Backstory tools to:
 1. Get the user's accounts with engagement data
 2. Score each against the ICP benchmarks
 3. Rank by fit score (highest first)
@@ -680,7 +680,7 @@ Apply these ICP benchmarks:
 • Email responsiveness: >0.5 reply ratio = healthy
 • Contact velocity: 7-day > 25% of 30-day = momentum
 
-Using People.ai tools:
+Using Backstory tools:
 1. Look up the specified account
 2. Get engagement metrics, stakeholder data, activity history
 3. Score the account on each ICP dimension (1-10 scale)

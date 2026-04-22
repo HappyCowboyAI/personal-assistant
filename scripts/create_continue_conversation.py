@@ -16,7 +16,7 @@ Nodes:
  6. Log Inbound               — HTTP POST Supabase REST: insert message role='user'
  7. Build Agent Context       — Code: reconstructs message array, token budget, system prompt
  8. Conversation Agent        — Anthropic Tools Agent with dynamic system prompt
- 9. People.ai MCP Tool        — MCP tool sub-node connected to the agent
+ 9. Backstory MCP Tool        — MCP tool sub-node connected to the agent
 10. Post Response             — HTTP POST Slack chat.postMessage with thread_ts
 11. Log Outbound              — HTTP POST Supabase REST: insert message role='assistant'
 12. Update Conversation       — HTTP PATCH Supabase REST: increment turn_count, slide expires_at
@@ -39,7 +39,7 @@ HEADERS = {"X-N8N-API-KEY": N8N_API_KEY, "Content-Type": "application/json"}
 SUPABASE_CRED = {"id": "ASRWWkQ0RSMOpNF1", "name": "Supabase account"}
 SLACK_CRED = {"id": "LluVuiMJ8NUbAiG7", "name": "Slackbot Auth Token"}
 ANTHROPIC_CRED = {"id": "rlAz7ZSl4y6AwRUq", "name": "Anthropic account 2"}
-MCP_CRED = {"id": "wvV5pwBeIL7f2vLG", "name": "People.ai MCP Multi-Header"}
+MCP_CRED = {"id": "wvV5pwBeIL7f2vLG", "name": "Backstory MCP Multi-Header"}
 
 SUPABASE_REST_URL = "https://rhrlnkbphxntxxxcrgvv.supabase.co/rest/v1"
 
@@ -369,7 +369,7 @@ def build_workflow():
             "credentials": {"anthropicApi": ANTHROPIC_CRED}
         },
         # -------------------------------------------------------
-        # 12. People.ai MCP Tool — sub-node of Conversation Agent
+        # 12. Backstory MCP Tool — sub-node of Conversation Agent
         # -------------------------------------------------------
         {
             "parameters": {
@@ -378,7 +378,7 @@ def build_workflow():
                 "options": {}
             },
             "id": uid(),
-            "name": "People.ai MCP",
+            "name": "Backstory MCP",
             "type": "@n8n/n8n-nodes-langchain.mcpClientTool",
             "typeVersion": 1.2,
             "position": [2136, 774],
@@ -514,7 +514,7 @@ def build_workflow():
         "Anthropic Chat Model": {
             "ai_languageModel": [[{"node": "Conversation Agent", "type": "ai_languageModel", "index": 0}]]
         },
-        "People.ai MCP": {
+        "Backstory MCP": {
             "ai_tool": [[{"node": "Conversation Agent", "type": "ai_tool", "index": 0}]]
         }
     }

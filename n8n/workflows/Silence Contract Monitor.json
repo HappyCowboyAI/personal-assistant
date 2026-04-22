@@ -130,7 +130,7 @@
                 "promptType": "define",
                 "text": "={{ $json.monitorPrompt }}",
                 "options": {
-                    "systemMessage": "You are a sales engagement monitor. Your job is to detect \"silence contracts\" \u2014 accounts where customer engagement has gone quiet.\n\nUsing the People.ai tools available to you, check the user's accounts for engagement gaps:\n1. Find the user's accounts that have open opportunities\n2. For each account, check the most recent customer-facing activity (emails, meetings, calls)\n3. Identify accounts where the last activity was more than 5 days ago\n\nClassify each silent account by severity:\n- \"info\" (5-9 days silent): Getting quiet\n- \"warning\" (10-20 days silent): Gone silent\n- \"critical\" (21+ days silent): Relationship at risk\n\nCRITICAL: You MUST end your response with a JSON code block containing your findings in this exact format:\n```json\n{\n  \"silent_accounts\": [\n    {\n      \"account_name\": \"Account Name\",\n      \"days_silent\": 14,\n      \"last_activity_date\": \"2026-02-17\",\n      \"last_activity_type\": \"email\",\n      \"severity\": \"warning\"\n    }\n  ]\n}\n```\nIf no accounts are silent (all had activity within the past 5 days), return:\n```json\n{\"silent_accounts\": []}\n```\n\nDo NOT include any text after the JSON code block.",
+                    "systemMessage": "You are a sales engagement monitor. Your job is to detect \"silence contracts\" \u2014 accounts where customer engagement has gone quiet.\n\nUsing the Backstory tools available to you, check the user's accounts for engagement gaps:\n1. Find the user's accounts that have open opportunities\n2. For each account, check the most recent customer-facing activity (emails, meetings, calls)\n3. Identify accounts where the last activity was more than 5 days ago\n\nClassify each silent account by severity:\n- \"info\" (5-9 days silent): Getting quiet\n- \"warning\" (10-20 days silent): Gone silent\n- \"critical\" (21+ days silent): Relationship at risk\n\nCRITICAL: You MUST end your response with a JSON code block containing your findings in this exact format:\n```json\n{\n  \"silent_accounts\": [\n    {\n      \"account_name\": \"Account Name\",\n      \"days_silent\": 14,\n      \"last_activity_date\": \"2026-02-17\",\n      \"last_activity_type\": \"email\",\n      \"severity\": \"warning\"\n    }\n  ]\n}\n```\nIf no accounts are silent (all had activity within the past 5 days), return:\n```json\n{\"silent_accounts\": []}\n```\n\nDo NOT include any text after the JSON code block.",
                     "maxIterations": 15
                 }
             },
@@ -176,7 +176,7 @@
                 "options": {}
             },
             "id": "7b3a6936-8d09-4888-b2d2-7c0aac7f12b8",
-            "name": "People.ai MCP (Silence)",
+            "name": "Backstory MCP (Silence)",
             "type": "@n8n/n8n-nodes-langchain.mcpClientTool",
             "typeVersion": 1.2,
             "position": [
@@ -186,7 +186,7 @@
             "credentials": {
                 "httpMultipleHeadersAuth": {
                     "id": "wvV5pwBeIL7f2vLG",
-                    "name": "People.ai MCP Multi-Header"
+                    "name": "Backstory MCP Multi-Header"
                 }
             }
         },
@@ -601,7 +601,7 @@
                 ]
             ]
         },
-        "People.ai MCP (Silence)": {
+        "Backstory MCP (Silence)": {
             "ai_tool": [
                 [
                     {
@@ -952,7 +952,7 @@
                     "promptType": "define",
                     "text": "={{ $json.monitorPrompt }}",
                     "options": {
-                        "systemMessage": "You are a sales engagement monitor. Your job is to detect \"silence contracts\" \u2014 accounts where customer engagement has gone quiet.\n\nUsing the People.ai tools available to you, check the user's accounts for engagement gaps:\n1. Find the user's accounts that have open opportunities\n2. For each account, check the most recent customer-facing activity (emails, meetings, calls)\n3. Identify accounts where the last activity was more than 5 days ago\n\nClassify each silent account by severity:\n- \"info\" (5-9 days silent): Getting quiet\n- \"warning\" (10-20 days silent): Gone silent\n- \"critical\" (21+ days silent): Relationship at risk\n\nCRITICAL: You MUST end your response with a JSON code block containing your findings in this exact format:\n```json\n{\n  \"silent_accounts\": [\n    {\n      \"account_name\": \"Account Name\",\n      \"days_silent\": 14,\n      \"last_activity_date\": \"2026-02-17\",\n      \"last_activity_type\": \"email\",\n      \"severity\": \"warning\"\n    }\n  ]\n}\n```\nIf no accounts are silent (all had activity within the past 5 days), return:\n```json\n{\"silent_accounts\": []}\n```\n\nDo NOT include any text after the JSON code block.",
+                        "systemMessage": "You are a sales engagement monitor. Your job is to detect \"silence contracts\" \u2014 accounts where customer engagement has gone quiet.\n\nUsing the Backstory tools available to you, check the user's accounts for engagement gaps:\n1. Find the user's accounts that have open opportunities\n2. For each account, check the most recent customer-facing activity (emails, meetings, calls)\n3. Identify accounts where the last activity was more than 5 days ago\n\nClassify each silent account by severity:\n- \"info\" (5-9 days silent): Getting quiet\n- \"warning\" (10-20 days silent): Gone silent\n- \"critical\" (21+ days silent): Relationship at risk\n\nCRITICAL: You MUST end your response with a JSON code block containing your findings in this exact format:\n```json\n{\n  \"silent_accounts\": [\n    {\n      \"account_name\": \"Account Name\",\n      \"days_silent\": 14,\n      \"last_activity_date\": \"2026-02-17\",\n      \"last_activity_type\": \"email\",\n      \"severity\": \"warning\"\n    }\n  ]\n}\n```\nIf no accounts are silent (all had activity within the past 5 days), return:\n```json\n{\"silent_accounts\": []}\n```\n\nDo NOT include any text after the JSON code block.",
                         "maxIterations": 15
                     }
                 },
@@ -998,7 +998,7 @@
                     "options": {}
                 },
                 "id": "7b3a6936-8d09-4888-b2d2-7c0aac7f12b8",
-                "name": "People.ai MCP (Silence)",
+                "name": "Backstory MCP (Silence)",
                 "type": "@n8n/n8n-nodes-langchain.mcpClientTool",
                 "typeVersion": 1.2,
                 "position": [
@@ -1008,7 +1008,7 @@
                 "credentials": {
                     "httpMultipleHeadersAuth": {
                         "id": "wvV5pwBeIL7f2vLG",
-                        "name": "People.ai MCP Multi-Header"
+                        "name": "Backstory MCP Multi-Header"
                     }
                 }
             },
@@ -1423,7 +1423,7 @@
                     ]
                 ]
             },
-            "People.ai MCP (Silence)": {
+            "Backstory MCP (Silence)": {
                 "ai_tool": [
                     [
                         {

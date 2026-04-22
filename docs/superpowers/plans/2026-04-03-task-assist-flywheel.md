@@ -6,7 +6,7 @@
 
 **Architecture:** Hybrid keyword + LLM matching. Keyword matcher runs in Code nodes at recap time (zero cost). LLM classification piggybacks on the existing Task Resolution Agent at 9am/4pm. Button clicks route through the Interactive Events Handler to existing skill flows.
 
-**Tech Stack:** n8n workflows (API-managed via Python), Claude Sonnet 4.5 (extended prompt), People.ai MCP, Slack Block Kit
+**Tech Stack:** n8n workflows (API-managed via Python), Claude Sonnet 4.5 (extended prompt), Backstory MCP, Slack Block Kit
 
 **Spec:** `docs/superpowers/specs/2026-04-03-task-assist-flywheel-design.md`
 
@@ -467,7 +467,7 @@ def update_resolution_agent_prompt():
             return 0
 
         # Extend system prompt
-        new_system = r"""You are a task resolution analyst. You evaluate whether CRM tasks have been completed based on recent account activity from People.ai SalesAI.
+        new_system = r"""You are a task resolution analyst. You evaluate whether CRM tasks have been completed based on recent account activity from Backstory SalesAI.
 
 RULES:
 - Only mark a task COMPLETE if there is CLEAR evidence the work was done
@@ -497,7 +497,7 @@ Output ONLY valid JSON, no prose"""
 
         if new_prompt == old_prompt:
             # Fallback: replace entire prompt template
-            new_prompt = r"""={{ "Review these open CRM tasks for " + $json.accountName + ":\n\n" + $json.taskList + "\n\nUse People.ai SalesAI tools (ask_sales_ai_about_account) to check recent activity, emails, and meeting outcomes for " + $json.accountName + ".\n\nFor each task, determine if it was completed based on evidence from recent activity. Also determine if the assistant can help with each OPEN task.\n\nOutput JSON:\n{\n  \"account_name\": \"" + $json.accountName + "\",\n  \"results\": [\n    {\"id\": \"SF_TASK_ID\", \"status\": \"COMPLETE\" or \"OPEN\", \"evidence\": \"one-line reason\", \"assist_skill\": \"DRAFT_EMAIL|PRESENTATION|STAKEHOLDER_MAP|MEETING_PREP|NONE\"}\n  ]\n}" }}"""
+            new_prompt = r"""={{ "Review these open CRM tasks for " + $json.accountName + ":\n\n" + $json.taskList + "\n\nUse Backstory SalesAI tools (ask_sales_ai_about_account) to check recent activity, emails, and meeting outcomes for " + $json.accountName + ".\n\nFor each task, determine if it was completed based on evidence from recent activity. Also determine if the assistant can help with each OPEN task.\n\nOutput JSON:\n{\n  \"account_name\": \"" + $json.accountName + "\",\n  \"results\": [\n    {\"id\": \"SF_TASK_ID\", \"status\": \"COMPLETE\" or \"OPEN\", \"evidence\": \"one-line reason\", \"assist_skill\": \"DRAFT_EMAIL|PRESENTATION|STAKEHOLDER_MAP|MEETING_PREP|NONE\"}\n  ]\n}" }}"""
             print("  Replaced entire user prompt template (fallback)")
 
         agent["parameters"]["text"] = new_prompt

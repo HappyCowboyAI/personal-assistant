@@ -65,7 +65,7 @@ def find_node(nodes, name_substr):
 # Keys managerToReports by manager EMAIL (not name)
 # Also retains name-based keying as a secondary index
 # ─────────────────────────────────────────────────────────────
-PARSE_HIERARCHY_CODE = r"""// Parse CSV from People.ai User hierarchy export
+PARSE_HIERARCHY_CODE = r"""// Parse CSV from Backstory User hierarchy export
 const csvData = $('Fetch User Hierarchy').first().json.data;
 
 if (!csvData) {

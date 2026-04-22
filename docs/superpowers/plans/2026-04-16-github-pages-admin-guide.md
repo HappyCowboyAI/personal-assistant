@@ -39,7 +39,7 @@ Create `docs/site/index.html`:
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Backstory — Admin Guide</title>
-  <meta name="description" content="Deployment guide for the People.ai Personal Assistant">
+  <meta name="description" content="Deployment guide for the Backstory Personal Assistant">
   <!-- Docsify base theme -->
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/docsify@4/lib/themes/vue.css">
   <!-- Backstory brand overrides -->
@@ -441,7 +441,7 @@ Create `docs/site/_coverpage.md`:
 
 > Admin Deployment Guide
 
-A step-by-step guide to deploying the People.ai Personal Assistant — a proactive, AI-powered sales assistant delivered through Slack.
+A step-by-step guide to deploying the Backstory Personal Assistant — a proactive, AI-powered sales assistant delivered through Slack.
 
 [Get Started](#overview)
 ```
@@ -477,12 +477,12 @@ git commit -m "feat(docs): add cover page and sidebar navigation"
 
 - [ ] **Step 1: Write the overview page**
 
-Create `docs/site/README.md`. Adapted from `people-ai-personal-assistant.md` — no credentials, customer-facing tone.
+Create `docs/site/README.md`. Adapted from `backstory-personal-assistant.md` — no credentials, customer-facing tone.
 
 ```markdown
 # Overview
 
-The People.ai Personal Assistant is a proactive, AI-powered sales assistant delivered through Slack. Each sales rep gets a named, personalized assistant that monitors their pipeline and delivers insights without being prompted.
+The Backstory Personal Assistant is a proactive, AI-powered sales assistant delivered through Slack. Each sales rep gets a named, personalized assistant that monitors their pipeline and delivers insights without being prompted.
 
 The assistant is not a chatbot — it's an agent with its own agenda that runs on a schedule and acts proactively.
 
@@ -502,7 +502,7 @@ The assistant is built on a three-layer stack:
 |-------|-----------|------|
 | **Orchestration** | n8n | Scheduling, API routing, conditional logic, message delivery |
 | **Reasoning** | Claude (Anthropic API) | Synthesizes data into natural language briefings and recommendations |
-| **Intelligence** | People.ai API + MCP | Engagement scores, activity signals, deal health, stakeholder data |
+| **Intelligence** | Backstory API + MCP | Engagement scores, activity signals, deal health, stakeholder data |
 | **Delivery** | Slack | All user interaction — onboarding, digests, commands, approvals |
 | **Data Store** | PostgreSQL | Multi-tenant user/org data, message logs, pending actions |
 
@@ -515,7 +515,7 @@ The assistant is built on a three-layer stack:
                     ┌───────┴───────┐
                     │               │
               ┌─────▼─────┐  ┌─────▼──────┐
-              │  Claude    │  │ People.ai  │
+              │  Claude    │  │ Backstory  │
               │ (Reasoning)│  │ (Intel)    │
               └───────────┘  └────────────┘
                     │
@@ -575,7 +575,7 @@ Before starting the deployment, ensure you have the following accounts and acces
 | **PostgreSQL Database** | Any Postgres-compatible database (Supabase, AWS RDS, self-hosted, etc.) | Varies by provider |
 | **n8n** | Cloud or self-hosted instance | [n8n.io](https://n8n.io) |
 | **Anthropic** | API key for Claude | [console.anthropic.com](https://console.anthropic.com) |
-| **People.ai** | API credentials (client ID + secret) and MCP access | Contact your People.ai account team |
+| **Backstory** | API credentials (client ID + secret) and MCP access | Contact your Backstory account team |
 
 ## Access Requirements
 
@@ -599,10 +599,10 @@ Before starting the deployment, ensure you have the following accounts and acces
 - An API key with access to Claude models
 - The assistant uses Claude Sonnet for all reasoning tasks
 
-### People.ai
+### Backstory
 - **OAuth client credentials** (client ID + client secret) for the Query API — used to fetch pipeline data and user hierarchy
 - **MCP endpoint access** with multi-header authentication — used for real-time CRM queries during agent reasoning
-- Your People.ai account team can provision both
+- Your Backstory account team can provision both
 
 ## Network Requirements
 
@@ -644,7 +644,7 @@ This guide walks through creating and configuring the Slack bot.
 
 1. Go to [api.slack.com/apps](https://api.slack.com/apps)
 2. Click **Create New App** → **From scratch**
-3. Name: `People.ai Assistant` (or your preferred name)
+3. Name: `Backstory Assistant` (or your preferred name)
 4. Select your workspace
 5. Click **Create App**
 
@@ -663,7 +663,7 @@ Navigate to **OAuth & Permissions** and add these **Bot Token Scopes**:
 | `im:write` | Open DM conversations with users |
 | `channels:history` | Read messages in public channels (for multi-turn thread conversations) |
 | `users:read` | Get user info (name, timezone) |
-| `users:read.email` | Get user email for People.ai matching |
+| `users:read.email` | Get user email for Backstory matching |
 
 ### Optional Scopes (for future features)
 
@@ -1073,18 +1073,18 @@ In n8n, go to **Settings → Credentials → Add Credential** and create the fol
 | Type | Anthropic API |
 | API Key | `sk-ant-your-api-key` |
 
-### People.ai MCP (Multi-Header Auth)
+### Backstory MCP (Multi-Header Auth)
 
 | Field | Value |
 |-------|-------|
 | Type | HTTP Multiple Headers Auth |
-| Headers | As provided by your People.ai account team |
+| Headers | As provided by your Backstory account team |
 
-> The MCP endpoint is used for real-time CRM queries during agent reasoning. Your People.ai team will provide the required authentication headers.
+> The MCP endpoint is used for real-time CRM queries during agent reasoning. Your Backstory team will provide the required authentication headers.
 
-### People.ai Query API (OAuth)
+### Backstory Query API (OAuth)
 
-The Sales Digest workflow uses People.ai's Query API with OAuth client credentials to fetch pipeline data. The client ID and secret are embedded in the workflow's authentication node — update them after import.
+The Sales Digest workflow uses Backstory's Query API with OAuth client credentials to fetch pipeline data. The client ID and secret are embedded in the workflow's authentication node — update them after import.
 
 ### Database Connection
 
@@ -1140,9 +1140,9 @@ After importing each workflow:
 |-----------|-------------------|
 | Slack `chat.postMessage` (HTTP Request) | Slack Bot Token |
 | Anthropic Chat Model | Anthropic API |
-| People.ai MCP Client | People.ai MCP (Multi-Header) |
+| Backstory MCP Client | Backstory MCP (Multi-Header) |
 | Supabase nodes | Database Connection |
-| People.ai Query API (HTTP Request) | Update the OAuth token node in-workflow |
+| Backstory Query API (HTTP Request) | Update the OAuth token node in-workflow |
 
 ## Update Webhook URLs
 
@@ -1335,9 +1335,9 @@ The assistant is powered by a set of n8n workflows, each handling a specific fun
 |----------|-------|
 | Trigger | Cron: 6am weekdays (Mon–Fri) |
 | Purpose | Generate and deliver personalized morning pipeline briefings |
-| Integrations | People.ai Query API, People.ai MCP, Claude, Slack, PostgreSQL |
+| Integrations | Backstory Query API, Backstory MCP, Claude, Slack, PostgreSQL |
 
-Fetches the People.ai user hierarchy and all open opportunities via the Query API. For each active user, filters opportunities by their digest scope (IC/Manager/Exec), applies a daily theme (Monday: full pipeline, Tuesday: engagement shifts, Wednesday: at-risk, Thursday: momentum, Friday: week review), then runs a Claude agent with People.ai MCP tools to generate a Slack Block Kit briefing. Delivers via personalized Slack DM and logs to the database.
+Fetches the Backstory user hierarchy and all open opportunities via the Query API. For each active user, filters opportunities by their digest scope (IC/Manager/Exec), applies a daily theme (Monday: full pipeline, Tuesday: engagement shifts, Wednesday: at-risk, Thursday: momentum, Friday: week review), then runs a Claude agent with Backstory MCP tools to generate a Slack Block Kit briefing. Delivers via personalized Slack DM and logs to the database.
 
 ### Backstory SlackBot
 
@@ -1345,9 +1345,9 @@ Fetches the People.ai user hierarchy and all open opportunities via the Query AP
 |----------|-------|
 | Trigger | Webhook: `/bs` slash command |
 | Purpose | On-demand Q&A about accounts, deals, and pipeline |
-| Integrations | People.ai MCP, Claude, Slack |
+| Integrations | Backstory MCP, Claude, Slack |
 
-Handles the `/bs` slash command. Acknowledges immediately (Slack's 3-second timeout), then runs a Claude agent with People.ai MCP tools to answer the question. Responds via DM (response_url) or channel thread depending on where the command was invoked.
+Handles the `/bs` slash command. Acknowledges immediately (Slack's 3-second timeout), then runs a Claude agent with Backstory MCP tools to answer the question. Responds via DM (response_url) or channel thread depending on where the command was invoked.
 
 ### Slack Events Handler
 
@@ -1377,9 +1377,9 @@ Handles block_actions (button clicks in messages) and view_submission (modal for
 |----------|-------|
 | Trigger | Cron: every 15 minutes |
 | Purpose | Poll for upcoming meetings and generate prep packets |
-| Integrations | People.ai API, Claude, Slack |
+| Integrations | Backstory API, Claude, Slack |
 
-Checks People.ai for meetings starting within the next 2 hours. For each upcoming meeting, calls the Meeting Brief sub-workflow to generate and deliver a prep packet.
+Checks Backstory for meetings starting within the next 2 hours. For each upcoming meeting, calls the Meeting Brief sub-workflow to generate and deliver a prep packet.
 
 ### Silence Contract Monitor
 
@@ -1387,7 +1387,7 @@ Checks People.ai for meetings starting within the next 2 hours. For each upcomin
 |----------|-------|
 | Trigger | Cron: 6:30am weekdays |
 | Purpose | Detect deals with no engagement activity |
-| Integrations | People.ai Query API, Claude, Slack, PostgreSQL |
+| Integrations | Backstory Query API, Claude, Slack, PostgreSQL |
 
 Identifies opportunities where key contacts have gone silent. Alerts the rep with context and suggested re-engagement actions.
 
@@ -1397,7 +1397,7 @@ Identifies opportunities where key contacts have gone silent. Alerts the rep wit
 |----------|-------|
 | Trigger | Cron: 7am weekdays |
 | Purpose | Track opportunity stage transitions |
-| Integrations | People.ai Query API, Slack, PostgreSQL |
+| Integrations | Backstory Query API, Slack, PostgreSQL |
 
 Monitors for deals that have changed stage, close date, or amount. Notifies reps of significant movements in their pipeline.
 
@@ -1407,7 +1407,7 @@ Monitors for deals that have changed stage, close date, or amount. Notifies reps
 |----------|-------|
 | Trigger | Cron: 9am + 4pm weekdays |
 | Purpose | Meeting recaps, action hub, and task resolution |
-| Integrations | People.ai API, Claude, Slack, Workato (Salesforce), PostgreSQL |
+| Integrations | Backstory API, Claude, Slack, Workato (Salesforce), PostgreSQL |
 
 Generates AI-powered meeting recaps for recently completed meetings with Salesforce integration. Also runs a parallel task resolution branch that checks for completed tasks.
 
@@ -1534,7 +1534,7 @@ If Row-Level Security is enabled but the API requests aren't setting the organiz
    ```
 4. You should receive the challenge string back
 
-## People.ai Issues
+## Backstory Issues
 
 ### Authentication failures (401)
 
@@ -1544,13 +1544,13 @@ If Row-Level Security is enabled but the API requests aren't setting the organiz
      -H "Content-Type: application/x-www-form-urlencoded" \
      -d "client_id=your-client-id&client_secret=your-client-secret&grant_type=client_credentials"
    ```
-2. **MCP endpoint:** Verify the multi-header authentication values with your People.ai account team
+2. **MCP endpoint:** Verify the multi-header authentication values with your Backstory account team
 
 ### Query API returns empty data
 
 1. Confirm your service account has access to the relevant data
 2. Check the export filter — ensure `ootb_opportunity_is_closed` is set to `false` for open opportunities
-3. Verify the column slugs in the export request match the People.ai schema
+3. Verify the column slugs in the export request match the Backstory schema
 
 ### MCP connection fails in agent node
 
@@ -1589,8 +1589,8 @@ To trigger for a single user, you can also use the On-Demand Digest sub-workflow
 If you're stuck after working through this page:
 
 1. Check the n8n execution logs — they show the full data flow for each run
-2. Verify each integration independently (Slack, database, People.ai, Claude)
-3. Contact your People.ai account team for API access issues
+2. Verify each integration independently (Slack, database, Backstory, Claude)
+3. Contact your Backstory account team for API access issues
 ```
 
 - [ ] **Step 2: Commit**

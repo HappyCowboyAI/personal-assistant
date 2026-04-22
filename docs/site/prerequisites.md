@@ -10,7 +10,7 @@ Before starting the deployment, ensure you have the following accounts and acces
 | **PostgreSQL Database** | Any Postgres-compatible database (Supabase, AWS RDS, self-hosted, etc.) | Varies by provider |
 | **n8n** | Cloud or self-hosted instance | [n8n.io](https://n8n.io) |
 | **LLM Provider** | API key for your chosen LLM (Claude, ChatGPT, Gemini, etc.) | Provider's console |
-| **People.ai** | API credentials (client ID + secret) and MCP access | Contact your People.ai account team |
+| **Backstory** | API credentials (client ID + secret) and MCP access | Contact your Backstory account team |
 
 ## Chat Platform Requirements
 
@@ -54,10 +54,10 @@ You need **one** of the following, depending on your chosen platform:
 - An API key for any LLM supported by n8n's AI Agent node (Claude, ChatGPT, Gemini, Mistral, etc.)
 - The workflows ship with Anthropic (Claude) configured, but you can swap the LLM model node to any provider
 
-### People.ai
+### Backstory
 - **OAuth client credentials** (client ID + client secret) for the Query API — used to fetch pipeline data and user hierarchy
 - **MCP endpoint access** with multi-header authentication — used for real-time CRM queries during agent reasoning
-- Your People.ai account team can provision both
+- Your Backstory account team can provision both
 
 ## Network Requirements
 

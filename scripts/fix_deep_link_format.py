@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Hot-fix: Change deep link format from separate "View in People.ai" line
+Hot-fix: Change deep link format from separate "View in Backstory" line
 to making the deal/account name itself the clickable link.
 """
 
@@ -28,11 +28,11 @@ def main():
             code = node["parameters"]["jsCode"]
 
             # Fix the deep links instruction
-            old = """DEEP LINKS \u2014 when mentioning a deal or account, include a People.ai link:
-- For opportunities: <https://app.people.ai/opportunities/CRMID|View in People.ai> (replace CRMID with the CRM ID from the data table)
-- For accounts: <https://app.people.ai/accounts/CRMID|View in People.ai>"""
+            old = """DEEP LINKS \u2014 when mentioning a deal or account, include a Backstory link:
+- For opportunities: <https://app.people.ai/opportunities/CRMID|View in Backstory> (replace CRMID with the CRM ID from the data table)
+- For accounts: <https://app.people.ai/accounts/CRMID|View in Backstory>"""
 
-            new = """DEEP LINKS \u2014 make the deal or account NAME itself a clickable link. Do NOT add a separate "View in People.ai" line.
+            new = """DEEP LINKS \u2014 make the deal or account NAME itself a clickable link. Do NOT add a separate "View in Backstory" line.
 - For opportunities: <https://app.people.ai/opportunities/CRMID|Deal Name Here> (replace CRMID with the CRM ID from the data table, and "Deal Name Here" with the actual opportunity name)
 - For accounts: <https://app.people.ai/accounts/CRMID|Account Name Here>
 - Example: *<https://app.people.ai/opportunities/006abc123|PwC - ClosePlan Pilot>* | Closes May 31"""
@@ -45,9 +45,9 @@ def main():
                 print("  Deep link pattern not found (may already be updated)")
 
             # Also update per-type prompts
-            code = code.replace("Include People.ai deep link.", "Make the deal name a clickable People.ai link.")
-            code = code.replace("Include People.ai deep links.", "Make deal names clickable People.ai links.")
-            code = code.replace("Include deep links.", "Make deal names clickable People.ai links.")
+            code = code.replace("Include Backstory deep link.", "Make the deal name a clickable Backstory link.")
+            code = code.replace("Include Backstory deep links.", "Make deal names clickable Backstory links.")
+            code = code.replace("Include deep links.", "Make deal names clickable Backstory links.")
 
             if code != node["parameters"]["jsCode"]:
                 node["parameters"]["jsCode"] = code
@@ -70,7 +70,7 @@ def main():
     with open(path, "w") as f:
         json.dump(result, f, indent=4)
     print(f"  Synced {path}")
-    print("\nDone! Deal names will now be clickable links instead of separate 'View in People.ai' lines.")
+    print("\nDone! Deal names will now be clickable links instead of separate 'View in Backstory' lines.")
 
 
 if __name__ == "__main__":

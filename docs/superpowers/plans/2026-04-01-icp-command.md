@@ -2,11 +2,11 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Add `icp`, `icp targets`, and `icp <company>` commands to the People.ai Personal Assistant, porting the ICP calibration workflow from the accountinsights project as a sub-workflow.
+**Goal:** Add `icp`, `icp targets`, and `icp <company>` commands to the Backstory Personal Assistant, porting the ICP calibration workflow from the accountinsights project as a sub-workflow.
 
-**Architecture:** The Slack Events Handler routes `icp` commands to a new sub-workflow ("ICP Analysis") via Execute Workflow. The sub-workflow branches by mode (calibrate/targets/compare) and posts results to the user's DM. The calibrate mode is ported from `icp_calibration_v1.json` with credential remapping. All three modes use Claude + People.ai MCP.
+**Architecture:** The Slack Events Handler routes `icp` commands to a new sub-workflow ("ICP Analysis") via Execute Workflow. The sub-workflow branches by mode (calibrate/targets/compare) and posts results to the user's DM. The calibrate mode is ported from `icp_calibration_v1.json` with credential remapping. All three modes use Claude + Backstory MCP.
 
-**Tech Stack:** n8n workflows (API-managed via Python), People.ai Insights API + MCP, Claude Sonnet 4.5, Slack Block Kit
+**Tech Stack:** n8n workflows (API-managed via Python), Backstory Insights API + MCP, Claude Sonnet 4.5, Slack Block Kit
 
 **Spec:** `docs/superpowers/specs/2026-04-01-icp-command-design.md`
 
@@ -71,9 +71,9 @@ def create_workflow(payload):
 # Credential IDs for oppassistant
 ANTHROPIC_CRED = {"anthropicApi": {"id": "rlAz7ZSl4y6AwRUq", "name": "Anthropic account 2"}}
 SLACK_CRED = {"httpHeaderAuth": {"id": "LluVuiMJ8NUbAiG7", "name": "Slackbot Auth Token"}}
-MCP_CRED = {"httpMultipleHeadersAuth": {"id": "wvV5pwBeIL7f2vLG", "name": "People.ai MCP Multi-Header"}}
+MCP_CRED = {"httpMultipleHeadersAuth": {"id": "wvV5pwBeIL7f2vLG", "name": "Backstory MCP Multi-Header"}}
 
-# People.ai OAuth (same as Silence Contract Monitor)
+# Backstory OAuth (same as Silence Contract Monitor)
 PEOPLEAI_AUTH_BODY = "client_id=YOUR_CLIENT_ID&client_secret=YOUR_CLIENT_SECRET&grant_type=client_credentials"
 ```
 
@@ -93,9 +93,9 @@ Add the calibrate-mode nodes. These are ported from `icp_calibration_v1.json` wi
 10. **Extract Loser Metrics** — Same logic for losers
 11. **Select Top 15 Winners** — Code node stratifying by revenue tier
 12. **Loop Deep Dives** — SplitInBatches (batchSize: 1)
-13. **Deep Dive Agent** — Claude agent with People.ai MCP tools
+13. **Deep Dive Agent** — Claude agent with Backstory MCP tools
 14. **Anthropic Chat Model (Deep Dive)** — Claude Sonnet 4.5
-15. **People.ai MCP (Deep Dive)** — MCP client tool
+15. **Backstory MCP (Deep Dive)** — MCP client tool
 16. **Parse Deep Dive Results** — Code node extracting JSON
 17. **Aggregate Deep Dives** — Code node collecting results
 18. **Merge All Data** — Code node combining winners + losers + deep dives
@@ -361,10 +361,10 @@ return unique.map(a => ({ json: a }));
     })
 
     # ── Node 13: Deep Dive Agent ──
-    DEEP_DIVE_SYSTEM = "You are a sales engagement analyst specializing in activity pattern recognition. Analyze People.ai data to extract structured behavioral patterns. Always output valid JSON."
-    DEEP_DIVE_PROMPT = r"""Analyze the account "{{ $json.accountName }}" (People.ai ID: {{ $json.accountId }}).
+    DEEP_DIVE_SYSTEM = "You are a sales engagement analyst specializing in activity pattern recognition. Analyze Backstory data to extract structured behavioral patterns. Always output valid JSON."
+    DEEP_DIVE_PROMPT = r"""Analyze the account "{{ $json.accountName }}" (Backstory ID: {{ $json.accountId }}).
 
-Use the People.ai MCP tools to:
+Use the Backstory MCP tools to:
 1. Call get_recent_account_activity to get the 90-day activity timeline
 2. Call get_engaged_people to get stakeholder details
 
@@ -411,10 +411,10 @@ Then extract this EXACT JSON structure (no markdown, no explanation, just JSON):
         "credentials": ANTHROPIC_CRED,
     })
 
-    # ── Node 15: People.ai MCP (Deep Dive) ──
+    # ── Node 15: Backstory MCP (Deep Dive) ──
     nodes.append({
         "id": str(uuid.uuid4()),
-        "name": "People.ai MCP (Deep Dive)",
+        "name": "Backstory MCP (Deep Dive)",
         "type": "@n8n/n8n-nodes-langchain.mcpClientTool",
         "typeVersion": 1.2,
         "position": [2000, -200],
@@ -480,7 +480,7 @@ WINNER ACCOUNTS ({{ $json.winnerCount }} accounts with closed-won deals):
 LOSER ACCOUNTS ({{ $json.loserCount }} accounts with closed-lost, no wins):
 {{ $json.losers }}
 
-DEEP DIVE ACTIVITY TIMELINES ({{ $json.deepDiveCount }} winner accounts analyzed via People.ai):
+DEEP DIVE ACTIVITY TIMELINES ({{ $json.deepDiveCount }} winner accounts analyzed via Backstory):
 {{ $json.deepDiveResults }}
 
 Analyze this data and generate a Win Pattern Fingerprint in Slack mrkdwn format:
@@ -580,7 +580,7 @@ return [{
         ]},
         "Deep Dive Agent": {"main": [[{"node": "Parse Deep Dive Results", "type": "main", "index": 0}]]},
         "Anthropic Chat Model (Deep Dive)": {"ai_languageModel": [[{"node": "Deep Dive Agent", "type": "ai_languageModel", "index": 0}]]},
-        "People.ai MCP (Deep Dive)": {"ai_tool": [[{"node": "Deep Dive Agent", "type": "ai_tool", "index": 0}]]},
+        "Backstory MCP (Deep Dive)": {"ai_tool": [[{"node": "Deep Dive Agent", "type": "ai_tool", "index": 0}]]},
         "Parse Deep Dive Results": {"main": [[{"node": "Loop Deep Dives", "type": "main", "index": 0}]]},
         "Aggregate Deep Dives": {"main": [[{"node": "Merge All Data", "type": "main", "index": 0}]]},
         "Merge All Data": {"main": [[{"node": "Generate Fingerprint Agent", "type": "main", "index": 0}]]},
@@ -621,7 +621,7 @@ Add these nodes to the `build_icp_workflow` function, branching from the `Is Cal
 
     # ── Targets Agent ──
     TARGETS_SYSTEM = r"""You are {{ $json.assistantName }}, a personal sales assistant for {{ $json.repName }}.
-You have access to People.ai MCP tools. Use them to find accounts that match the ICP winning pattern but have low current engagement.
+You have access to Backstory MCP tools. Use them to find accounts that match the ICP winning pattern but have low current engagement.
 
 ICP WINNING PATTERN BENCHMARKS:
 - Meeting Quality Ratio > 0.35 (meetings as % of total touchpoints)
@@ -643,7 +643,7 @@ Output in Slack mrkdwn format. List up to 10 target accounts ranked by ICP fit p
 
     TARGETS_PROMPT = r"""Find ICP target accounts for {{ $json.repName }}.
 
-Use People.ai MCP tools to:
+Use Backstory MCP tools to:
 1. Get the top accounts (use top_records tool)
 2. For promising but low-engagement accounts, check their status with get_account_status
 3. Score them against the ICP benchmarks in your instructions
@@ -685,10 +685,10 @@ Keep it concise — max 10 accounts."""
         "credentials": ANTHROPIC_CRED,
     })
 
-    # ── People.ai MCP (Targets) ──
+    # ── Backstory MCP (Targets) ──
     nodes.append({
         "id": str(uuid.uuid4()),
-        "name": "People.ai MCP (Targets)",
+        "name": "Backstory MCP (Targets)",
         "type": "@n8n/n8n-nodes-langchain.mcpClientTool",
         "typeVersion": 1.2,
         "position": [1000, 500],
@@ -728,7 +728,7 @@ return [{
 
     # ── Compare Agent ──
     COMPARE_SYSTEM = r"""You are {{ $json.assistantName }}, a personal sales assistant for {{ $json.repName }}.
-You have access to People.ai MCP tools. Use them to analyze a specific account against ICP benchmarks.
+You have access to Backstory MCP tools. Use them to analyze a specific account against ICP benchmarks.
 
 ICP WINNING PATTERN BENCHMARKS (from calibration analysis):
 - Meeting Quality Ratio benchmark: 0.42 (winner median). Scoring: >0.35 strong, 0.20-0.35 moderate, <0.20 weak
@@ -751,7 +751,7 @@ Output in Slack mrkdwn format."""
 
     COMPARE_PROMPT = r"""Analyze *{{ $json.companyName }}* against the ICP winning pattern for {{ $json.repName }}.
 
-Use People.ai MCP tools to research this account, then produce:
+Use Backstory MCP tools to research this account, then produce:
 
 :dart: *ICP Fit Report — {{ $json.companyName }}*
 
@@ -794,10 +794,10 @@ Keep it concise."""
         "credentials": ANTHROPIC_CRED,
     })
 
-    # ── People.ai MCP (Compare) ──
+    # ── Backstory MCP (Compare) ──
     nodes.append({
         "id": str(uuid.uuid4()),
-        "name": "People.ai MCP (Compare)",
+        "name": "Backstory MCP (Compare)",
         "type": "@n8n/n8n-nodes-langchain.mcpClientTool",
         "typeVersion": 1.2,
         "position": [1000, 900],
@@ -843,11 +843,11 @@ return [{
     ]}
     connections["Targets Agent"] = {"main": [[{"node": "Format Targets Output", "type": "main", "index": 0}]]}
     connections["Anthropic Chat Model (Targets)"] = {"ai_languageModel": [[{"node": "Targets Agent", "type": "ai_languageModel", "index": 0}]]}
-    connections["People.ai MCP (Targets)"] = {"ai_tool": [[{"node": "Targets Agent", "type": "ai_tool", "index": 0}]]}
+    connections["Backstory MCP (Targets)"] = {"ai_tool": [[{"node": "Targets Agent", "type": "ai_tool", "index": 0}]]}
     connections["Format Targets Output"] = {"main": [[{"node": "Send Targets Result", "type": "main", "index": 0}]]}
     connections["Compare Agent"] = {"main": [[{"node": "Format Compare Output", "type": "main", "index": 0}]]}
     connections["Anthropic Chat Model (Compare)"] = {"ai_languageModel": [[{"node": "Compare Agent", "type": "ai_languageModel", "index": 0}]]}
-    connections["People.ai MCP (Compare)"] = {"ai_tool": [[{"node": "Compare Agent", "type": "ai_tool", "index": 0}]]}
+    connections["Backstory MCP (Compare)"] = {"ai_tool": [[{"node": "Compare Agent", "type": "ai_tool", "index": 0}]]}
     connections["Format Compare Output"] = {"main": [[{"node": "Send Compare Result", "type": "main", "index": 0}]]}
 
     return nodes, connections

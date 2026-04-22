@@ -16,10 +16,10 @@ All workflow JSON files are in the [`n8n/workflows/`](https://github.com/HappyCo
 |----------|-------|
 | Trigger | Cron: 6am weekdays (Mon–Fri) |
 | Purpose | Generate and deliver personalized morning pipeline briefings |
-| Integrations | People.ai Query API, People.ai MCP, LLM (Claude, ChatGPT, etc.), Slack, PostgreSQL |
+| Integrations | Backstory Query API, Backstory MCP, LLM (Claude, ChatGPT, etc.), Slack, PostgreSQL |
 | Download | [`Sales Digest.json`](https://github.com/HappyCowboyAI/personal-assistant/blob/main/n8n/workflows/Sales%20Digest.json) |
 
-Fetches the People.ai user hierarchy and all open opportunities via the Query API. For each active user, filters opportunities by their digest scope (IC/Manager/Exec), applies a daily theme (Monday: full pipeline, Tuesday: engagement shifts, Wednesday: at-risk, Thursday: momentum, Friday: week review), then runs an AI agent with People.ai MCP tools to generate a Slack Block Kit briefing. Delivers via personalized Slack DM and logs to the database.
+Fetches the Backstory user hierarchy and all open opportunities via the Query API. For each active user, filters opportunities by their digest scope (IC/Manager/Exec), applies a daily theme (Monday: full pipeline, Tuesday: engagement shifts, Wednesday: at-risk, Thursday: momentum, Friday: week review), then runs an AI agent with Backstory MCP tools to generate a Slack Block Kit briefing. Delivers via personalized Slack DM and logs to the database.
 
 ### Backstory SlackBot
 
@@ -27,10 +27,10 @@ Fetches the People.ai user hierarchy and all open opportunities via the Query AP
 |----------|-------|
 | Trigger | Webhook: `/bs` slash command |
 | Purpose | On-demand Q&A about accounts, deals, and pipeline |
-| Integrations | People.ai MCP, LLM (Claude, ChatGPT, etc.), Slack |
+| Integrations | Backstory MCP, LLM (Claude, ChatGPT, etc.), Slack |
 | Download | [`Backstory SlackBot.json`](https://github.com/HappyCowboyAI/personal-assistant/blob/main/n8n/workflows/Backstory%20SlackBot.json) |
 
-Handles the `/bs` slash command. Acknowledges immediately (Slack's 3-second timeout), then runs an AI agent with People.ai MCP tools to answer the question. Responds via DM (response_url) or channel thread depending on where the command was invoked.
+Handles the `/bs` slash command. Acknowledges immediately (Slack's 3-second timeout), then runs an AI agent with Backstory MCP tools to answer the question. Responds via DM (response_url) or channel thread depending on where the command was invoked.
 
 ### Slack Events Handler
 
@@ -62,10 +62,10 @@ Handles block_actions (button clicks in messages) and view_submission (modal for
 |----------|-------|
 | Trigger | Cron: every 15 minutes |
 | Purpose | Poll for upcoming meetings and generate prep packets |
-| Integrations | People.ai API, LLM (Claude, ChatGPT, etc.), Slack |
+| Integrations | Backstory API, LLM (Claude, ChatGPT, etc.), Slack |
 | Download | [`Meeting Prep Cron.json`](https://github.com/HappyCowboyAI/personal-assistant/blob/main/n8n/workflows/Meeting%20Prep%20Cron.json) |
 
-Checks People.ai for meetings starting within the next 2 hours. For each upcoming meeting, calls the Meeting Brief sub-workflow to generate and deliver a prep packet.
+Checks Backstory for meetings starting within the next 2 hours. For each upcoming meeting, calls the Meeting Brief sub-workflow to generate and deliver a prep packet.
 
 ### Silence Contract Monitor
 
@@ -73,7 +73,7 @@ Checks People.ai for meetings starting within the next 2 hours. For each upcomin
 |----------|-------|
 | Trigger | Cron: 6:30am weekdays |
 | Purpose | Detect deals with no engagement activity |
-| Integrations | People.ai Query API, LLM (Claude, ChatGPT, etc.), Slack, PostgreSQL |
+| Integrations | Backstory Query API, LLM (Claude, ChatGPT, etc.), Slack, PostgreSQL |
 | Download | [`Silence Contract Monitor.json`](https://github.com/HappyCowboyAI/personal-assistant/blob/main/n8n/workflows/Silence%20Contract%20Monitor.json) |
 
 Identifies opportunities where key contacts have gone silent. Alerts the rep with context and suggested re-engagement actions.
@@ -84,7 +84,7 @@ Identifies opportunities where key contacts have gone silent. Alerts the rep wit
 |----------|-------|
 | Trigger | Cron: 7am weekdays |
 | Purpose | Track opportunity stage transitions |
-| Integrations | People.ai Query API, Slack, PostgreSQL |
+| Integrations | Backstory Query API, Slack, PostgreSQL |
 | Download | [`Deal Watch Cron.json`](https://github.com/HappyCowboyAI/personal-assistant/blob/main/n8n/workflows/Deal%20Watch%20Cron.json) |
 
 Monitors for deals that have changed stage, close date, or amount. Notifies reps of significant movements in their pipeline.
@@ -95,10 +95,10 @@ Monitors for deals that have changed stage, close date, or amount. Notifies reps
 |----------|-------|
 | Trigger | Cron: 9am + 4pm weekdays |
 | Purpose | Meeting recaps, action hub, and task resolution |
-| Integrations | People.ai API, LLM (Claude, ChatGPT, etc.), Slack, Workato (Salesforce), PostgreSQL |
+| Integrations | Backstory API, LLM (Claude, ChatGPT, etc.), Slack, Workato (Salesforce), PostgreSQL |
 | Download | [`Follow-up Cron.json`](https://github.com/HappyCowboyAI/personal-assistant/blob/main/n8n/workflows/Follow-up%20Cron.json) |
 
-Generates AI-powered meeting recaps for recently completed meetings with Salesforce integration via an AI agent with People.ai MCP tools. Also runs a parallel task resolution branch that checks for completed tasks.
+Generates AI-powered meeting recaps for recently completed meetings with Salesforce integration via an AI agent with Backstory MCP tools. Also runs a parallel task resolution branch that checks for completed tasks.
 
 ### Weekly Profile Sync
 

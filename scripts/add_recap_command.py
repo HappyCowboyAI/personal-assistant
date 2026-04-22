@@ -237,7 +237,7 @@ return [{ json: {
 
     # --- Recap Build Query ---
     recap_query_code = r"""
-// Build People.ai activity export query for meetings in last 7 days
+// Build Backstory activity export query for meetings in last 7 days
 const data = $('Prepare Recap Input').first().json;
 const now = Date.now();
 const sevenDaysAgo = now - 7 * 24 * 60 * 60 * 1000;
@@ -479,7 +479,7 @@ MEETING CONTEXT:
 - Time: ${m.dayStr} ${m.timeStr}
 - Participants: ${m.participants || 'Unknown'}
 
-Use People.ai MCP tools to research this meeting:
+Use Backstory MCP tools to research this meeting:
 1. Find the meeting transcript, notes, topics discussed, and action items
 2. Look up participant roles and recent engagement history
 3. Check the related opportunity status if one exists
@@ -514,7 +514,7 @@ RULES:
 
 const agentPrompt = `Generate a meeting recap for my ${m.subject} meeting with ${m.accountName}.` +
   (m.participants ? ` Participants: ${m.participants}.` : '') +
-  ` Use People.ai MCP tools to find transcript data, topics, and action items.` +
+  ` Use Backstory MCP tools to find transcript data, topics, and action items.` +
   ` Output ONLY the JSON object.`;
 
 return [{ json: {
@@ -534,7 +534,7 @@ return [{ json: {
     # --- Recap Agent + Anthropic Chat Model + MCP ---
     agent_pos = [base_x + 3600, base_y]
     model_name = "Anthropic Chat Model (Recap OD)"
-    mcp_name = "People.ai MCP (Recap OD)"
+    mcp_name = "Backstory MCP (Recap OD)"
     agent_name = "Recap Agent OD"
 
     recap_agent = {
@@ -709,7 +709,7 @@ blocks.push({
 blocks.push({
   type: "context",
   elements: [
-    { type: "mrkdwn", text: "People.ai meeting intelligence \u2022 Type `recap <account>` anytime" }
+    { type: "mrkdwn", text: "Backstory meeting intelligence \u2022 Type `recap <account>` anytime" }
   ]
 });
 

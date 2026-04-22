@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Add `tasks` command to the People.ai Personal Assistant.
+Add `tasks` command to the Backstory Personal Assistant.
 
 Creates:
 1. Task Callback Handler workflow (new) — receives Workato callback with SF tasks, posts to Slack

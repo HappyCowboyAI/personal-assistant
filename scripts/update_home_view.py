@@ -76,11 +76,11 @@ let blocks = [];
 if (!isComplete) {
   // ══ ONBOARDING VIEW ════════════════════════════════════════════════════════
 
-  // Hero image — People.ai logo via Clearbit (change to your own CDN URL if desired)
+  // Hero image — Backstory logo via Clearbit (change to your own CDN URL if desired)
   blocks.push({
     type: 'image',
     image_url: 'https://logo.clearbit.com/people.ai',
-    alt_text: 'People.ai'
+    alt_text: 'Backstory'
   });
 
   blocks.push({
@@ -115,7 +115,7 @@ if (!isComplete) {
 
   blocks.push({
     type: 'context',
-    elements: [{ type: 'mrkdwn', text: 'Takes about 30 seconds to set up  •  Works with your existing Salesforce + People.ai data' }]
+    elements: [{ type: 'mrkdwn', text: 'Takes about 30 seconds to set up  •  Works with your existing Salesforce + Backstory data' }]
   });
 
 } else {

@@ -129,7 +129,7 @@ blocks.push({
 blocks.push({
   type: "context",
   elements: [
-    { type: "mrkdwn", text: "People.ai meeting intelligence • Type `stop followups` to pause" }
+    { type: "mrkdwn", text: "Backstory meeting intelligence • Type `stop followups` to pause" }
   ]
 });
 

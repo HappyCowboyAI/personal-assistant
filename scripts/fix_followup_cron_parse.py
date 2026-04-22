@@ -1,6 +1,6 @@
 """
 Fix: Follow-up Cron's Parse Meetings can't find CSV columns because the
-People.ai Query API returns human-readable headers (e.g., "Activity date")
+Backstory Query API returns human-readable headers (e.g., "Activity date")
 but the parser looks for slug-based names (e.g., "timestamp").
 
 Also the Build Query is missing participant email variation columns, so
@@ -20,7 +20,7 @@ from n8n_helpers import (
 )
 
 
-NEW_BUILD_QUERY = r"""// Build People.ai export query for meetings in the last 24 hours
+NEW_BUILD_QUERY = r"""// Build Backstory export query for meetings in the last 24 hours
 // At 9am: catches yesterday afternoon meetings (4h+ delay means they're ready)
 // At 3pm: catches this morning's meetings (ended by 11am, 4h+ elapsed)
 const now = Date.now();
@@ -53,7 +53,7 @@ return [{ json: { query: JSON.stringify(query) } }];
 """
 
 
-NEW_PARSE_MEETINGS = r"""// Parse CSV response from People.ai meetings export
+NEW_PARSE_MEETINGS = r"""// Parse CSV response from Backstory meetings export
 // API returns human-readable headers: "Activity", "Activity date", "Subject",
 // "Account Name", "Opportunity Name", "Activity Participants (Email)", etc.
 const raw = $('Fetch Today Meetings').first().json.data || '';

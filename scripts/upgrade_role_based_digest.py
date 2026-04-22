@@ -88,7 +88,7 @@ def upgrade_slack_events(wf):
 # SALES DIGEST — Add hierarchy nodes, role-aware filtering, role prompts
 # ---------------------------------------------------------------------------
 
-PARSE_HIERARCHY_CODE = r"""// Parse CSV from People.ai User hierarchy export
+PARSE_HIERARCHY_CODE = r"""// Parse CSV from Backstory User hierarchy export
 const csvData = $('Fetch User Hierarchy').first().json.data;
 
 if (!csvData) {
@@ -346,7 +346,7 @@ ${oppTable}
 
 Do NOT use MCP to search for or list opportunities — they are already provided above. The table above contains ALL of ${repName}'s open opportunities for this fiscal year.
 
-You DO have access to People.ai MCP tools. Use them ONLY for:
+You DO have access to Backstory MCP tools. Use them ONLY for:
 - Revenue stories and engagement analysis on specific deals
 - Recent activity details (emails, meetings, calls) on key accounts
 - Engagement score trends and changes`;
@@ -358,11 +358,11 @@ You DO have access to People.ai MCP tools. Use them ONLY for:
 3. Today's Priorities (2-4 items) — specific actions with account names and reasons, use emoji status indicators
 4. Pipeline Pulse — two-column engagement score grid using section fields
 5. One Thing I'm Watching — one forward-looking observation
-6. Context footer — "People.ai intelligence • ${currentDate} • ${timeStr} PT"`;
+6. Context footer — "Backstory intelligence • ${currentDate} • ${timeStr} PT"`;
 
   agentPrompt = `Generate the morning sales briefing for ${repName}. Their ${oppCount} open opportunities are already loaded in your system prompt — do NOT use MCP to search for opportunities.
 
-Instead, use the People.ai MCP tools to investigate revenue stories and engagement patterns on the top 3-5 most important deals (highest amount, closest close date, or biggest engagement changes). Look for recent activity, meeting patterns, and risk signals.
+Instead, use the Backstory MCP tools to investigate revenue stories and engagement patterns on the top 3-5 most important deals (highest amount, closest close date, or biggest engagement changes). Look for recent activity, meeting patterns, and risk signals.
 
 Then write the briefing as a Block Kit JSON object following the format in your system instructions. Remember: output ONLY the JSON object, nothing else.`;
 
@@ -379,7 +379,7 @@ ${oppTable}
 
 Do NOT use MCP to search for or list opportunities — they are already provided above. The table contains all open opportunities for ${repName}'s team this fiscal year.
 
-You DO have access to People.ai MCP tools. Use them ONLY for:
+You DO have access to Backstory MCP tools. Use them ONLY for:
 - Revenue stories and engagement analysis on specific deals
 - Recent activity details to identify which reps are active vs. going dark
 - Engagement score trends and coaching signals`;
@@ -392,11 +392,11 @@ You DO have access to People.ai MCP tools. Use them ONLY for:
 4. Top Coaching Moments — 1-2 deals where manager intervention could change the outcome. What should ${repName} do?
 5. Team Pipeline Snapshot — two-column grid: rep name + their key metric (pipeline total, deal count, or engagement trend)
 6. One Signal to Watch — a forward-looking team-level pattern
-7. Context footer — "People.ai team intelligence • ${currentDate} • ${timeStr} PT"`;
+7. Context footer — "Backstory team intelligence • ${currentDate} • ${timeStr} PT"`;
 
   agentPrompt = `Generate the team pipeline briefing for ${repName} (sales manager). Their team's ${oppCount} open opportunities are already loaded in your system prompt — do NOT use MCP to search for opportunities.
 
-Instead, use the People.ai MCP tools to investigate team engagement patterns: identify which reps have deals with declining engagement, spot coaching opportunities, and find deals where manager intervention could help. Focus on 3-5 highest-risk or highest-value deals across the team.
+Instead, use the Backstory MCP tools to investigate team engagement patterns: identify which reps have deals with declining engagement, spot coaching opportunities, and find deals where manager intervention could help. Focus on 3-5 highest-risk or highest-value deals across the team.
 
 Then write the briefing as a Block Kit JSON object following the format in your system instructions. Remember: output ONLY the JSON object, nothing else.`;
 
@@ -413,7 +413,7 @@ ${oppTable}
 
 Do NOT use MCP to search for or list opportunities — they are already provided above. The table shows the top deals by amount across the entire organization (${totalOppCount} total open deals).
 
-You DO have access to People.ai MCP tools. Use them ONLY for:
+You DO have access to Backstory MCP tools. Use them ONLY for:
 - Revenue stories on the largest deals
 - Deal velocity trends and forecast signals
 - Executive-level engagement patterns`;
@@ -426,11 +426,11 @@ You DO have access to People.ai MCP tools. Use them ONLY for:
 4. Forecast Signals — patterns that affect the number: are deals accelerating or stalling? Are close dates being pushed? Pipeline generation vs. close rate?
 5. Key Numbers — two-column grid: metric name + value (total pipeline, avg deal size, deals closing this month, avg engagement score)
 6. Strategic Signal — one forward-looking observation about pipeline health or competitive dynamics
-7. Context footer — "People.ai executive intelligence • ${currentDate} • ${timeStr} PT"`;
+7. Context footer — "Backstory executive intelligence • ${currentDate} • ${timeStr} PT"`;
 
   agentPrompt = `Generate the executive pipeline briefing for ${repName} (sales executive). The top ${oppCount} deals by amount are already loaded in your system prompt (out of ${totalOppCount} total open deals) — do NOT use MCP to search for opportunities.
 
-Instead, use the People.ai MCP tools to analyze pipeline health: investigate the top 3-5 largest deals for velocity, engagement trends, and risk signals. Look for forecast-impacting patterns.
+Instead, use the Backstory MCP tools to analyze pipeline health: investigate the top 3-5 largest deals for velocity, engagement trends, and risk signals. Look for forecast-impacting patterns.
 
 Then write the briefing as a Block Kit JSON object following the format in your system instructions. Remember: output ONLY the JSON object, nothing else.`;
 }

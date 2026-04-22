@@ -31,9 +31,9 @@ Type: Anthropic API
 API Key: sk-ant-YOUR-KEY
 ```
 
-### People.ai API
+### Backstory API
 ```
-Name: People.ai API
+Name: Backstory API
 Type: HTTP Header Auth
 
 Header Name: Authorization
@@ -85,7 +85,7 @@ Event Subscriptions: https://YOUR_N8N/webhook/slack-events
 Interactivity: https://YOUR_N8N/webhook/slack-interactive
 ```
 
-## People.ai API
+## Backstory API
 
 ### Endpoints
 ```

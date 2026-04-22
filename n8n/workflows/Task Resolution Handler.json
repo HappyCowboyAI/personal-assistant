@@ -181,9 +181,9 @@
         {
             "parameters": {
                 "promptType": "define",
-                "text": "={{ \"Review these open CRM tasks for \" + $json.accountName + \":\\n\\n\" + $json.taskList + \"\\n\\nUse People.ai SalesAI tools (ask_sales_ai_about_account) to check recent activity, emails, and meeting outcomes for \" + $json.accountName + \".\\n\\nFor each task, determine if it was completed based on evidence from recent activity. Also determine if the assistant can help with each OPEN task.\\n\\nOutput JSON:\\n{\\n  \\\"account_name\\\": \\\"\" + $json.accountName + \"\\\",\\n  \\\"results\\\": [\\n    {\\\"id\\\": \\\"SF_TASK_ID\\\", \\\"status\\\": \\\"COMPLETE\\\" or \\\"OPEN\\\", \\\"evidence\\\": \\\"one-line reason\\\", \\\"assist_skill\\\": \\\"DRAFT_EMAIL|PRESENTATION|STAKEHOLDER_MAP|MEETING_PREP|NONE\\\"}\\n  ]\\n}\" }}",
+                "text": "={{ \"Review these open CRM tasks for \" + $json.accountName + \":\\n\\n\" + $json.taskList + \"\\n\\nUse Backstory SalesAI tools (ask_sales_ai_about_account) to check recent activity, emails, and meeting outcomes for \" + $json.accountName + \".\\n\\nFor each task, determine if it was completed based on evidence from recent activity. Also determine if the assistant can help with each OPEN task.\\n\\nOutput JSON:\\n{\\n  \\\"account_name\\\": \\\"\" + $json.accountName + \"\\\",\\n  \\\"results\\\": [\\n    {\\\"id\\\": \\\"SF_TASK_ID\\\", \\\"status\\\": \\\"COMPLETE\\\" or \\\"OPEN\\\", \\\"evidence\\\": \\\"one-line reason\\\", \\\"assist_skill\\\": \\\"DRAFT_EMAIL|PRESENTATION|STAKEHOLDER_MAP|MEETING_PREP|NONE\\\"}\\n  ]\\n}\" }}",
                 "options": {
-                    "systemMessage": "You are a task resolution analyst. You evaluate whether CRM tasks have been completed based on recent account activity from People.ai SalesAI.\n\nRULES:\n- Only mark a task COMPLETE if there is CLEAR evidence the work was done\n- Evidence includes: email sent, meeting held, document delivered, issue resolved, follow-up completed\n- When in doubt, leave as OPEN\n- Be conservative \u2014 false completions are worse than missed completions\n- Output ONLY valid JSON, no prose\n\nYou also determine whether the assistant can help with each OPEN task.\nAvailable assistant skills:\n- DRAFT_EMAIL: task involves sending an email, follow-up, or written communication\n- PRESENTATION: task involves creating a deck, slides, or visual deliverable\n- STAKEHOLDER_MAP: task involves identifying or mapping contacts and relationships\n- MEETING_PREP: task involves preparing for an upcoming meeting or call\n- NONE: assistant cannot help with this task",
+                    "systemMessage": "You are a task resolution analyst. You evaluate whether CRM tasks have been completed based on recent account activity from Backstory SalesAI.\n\nRULES:\n- Only mark a task COMPLETE if there is CLEAR evidence the work was done\n- Evidence includes: email sent, meeting held, document delivered, issue resolved, follow-up completed\n- When in doubt, leave as OPEN\n- Be conservative \u2014 false completions are worse than missed completions\n- Output ONLY valid JSON, no prose\n\nYou also determine whether the assistant can help with each OPEN task.\nAvailable assistant skills:\n- DRAFT_EMAIL: task involves sending an email, follow-up, or written communication\n- PRESENTATION: task involves creating a deck, slides, or visual deliverable\n- STAKEHOLDER_MAP: task involves identifying or mapping contacts and relationships\n- MEETING_PREP: task involves preparing for an upcoming meeting or call\n- NONE: assistant cannot help with this task",
                     "maxIterations": 5
                 }
             },
@@ -229,7 +229,7 @@
                 "options": {}
             },
             "id": "c7772389-5746-4f09-b641-78bab3384bf8",
-            "name": "People.ai MCP (Resolution)",
+            "name": "Backstory MCP (Resolution)",
             "type": "@n8n/n8n-nodes-langchain.mcpClientTool",
             "typeVersion": 1.2,
             "position": [
@@ -239,7 +239,7 @@
             "credentials": {
                 "httpMultipleHeadersAuth": {
                     "id": "wvV5pwBeIL7f2vLG",
-                    "name": "People.ai MCP Multi-Header"
+                    "name": "Backstory MCP Multi-Header"
                 }
             }
         },
@@ -451,7 +451,7 @@
                 ]
             ]
         },
-        "People.ai MCP (Resolution)": {
+        "Backstory MCP (Resolution)": {
             "ai_tool": [
                 [
                     {
@@ -864,9 +864,9 @@
             {
                 "parameters": {
                     "promptType": "define",
-                    "text": "={{ \"Review these open CRM tasks for \" + $json.accountName + \":\\n\\n\" + $json.taskList + \"\\n\\nUse People.ai SalesAI tools (ask_sales_ai_about_account) to check recent activity, emails, and meeting outcomes for \" + $json.accountName + \".\\n\\nFor each task, determine if it was completed based on evidence from recent activity. Also determine if the assistant can help with each OPEN task.\\n\\nOutput JSON:\\n{\\n  \\\"account_name\\\": \\\"\" + $json.accountName + \"\\\",\\n  \\\"results\\\": [\\n    {\\\"id\\\": \\\"SF_TASK_ID\\\", \\\"status\\\": \\\"COMPLETE\\\" or \\\"OPEN\\\", \\\"evidence\\\": \\\"one-line reason\\\", \\\"assist_skill\\\": \\\"DRAFT_EMAIL|PRESENTATION|STAKEHOLDER_MAP|MEETING_PREP|NONE\\\"}\\n  ]\\n}\" }}",
+                    "text": "={{ \"Review these open CRM tasks for \" + $json.accountName + \":\\n\\n\" + $json.taskList + \"\\n\\nUse Backstory SalesAI tools (ask_sales_ai_about_account) to check recent activity, emails, and meeting outcomes for \" + $json.accountName + \".\\n\\nFor each task, determine if it was completed based on evidence from recent activity. Also determine if the assistant can help with each OPEN task.\\n\\nOutput JSON:\\n{\\n  \\\"account_name\\\": \\\"\" + $json.accountName + \"\\\",\\n  \\\"results\\\": [\\n    {\\\"id\\\": \\\"SF_TASK_ID\\\", \\\"status\\\": \\\"COMPLETE\\\" or \\\"OPEN\\\", \\\"evidence\\\": \\\"one-line reason\\\", \\\"assist_skill\\\": \\\"DRAFT_EMAIL|PRESENTATION|STAKEHOLDER_MAP|MEETING_PREP|NONE\\\"}\\n  ]\\n}\" }}",
                     "options": {
-                        "systemMessage": "You are a task resolution analyst. You evaluate whether CRM tasks have been completed based on recent account activity from People.ai SalesAI.\n\nRULES:\n- Only mark a task COMPLETE if there is CLEAR evidence the work was done\n- Evidence includes: email sent, meeting held, document delivered, issue resolved, follow-up completed\n- When in doubt, leave as OPEN\n- Be conservative \u2014 false completions are worse than missed completions\n- Output ONLY valid JSON, no prose\n\nYou also determine whether the assistant can help with each OPEN task.\nAvailable assistant skills:\n- DRAFT_EMAIL: task involves sending an email, follow-up, or written communication\n- PRESENTATION: task involves creating a deck, slides, or visual deliverable\n- STAKEHOLDER_MAP: task involves identifying or mapping contacts and relationships\n- MEETING_PREP: task involves preparing for an upcoming meeting or call\n- NONE: assistant cannot help with this task",
+                        "systemMessage": "You are a task resolution analyst. You evaluate whether CRM tasks have been completed based on recent account activity from Backstory SalesAI.\n\nRULES:\n- Only mark a task COMPLETE if there is CLEAR evidence the work was done\n- Evidence includes: email sent, meeting held, document delivered, issue resolved, follow-up completed\n- When in doubt, leave as OPEN\n- Be conservative \u2014 false completions are worse than missed completions\n- Output ONLY valid JSON, no prose\n\nYou also determine whether the assistant can help with each OPEN task.\nAvailable assistant skills:\n- DRAFT_EMAIL: task involves sending an email, follow-up, or written communication\n- PRESENTATION: task involves creating a deck, slides, or visual deliverable\n- STAKEHOLDER_MAP: task involves identifying or mapping contacts and relationships\n- MEETING_PREP: task involves preparing for an upcoming meeting or call\n- NONE: assistant cannot help with this task",
                         "maxIterations": 5
                     }
                 },
@@ -912,7 +912,7 @@
                     "options": {}
                 },
                 "id": "c7772389-5746-4f09-b641-78bab3384bf8",
-                "name": "People.ai MCP (Resolution)",
+                "name": "Backstory MCP (Resolution)",
                 "type": "@n8n/n8n-nodes-langchain.mcpClientTool",
                 "typeVersion": 1.2,
                 "position": [
@@ -922,7 +922,7 @@
                 "credentials": {
                     "httpMultipleHeadersAuth": {
                         "id": "wvV5pwBeIL7f2vLG",
-                        "name": "People.ai MCP Multi-Header"
+                        "name": "Backstory MCP Multi-Header"
                     }
                 }
             },
@@ -1134,7 +1134,7 @@
                     ]
                 ]
             },
-            "People.ai MCP (Resolution)": {
+            "Backstory MCP (Resolution)": {
                 "ai_tool": [
                     [
                         {

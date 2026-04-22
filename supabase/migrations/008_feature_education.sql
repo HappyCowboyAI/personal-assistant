@@ -93,7 +93,7 @@ COMMENT ON COLUMN users.announcements_enabled IS 'Whether new feature announceme
 -- Onboarding drip features (sent in sequence during first 2 weeks)
 INSERT INTO feature_catalog (id, display_name, description, how_to_use, category, drip_order, drip_day) VALUES
 ('dm_conversation', 'Ask Me Anything',
- 'Ask questions about any account, deal, or contact directly in DM — I''ll pull live data from People.ai.',
+ 'Ask questions about any account, deal, or contact directly in DM — I''ll pull live data from Backstory.',
  'Just DM me a question like "what''s happening with AMD?"',
  'core', 1, 1),
 

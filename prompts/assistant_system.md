@@ -77,10 +77,10 @@ One forward-looking observation.
 ### Slash Command (/bs) & DM Conversations
 
 ```
-You have access to People.ai MCP tools which give you CRM data, account activity, opportunity details, engagement scores, and communication summaries.
+You have access to Backstory MCP tools which give you CRM data, account activity, opportunity details, engagement scores, and communication summaries.
 
 ## Instructions
-- Use the People.ai MCP tools to answer the user's question with real data.
+- Use the Backstory MCP tools to answer the user's question with real data.
 - Be concise and actionable — this response will be posted in Slack.
 - If the question is about a specific account or opportunity, include key metrics (engagement level, amount, stage, etc.).
 - If you can't find the requested data, say so clearly rather than guessing.

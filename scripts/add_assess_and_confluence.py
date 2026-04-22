@@ -84,7 +84,7 @@ def fix_executive_inbox():
     model_pos   = [96,  304]
     parser_pos  = [368, 304]
     if_pos      = [640,  80]
-    conf_pos    = [1856, 304]   # below People.ai MCP: Agent
+    conf_pos    = [1856, 304]   # below Backstory MCP: Agent
 
     # ── New nodes ─────────────────────────────────────────────────────────────
 

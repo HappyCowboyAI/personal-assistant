@@ -211,7 +211,7 @@ if (topUsers.length > 0) {
 // Footer
 blocks.push({
   type: "context",
-  elements: [{ type: "mrkdwn", text: "People.ai Assistant Analytics \u2022 " + totalUsers + " onboarded users" }]
+  elements: [{ type: "mrkdwn", text: "Backstory Assistant Analytics \u2022 " + totalUsers + " onboarded users" }]
 });
 
 const notificationText = `Assistant Usage: ${totalMessages} messages, ${activeCount} active users (${adoptionRate}%)`;

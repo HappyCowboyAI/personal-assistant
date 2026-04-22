@@ -311,7 +311,7 @@
                 "options": {}
             },
             "id": "ee3e1716-fbb5-4797-8385-459475ca6b89",
-            "name": "People.ai MCP",
+            "name": "Backstory MCP",
             "type": "@n8n/n8n-nodes-langchain.mcpClientTool",
             "typeVersion": 1.2,
             "position": [
@@ -321,7 +321,7 @@
             "credentials": {
                 "httpMultipleHeadersAuth": {
                     "id": "wvV5pwBeIL7f2vLG",
-                    "name": "People.ai MCP Multi-Header"
+                    "name": "Backstory MCP Multi-Header"
                 }
             }
         },
@@ -579,7 +579,7 @@
                 ]
             ]
         },
-        "People.ai MCP": {
+        "Backstory MCP": {
             "ai_tool": [
                 [
                     {
@@ -933,7 +933,7 @@
                     "options": {}
                 },
                 "id": "ee3e1716-fbb5-4797-8385-459475ca6b89",
-                "name": "People.ai MCP",
+                "name": "Backstory MCP",
                 "type": "@n8n/n8n-nodes-langchain.mcpClientTool",
                 "typeVersion": 1.2,
                 "position": [
@@ -943,7 +943,7 @@
                 "credentials": {
                     "httpMultipleHeadersAuth": {
                         "id": "wvV5pwBeIL7f2vLG",
-                        "name": "People.ai MCP Multi-Header"
+                        "name": "Backstory MCP Multi-Header"
                     }
                 }
             },
@@ -1201,7 +1201,7 @@
                     ]
                 ]
             },
-            "People.ai MCP": {
+            "Backstory MCP": {
                 "ai_tool": [
                     [
                         {

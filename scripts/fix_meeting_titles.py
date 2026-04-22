@@ -1,5 +1,5 @@
 """
-Fix: Pre-fetch participant titles from People.ai activity export
+Fix: Pre-fetch participant titles from Backstory activity export
 and include them in the participant string passed to Meeting Brief agent.
 
 The bug: Meeting Brief agent guesses/hallucinates participant titles because

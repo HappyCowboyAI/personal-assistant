@@ -3,7 +3,7 @@
 Add conversational DM support to Slack Events Handler.
 
 When an onboarded user DMs the bot with unrecognized text (not a keyword command),
-instead of showing help text, spin up a Claude agent with People.ai MCP tools.
+instead of showing help text, spin up a Claude agent with Backstory MCP tools.
 
 Changes:
 1. Insert "Is Conversational?" IF node between Switch Route output 7 and Build Help Response
@@ -26,7 +26,7 @@ HEADERS = {"X-N8N-API-KEY": N8N_API_KEY, "Content-Type": "application/json"}
 
 SUPABASE_CRED = {"id": "ASRWWkQ0RSMOpNF1", "name": "Supabase account"}
 ANTHROPIC_CRED = {"id": "rlAz7ZSl4y6AwRUq", "name": "Anthropic account 2"}
-MCP_CRED = {"id": "wvV5pwBeIL7f2vLG", "name": "People.ai MCP Multi-Header"}
+MCP_CRED = {"id": "wvV5pwBeIL7f2vLG", "name": "Backstory MCP Multi-Header"}
 SLACK_CRED = {"id": "LluVuiMJ8NUbAiG7", "name": "Slackbot Auth Token"}
 SUPABASE_REST_URL = "https://rhrlnkbphxntxxxcrgvv.supabase.co/rest/v1"
 
@@ -127,10 +127,10 @@ const systemPrompt = [
   '',
   'Your personality: ' + assistantPersona,
   '',
-  'You have access to People.ai MCP tools which give you CRM data, account activity, opportunity details, engagement scores, and communication summaries.',
+  'You have access to Backstory MCP tools which give you CRM data, account activity, opportunity details, engagement scores, and communication summaries.',
   '',
   '**INSTRUCTIONS:**',
-  '- Use the People.ai MCP tools to answer the user\'s question with real data.',
+  '- Use the Backstory MCP tools to answer the user\'s question with real data.',
   '- Be concise and actionable — this response will be posted in Slack.',
   '- Format your response using Slack markdown: *bold*, _italic_, `code`.',
   '- Use bullet points sparingly and keep them short.',
@@ -255,7 +255,7 @@ return [{
     nodes.append(dm_model_node)
     print(f"  Added 'Anthropic Chat Model (DM Conv)' (id={dm_model_id})")
 
-    # --- Node 6: People.ai MCP (DM Conv) — sub-node ---
+    # --- Node 6: Backstory MCP (DM Conv) — sub-node ---
     dm_mcp_id = uid()
     dm_mcp_node = {
         "parameters": {
@@ -264,14 +264,14 @@ return [{
             "options": {},
         },
         "id": dm_mcp_id,
-        "name": "People.ai MCP (DM Conv)",
+        "name": "Backstory MCP (DM Conv)",
         "type": "@n8n/n8n-nodes-langchain.mcpClientTool",
         "typeVersion": 1.2,
         "position": [3344, 4624],
         "credentials": {"httpMultipleHeadersAuth": MCP_CRED},
     }
     nodes.append(dm_mcp_node)
-    print(f"  Added 'People.ai MCP (DM Conv)' (id={dm_mcp_id})")
+    print(f"  Added 'Backstory MCP (DM Conv)' (id={dm_mcp_id})")
 
     # --- Node 7: DM Post Answer (HTTP Request → chat.update) ---
     dm_answer_id = uid()
@@ -530,13 +530,13 @@ return [{
             [{"node": "DM Conversation Agent", "type": "ai_languageModel", "index": 0}]
         ]
     }
-    connections["People.ai MCP (DM Conv)"] = {
+    connections["Backstory MCP (DM Conv)"] = {
         "ai_tool": [
             [{"node": "DM Conversation Agent", "type": "ai_tool", "index": 0}]
         ]
     }
     print("  Wired: Anthropic Chat Model (DM Conv) → DM Conversation Agent (ai_languageModel)")
-    print("  Wired: People.ai MCP (DM Conv) → DM Conversation Agent (ai_tool)")
+    print("  Wired: Backstory MCP (DM Conv) → DM Conversation Agent (ai_tool)")
 
     print(f"\n  Total nodes: {len(nodes)} (was {len(nodes) - 11})")
 

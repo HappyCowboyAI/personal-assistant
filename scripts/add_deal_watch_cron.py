@@ -539,7 +539,7 @@ const now = new Date();
 const dateStr = now.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
 blocks.push({
   type: 'context',
-  elements: [{ type: 'mrkdwn', text: 'People.ai deal intelligence \u2022 ' + dateStr + ' \u2022 Type `insights` for full analysis' }]
+  elements: [{ type: 'mrkdwn', text: 'Backstory deal intelligence \u2022 ' + dateStr + ' \u2022 Type `insights` for full analysis' }]
 });
 
 const notificationText = worsening.length > 0

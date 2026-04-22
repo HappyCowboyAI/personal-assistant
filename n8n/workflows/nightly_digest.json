@@ -60,14 +60,14 @@
         }
       },
       "id": "get-opportunities",
-      "name": "Get Open Opportunities from People.ai",
+      "name": "Get Open Opportunities from Backstory",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4,
       "position": [850, 300],
       "credentials": {
         "httpHeaderAuth": {
           "id": "PEOPLEAI_CREDENTIAL_ID",
-          "name": "People.ai API"
+          "name": "Backstory API"
         }
       }
     },
@@ -92,13 +92,13 @@
       "credentials": {
         "httpHeaderAuth": {
           "id": "PEOPLEAI_CREDENTIAL_ID",
-          "name": "People.ai API"
+          "name": "Backstory API"
         }
       }
     },
     {
       "parameters": {
-        "jsCode": "// Combine data for Claude prompt\nconst user = $('Get Users with Digest Enabled').item.json;\nconst opportunities = $('Get Open Opportunities from People.ai').item.json;\nconst engagementChanges = $('Get Engagement Score Changes').item.json;\n\n// Get assistant name (user override or org default)\nconst assistantName = user.assistant_name || user.org_default_assistant_name || 'Aria';\n\n// Get assistant emoji (user override or org default)\nconst assistantEmoji = user.assistant_emoji || user.org_default_assistant_emoji || ':robot_face:';\n\n// Format pipeline data for the prompt\nconst pipelineData = opportunities.data?.map(opp => {\n  const engagement = engagementChanges.data?.find(e => e.opportunity_id === opp.id);\n  return {\n    account_name: opp.account_name,\n    opportunity_name: opp.name,\n    stage: opp.stage,\n    close_date: opp.close_date,\n    amount: opp.amount,\n    engagement_score: opp.engagement_score,\n    engagement_change: engagement?.change || 0,\n    last_activity: opp.last_activity_date,\n    days_in_stage: opp.days_in_current_stage,\n    champion: opp.champion_name,\n    champion_last_engagement: opp.champion_last_engagement_date,\n    risks: opp.risk_signals || []\n  };\n}).sort((a, b) => {\n  // Sort by urgency: engagement drops first, then by close date\n  if (a.engagement_change < -10 && b.engagement_change >= -10) return -1;\n  if (b.engagement_change < -10 && a.engagement_change >= -10) return 1;\n  return new Date(a.close_date) - new Date(b.close_date);\n});\n\nreturn {\n  user_id: user.id,\n  slack_user_id: user.slack_user_id,\n  rep_name: user.email.split('@')[0], // TODO: Get actual name\n  assistant_name: assistantName,\n  timezone: user.timezone || 'America/Los_Angeles',\n  pipeline_data: JSON.stringify(pipelineData, null, 2),\n  current_date: new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }),\n  assistant_emoji: assistantEmoji\n};"
+        "jsCode": "// Combine data for Claude prompt\nconst user = $('Get Users with Digest Enabled').item.json;\nconst opportunities = $('Get Open Opportunities from Backstory').item.json;\nconst engagementChanges = $('Get Engagement Score Changes').item.json;\n\n// Get assistant name (user override or org default)\nconst assistantName = user.assistant_name || user.org_default_assistant_name || 'Aria';\n\n// Get assistant emoji (user override or org default)\nconst assistantEmoji = user.assistant_emoji || user.org_default_assistant_emoji || ':robot_face:';\n\n// Format pipeline data for the prompt\nconst pipelineData = opportunities.data?.map(opp => {\n  const engagement = engagementChanges.data?.find(e => e.opportunity_id === opp.id);\n  return {\n    account_name: opp.account_name,\n    opportunity_name: opp.name,\n    stage: opp.stage,\n    close_date: opp.close_date,\n    amount: opp.amount,\n    engagement_score: opp.engagement_score,\n    engagement_change: engagement?.change || 0,\n    last_activity: opp.last_activity_date,\n    days_in_stage: opp.days_in_current_stage,\n    champion: opp.champion_name,\n    champion_last_engagement: opp.champion_last_engagement_date,\n    risks: opp.risk_signals || []\n  };\n}).sort((a, b) => {\n  // Sort by urgency: engagement drops first, then by close date\n  if (a.engagement_change < -10 && b.engagement_change >= -10) return -1;\n  if (b.engagement_change < -10 && a.engagement_change >= -10) return 1;\n  return new Date(a.close_date) - new Date(b.close_date);\n});\n\nreturn {\n  user_id: user.id,\n  slack_user_id: user.slack_user_id,\n  rep_name: user.email.split('@')[0], // TODO: Get actual name\n  assistant_name: assistantName,\n  timezone: user.timezone || 'America/Los_Angeles',\n  pipeline_data: JSON.stringify(pipelineData, null, 2),\n  current_date: new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }),\n  assistant_emoji: assistantEmoji\n};"
       },
       "id": "prepare-prompt-data",
       "name": "Prepare Data for Claude",
@@ -217,7 +217,7 @@
       "main": [
         [
           {
-            "node": "Get Open Opportunities from People.ai",
+            "node": "Get Open Opportunities from Backstory",
             "type": "main",
             "index": 0
           },
@@ -236,7 +236,7 @@
         ]
       ]
     },
-    "Get Open Opportunities from People.ai": {
+    "Get Open Opportunities from Backstory": {
       "main": [
         [
           {

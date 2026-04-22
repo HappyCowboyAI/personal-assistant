@@ -149,4 +149,4 @@ If you're thinking about building something similar: start with n8n (or any orch
 
 ---
 
-*I'm building AI-powered sales tools at People.ai. If you're working on similar problems or want to see a demo, reach out.*
+*I'm building AI-powered sales tools at Backstory. If you're working on similar problems or want to see a demo, reach out.*

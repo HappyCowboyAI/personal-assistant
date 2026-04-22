@@ -5,7 +5,7 @@ Webhook-based async callback handler that:
 1. Receives open CRM tasks from Workato (async callback pattern)
 2. Stores individual tasks in Supabase pending_actions
 3. On "done" signal: fetches stored tasks, groups by account
-4. Runs a Claude + People.ai MCP agent per account to detect completed tasks
+4. Runs a Claude + Backstory MCP agent per account to detect completed tasks
 5. Marks completed tasks via Workato webhook
 6. Posts a summary DM to Slack (only if tasks were resolved)
 7. Cleans up stored tasks from Supabase
@@ -280,7 +280,7 @@ return accounts;"""
     nodes.append(loop_accounts)
 
     # ── Node 9-11: Resolution Agent + Anthropic + MCP ────────────────
-    system_prompt = r"""You are a task resolution analyst. You evaluate whether CRM tasks have been completed based on recent account activity from People.ai SalesAI.
+    system_prompt = r"""You are a task resolution analyst. You evaluate whether CRM tasks have been completed based on recent account activity from Backstory SalesAI.
 
 RULES:
 - Only mark a task COMPLETE if there is CLEAR evidence the work was done
@@ -289,7 +289,7 @@ RULES:
 - Be conservative — false completions are worse than missed completions
 - Output ONLY valid JSON, no prose"""
 
-    user_prompt_expr = """={{ 'Review these open CRM tasks for ' + $json.accountName + ':\\n' + $json.taskList + '\\n\\nUse People.ai SalesAI tools (ask_sales_ai_about_account) to check recent activity, emails, and meeting outcomes for ' + $json.accountName + '.\\n\\nFor each task, determine if it was completed based on evidence from recent activity.\\n\\nOutput JSON:\\n{\\n  "account_name": "' + $json.accountName + '",\\n  "results": [\\n    {"id": "SF_TASK_ID", "status": "COMPLETE" or "OPEN", "evidence": "one-line reason"}\\n  ]\\n}' }}"""
+    user_prompt_expr = """={{ 'Review these open CRM tasks for ' + $json.accountName + ':\\n' + $json.taskList + '\\n\\nUse Backstory SalesAI tools (ask_sales_ai_about_account) to check recent activity, emails, and meeting outcomes for ' + $json.accountName + '.\\n\\nFor each task, determine if it was completed based on evidence from recent activity.\\n\\nOutput JSON:\\n{\\n  "account_name": "' + $json.accountName + '",\\n  "results": [\\n    {"id": "SF_TASK_ID", "status": "COMPLETE" or "OPEN", "evidence": "one-line reason"}\\n  ]\\n}' }}"""
 
     agent_pos = [x_start + 1680, y_main]
     agent_trio = make_agent_trio(

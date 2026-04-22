@@ -5,7 +5,7 @@ Create the Silence Contract Monitor workflow.
 Daily cron (6:30am PT weekdays) that:
 1. Fetches active users from Supabase
 2. Fetches recent alerts for deduplication (72h cooldown)
-3. For each user, calls a Claude agent + People.ai MCP to detect silent accounts
+3. For each user, calls a Claude agent + Backstory MCP to detect silent accounts
 4. Parses the agent response for engagement gaps
 5. Filters out already-alerted accounts (cooldown)
 6. Sends a consolidated Slack DM per user with all new alerts
@@ -27,7 +27,7 @@ HEADERS = {"X-N8N-API-KEY": N8N_API_KEY, "Content-Type": "application/json"}
 # Credential references (live n8n)
 SUPABASE_CRED = {"id": "ASRWWkQ0RSMOpNF1", "name": "Supabase account"}
 ANTHROPIC_CRED = {"id": "rlAz7ZSl4y6AwRUq", "name": "Anthropic account 2"}
-MCP_CRED = {"id": "wvV5pwBeIL7f2vLG", "name": "People.ai MCP Multi-Header"}
+MCP_CRED = {"id": "wvV5pwBeIL7f2vLG", "name": "Backstory MCP Multi-Header"}
 SLACK_CRED = {"id": "LluVuiMJ8NUbAiG7", "name": "Slackbot Auth Token"}
 
 
@@ -39,7 +39,7 @@ def uid():
 
 SILENCE_SYSTEM_PROMPT = r"""You are a sales engagement monitor. Your job is to detect "silence contracts" — accounts where customer engagement has gone quiet.
 
-Using the People.ai tools available to you, check the user's accounts for engagement gaps:
+Using the Backstory tools available to you, check the user's accounts for engagement gaps:
 1. Find the user's accounts that have open opportunities
 2. For each account, check the most recent customer-facing activity (emails, meetings, calls)
 3. Identify accounts where the last activity was more than 5 days ago
@@ -421,7 +421,7 @@ def build_workflow():
         ]
     }
 
-    # ── 9. People.ai MCP (sub-node) ───────────────────────────────────
+    # ── 9. Backstory MCP (sub-node) ───────────────────────────────────
     mcp_id = uid()
     nodes.append({
         "parameters": {
@@ -430,13 +430,13 @@ def build_workflow():
             "options": {},
         },
         "id": mcp_id,
-        "name": "People.ai MCP (Silence)",
+        "name": "Backstory MCP (Silence)",
         "type": "@n8n/n8n-nodes-langchain.mcpClientTool",
         "typeVersion": 1.2,
         "position": [2150, 520],
         "credentials": {"httpMultipleHeadersAuth": MCP_CRED},
     })
-    connections["People.ai MCP (Silence)"] = {
+    connections["Backstory MCP (Silence)"] = {
         "ai_tool": [
             [{"node": "Silence Monitor Agent", "type": "ai_tool", "index": 0}]
         ]

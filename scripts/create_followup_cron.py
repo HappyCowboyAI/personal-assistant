@@ -10,7 +10,7 @@ When "Draft Follow-up" is clicked, the Interactive Events Handler
 triggers the follow-up agent to draft an email.
 
 Modeled after the Meeting Prep Cron pattern:
-1. Fetch today's meetings from People.ai
+1. Fetch today's meetings from Backstory
 2. Match meetings that ended within the follow-up window
 3. Dedup against already-offered follow-ups
 4. Send interactive prompt via Slack
@@ -35,7 +35,7 @@ HEADERS = {"X-N8N-API-KEY": N8N_API_KEY, "Content-Type": "application/json"}
 SUPABASE_CRED = {"id": "ASRWWkQ0RSMOpNF1", "name": "Supabase account"}
 SLACK_CRED = {"id": "LluVuiMJ8NUbAiG7", "name": "Slackbot Auth Token"}
 
-# People.ai client credentials (same as Meeting Prep Cron)
+# Backstory client credentials (same as Meeting Prep Cron)
 PEOPLEAI_CLIENT_ID = "YOUR_CLIENT_ID"
 PEOPLEAI_CLIENT_SECRET = "YOUR_CLIENT_SECRET"
 
@@ -44,9 +44,9 @@ def uid():
     return str(uuid.uuid4())
 
 
-# ── Build Query code (construct People.ai export for today's meetings) ──
+# ── Build Query code (construct Backstory export for today's meetings) ──
 
-BUILD_QUERY_CODE = r"""// Build People.ai export query for today's external meetings
+BUILD_QUERY_CODE = r"""// Build Backstory export query for today's external meetings
 // Same pattern as Meeting Prep Cron, but we look for meetings that already happened
 const now = Date.now();
 const startOfDay = new Date();
@@ -83,7 +83,7 @@ return [{ json: { query: JSON.stringify(query) } }];
 
 # ── Parse Meetings code ──
 
-PARSE_MEETINGS_CODE = r"""// Parse CSV response from People.ai meetings export
+PARSE_MEETINGS_CODE = r"""// Parse CSV response from Backstory meetings export
 const raw = $('Fetch Today Meetings').first().json.data || '';
 if (!raw || raw.trim().length === 0) {
   return [{ json: { meetings: [], meetingCount: 0 } }];

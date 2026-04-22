@@ -27,7 +27,7 @@ WORKFLOW_ID = "vxGajBdXFBaOCdkG"  # On-Demand Digest
 # JavaScript code for each updated/new node
 # ============================================================
 
-PARSE_HIERARCHY_CODE = r"""// Parse CSV from People.ai User hierarchy export
+PARSE_HIERARCHY_CODE = r"""// Parse CSV from Backstory User hierarchy export
 const csvData = $('Fetch User Hierarchy').first().json.data;
 
 if (!csvData) {
@@ -104,8 +104,8 @@ for (let i = 1; i < lines.length; i++) {
 return [{ json: { hierarchy, managerToReports, userCount: Object.keys(hierarchy).length } }];
 """
 
-BUILD_OPP_QUERY_CODE = r"""// Build the People.ai Query API request body based on scope.
-// For person: scope — OR filter across AE/CSM/SE owner fields using the person's numeric People.ai ID.
+BUILD_OPP_QUERY_CODE = r"""// Build the Backstory Query API request body based on scope.
+// For person: scope — OR filter across AE/CSM/SE owner fields using the person's numeric Backstory ID.
 // For all other scopes — standard all-open-opps query.
 
 const user = $('Workflow Input Trigger').first().json;
@@ -183,7 +183,7 @@ const queryBody = JSON.stringify({
 return [{ json: { queryBody, personPeopleAiId, targetEmail } }];
 """
 
-PARSE_OPPS_CSV_CODE = r"""// Parse CSV from People.ai Query API export
+PARSE_OPPS_CSV_CODE = r"""// Parse CSV from Backstory Query API export
 const csvData = $('Fetch Open Opps').first().json.data;
 
 if (!csvData) {
@@ -582,13 +582,13 @@ EMOJI STATUS INDICATORS — use these consistently:
 function buildRoleContext(scope) {
   const mcpRules = `DEEP LINKS — make each deal name a clickable link using the peopleAiId column from the data table:
 <https://app.people.ai/opportunity/PEOPLEAIID|Deal Name Here> (replace PEOPLEAIID with the peopleAiId value and Deal Name with the actual deal name)
-Do NOT add a separate "View in People.ai" line — the deal name itself is the link.
+Do NOT add a separate "View in Backstory" line — the deal name itself is the link.
 Example: <https://app.people.ai/opportunity/5479658708|HPE AI Forensics Pilot>
 If the peopleAiId is empty, omit the link and just use plain bold text for the deal name.
 
 Do NOT use MCP to search for or list opportunities — they are already provided above.
 
-You DO have access to People.ai MCP tools. Use them ONLY for:
+You DO have access to Backstory MCP tools. Use them ONLY for:
 - Revenue stories and engagement analysis on specific deals
 - Recent activity details (emails, meetings, calls) on key accounts
 - Engagement score trends and changes`;
@@ -677,7 +677,7 @@ function buildThemePrompts(theme, scope) {
 
         agentPrompt: `Generate the morning sales briefing for ${repName}. Their ${oppCount} open opportunities are already loaded in your system prompt — do NOT use MCP to search for opportunities.
 
-Instead, use the People.ai MCP tools to investigate revenue stories and engagement patterns on the top 3-5 most important deals (highest amount, closest close date, or biggest engagement changes). Look for recent activity, meeting patterns, and risk signals.
+Instead, use the Backstory MCP tools to investigate revenue stories and engagement patterns on the top 3-5 most important deals (highest amount, closest close date, or biggest engagement changes). Look for recent activity, meeting patterns, and risk signals.
 
 Then write the briefing as a Block Kit JSON object following the format in your system instructions. Remember: output ONLY the JSON object, nothing else.`
       };
@@ -695,7 +695,7 @@ Then write the briefing as a Block Kit JSON object following the format in your 
 
         agentPrompt: `Generate the team pipeline briefing for ${repName} (sales manager). Their team's ${oppCount} open deals closing through ${dateWindowEnd} are already loaded — do NOT use MCP to search for opportunities.
 
-Use People.ai MCP tools to investigate team engagement patterns: identify reps with declining engagement, spot coaching opportunities, and find deals where manager intervention could help. Focus on 3-5 highest-risk or highest-value deals.
+Use Backstory MCP tools to investigate team engagement patterns: identify reps with declining engagement, spot coaching opportunities, and find deals where manager intervention could help. Focus on 3-5 highest-risk or highest-value deals.
 
 Output ONLY the Block Kit JSON object, nothing else.`
       };
@@ -713,7 +713,7 @@ Output ONLY the Block Kit JSON object, nothing else.`
 
         agentPrompt: `Generate the executive pipeline briefing for ${repName}. Top ${oppCount} deals by amount closing through ${dateWindowEnd} are loaded (${totalOppCount} total org-wide) — do NOT use MCP to search for opportunities.
 
-Use People.ai MCP tools to analyze pipeline health on the top 3-5 largest deals: velocity, engagement trends, risk signals, forecast-impacting patterns.
+Use Backstory MCP tools to analyze pipeline health on the top 3-5 largest deals: velocity, engagement trends, risk signals, forecast-impacting patterns.
 
 Output ONLY the Block Kit JSON object, nothing else.`
       };
@@ -735,7 +735,7 @@ Output ONLY the Block Kit JSON object, nothing else.`
 
       agentPrompt: `Generate an engagement shifts briefing for ${repName}. ${oppCount} deals are loaded — do NOT use MCP to search for opportunities.
 
-Use People.ai MCP tools to investigate engagement patterns: pull engagement score histories, recent activity timelines, and meeting/email cadence on the 3-5 deals with the most notable engagement movement (both positive and negative). Look for accounts going dark and accounts heating up.
+Use Backstory MCP tools to investigate engagement patterns: pull engagement score histories, recent activity timelines, and meeting/email cadence on the 3-5 deals with the most notable engagement movement (both positive and negative). Look for accounts going dark and accounts heating up.
 
 Output ONLY the Block Kit JSON object, nothing else.`
     };
@@ -756,7 +756,7 @@ Output ONLY the Block Kit JSON object, nothing else.`
 
       agentPrompt: `Generate an at-risk deals briefing for ${repName}. ${oppCount} deals flagged with risk signals are loaded — do NOT use MCP to search for opportunities.
 
-Use People.ai MCP tools to investigate the riskiest deals: look for missing activity, declining engagement trends, silent stakeholders, and deals where the close date is approaching without stage progression. Focus on the 3-5 highest-value deals at risk.
+Use Backstory MCP tools to investigate the riskiest deals: look for missing activity, declining engagement trends, silent stakeholders, and deals where the close date is approaching without stage progression. Focus on the 3-5 highest-value deals at risk.
 
 Output ONLY the Block Kit JSON object, nothing else.`
     };
@@ -777,7 +777,7 @@ Output ONLY the Block Kit JSON object, nothing else.`
 
       agentPrompt: `Generate a momentum and wins briefing for ${repName}. ${oppCount} deals are loaded (sorted by engagement) — do NOT use MCP to search for opportunities.
 
-Use People.ai MCP tools to validate positive signals: check deal velocity, recent meetings, rising engagement scores, and multithreading on the top 3-5 highest-engagement deals. Celebrate what's working and identify patterns to replicate.
+Use Backstory MCP tools to validate positive signals: check deal velocity, recent meetings, rising engagement scores, and multithreading on the top 3-5 highest-engagement deals. Celebrate what's working and identify patterns to replicate.
 
 Output ONLY the Block Kit JSON object, nothing else.`
     };
@@ -798,7 +798,7 @@ Output ONLY the Block Kit JSON object, nothing else.`
 
       agentPrompt: `Generate a week in review briefing for ${repName}. ${oppCount} deals are loaded — do NOT use MCP to search for opportunities.
 
-Use People.ai MCP tools to compare this week's activity with previous patterns: look for deals that had new meetings, emails, or engagement changes this week. Identify what moved forward and what went quiet. Also check for meetings or close dates coming up next week.
+Use Backstory MCP tools to compare this week's activity with previous patterns: look for deals that had new meetings, emails, or engagement changes this week. Identify what moved forward and what went quiet. Also check for meetings or close dates coming up next week.
 
 Output ONLY the Block Kit JSON object, nothing else.`
     };
@@ -819,7 +819,7 @@ if (isPersonScope) {
 
 ${subjectName}'s ${oppCount} open opportunities are already loaded in your system prompt — do NOT use MCP to search for opportunities. The Role column shows whether ${subjectName} is the AE, CSM, or SE on each deal.
 
-Instead, use the People.ai MCP tools to investigate revenue stories and engagement patterns on ${subjectName}'s top 3-5 most important deals. Look for recent activity, meeting patterns, and risk signals.
+Instead, use the Backstory MCP tools to investigate revenue stories and engagement patterns on ${subjectName}'s top 3-5 most important deals. Look for recent activity, meeting patterns, and risk signals.
 
 Address the briefing to ${repName}. Reference ${subjectName}'s pipeline, not ${repName}'s.
 Output ONLY the Block Kit JSON object, nothing else.`;

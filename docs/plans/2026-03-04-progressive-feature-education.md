@@ -94,7 +94,7 @@ COMMENT ON COLUMN users.announcements_enabled IS 'Whether new feature announceme
 
 INSERT INTO feature_catalog (id, display_name, description, how_to_use, category, drip_order, drip_day) VALUES
 ('dm_conversation', 'Ask Me Anything',
- 'Ask questions about any account, deal, or contact directly in DM — I''ll pull live data from People.ai.',
+ 'Ask questions about any account, deal, or contact directly in DM — I''ll pull live data from Backstory.',
  'Just DM me a question like "what''s happening with AMD?"',
  'core', 1, 1),
 
@@ -405,7 +405,7 @@ return [{
 
 **Nodes 10-12 — Education Agent trio:** Claude Sonnet 4.5, NO MCP tools needed (tips don't require live data).
 
-Actually, remove the MCP node — tips are just personality-driven messages, no People.ai data needed. Use a simpler approach:
+Actually, remove the MCP node — tips are just personality-driven messages, no Backstory data needed. Use a simpler approach:
 
 **Node 10 — Education Agent (Agent node, no MCP):**
 - System prompt: `={{ $json.tipSystemPrompt }}`

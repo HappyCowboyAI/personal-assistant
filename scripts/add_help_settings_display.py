@@ -31,7 +31,7 @@ def main():
     OLD_HELP_BLOCK = (
         """if (r === 'help') {
   // --- Conversation-first help ---
-  text = "*Just ask me anything* \\u2014 I have access to your People.ai CRM data and can answer questions about accounts, deals, engagement, and pipeline.\\n\\n" +
+  text = "*Just ask me anything* \\u2014 I have access to your Backstory CRM data and can answer questions about accounts, deals, engagement, and pipeline.\\n\\n" +
     "Try things like:\\n" +
     "\\u2022 _\\"What's happening with AMD?\\"_\\n" +
     "\\u2022 _\\"Who should I be talking to at Cisco?\\"_\\n" +
@@ -74,7 +74,7 @@ def main():
     "\u2022 *Tips:* " + (tipsOn ? ':white_check_mark: on' : ':no_entry_sign: paused') + " \u2014 `" + (tipsOn ? 'stop' : 'resume') + " tips`\n" +
     "\u2022 *Announcements:* " + (announcementsOn ? ':white_check_mark: on' : ':no_entry_sign: paused') + " \u2014 `" + (announcementsOn ? 'stop' : 'resume') + " announcements`";
 
-  text = "*Just ask me anything* \u2014 I have access to your People.ai CRM data and can answer questions about accounts, deals, engagement, and pipeline.\n\n" +
+  text = "*Just ask me anything* \u2014 I have access to your Backstory CRM data and can answer questions about accounts, deals, engagement, and pipeline.\n\n" +
     "Try things like:\n" +
     "\u2022 _\"What's happening with AMD?\"_\n" +
     "\u2022 _\"Who should I be talking to at Cisco?\"_\n" +

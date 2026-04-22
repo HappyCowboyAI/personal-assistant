@@ -27,7 +27,7 @@ def main():
         code = prompt_node["parameters"]["jsCode"]
 
         old_to = "'*To:* {primary recipient(s)}',"
-        new_to = "'*To:* {Name} ({email@company.com}) — ALWAYS include email addresses. Use People.ai MCP to look up contact emails. If you cannot find an email, still include the name.',"
+        new_to = "'*To:* {Name} ({email@company.com}) — ALWAYS include email addresses. Use Backstory MCP to look up contact emails. If you cannot find an email, still include the name.',"
 
         if old_to in code:
             code = code.replace(old_to, new_to)

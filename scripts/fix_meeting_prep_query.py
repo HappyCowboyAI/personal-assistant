@@ -20,7 +20,7 @@ from n8n_helpers import (
 )
 
 
-NEW_BUILD_QUERY = r"""// Build People.ai activity export query for upcoming external meetings
+NEW_BUILD_QUERY = r"""// Build Backstory activity export query for upcoming external meetings
 // NOTE: Do NOT include ootb_activity_participants_title — it causes the API
 // to abort the stream when combined with 48h of org-wide meetings.
 const tz = 'America/Los_Angeles';

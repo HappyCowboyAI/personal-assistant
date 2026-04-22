@@ -10,7 +10,7 @@ Tasks are created but never updated. Reps complete work (send emails, have meeti
 
 ## Solution
 
-An AI-powered Task Resolution Engine that detects completed tasks by checking People.ai SalesAI activity signals. Two entry points: during meeting recaps (account-scoped) and a 2x daily scheduled job (all open tasks). The assistant marks detected completions automatically — no human data entry required.
+An AI-powered Task Resolution Engine that detects completed tasks by checking Backstory SalesAI activity signals. Two entry points: during meeting recaps (account-scoped) and a 2x daily scheduled job (all open tasks). The assistant marks detected completions automatically — no human data entry required.
 
 ## Entry Points
 
@@ -58,20 +58,20 @@ New webhook workflow that collects tasks from Workato callback, then runs the re
 3. **On "done" signal** — fetch all collected tasks
 4. **Group by Account** — Code node groups tasks by account name
 5. **Loop Accounts** — SplitInBatches
-6. **Task Resolution Agent** — Claude + People.ai MCP per account
+6. **Task Resolution Agent** — Claude + Backstory MCP per account
 7. **Process Results** — for completed tasks, fire Workato `update_task`
 8. **Return Results** — send back to caller (recap flow or scheduled job)
 
 ### n8n: Task Resolution Agent
 
-Claude Sonnet + People.ai MCP. Per-account prompt:
+Claude Sonnet + Backstory MCP. Per-account prompt:
 
 ```
 Here are open CRM tasks for {account_name}:
 1. "{task_subject}" — assigned to {owner}, due {date}
 2. "{task_subject}" — assigned to {owner}, due {date}
 
-Use People.ai SalesAI tools (ask_sales_ai_about_account) to check recent 
+Use Backstory SalesAI tools (ask_sales_ai_about_account) to check recent 
 activity, emails, and meeting outcomes for this account.
 
 For each task, determine:

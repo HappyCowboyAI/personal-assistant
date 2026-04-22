@@ -180,8 +180,8 @@ New 10-node workflow as described above. Receives context via Execute Workflow t
 
 | Workflow Type | Model | MCP Endpoint | Tools |
 |---|---|---|---|
-| `backstory` | Claude Sonnet 4.5 | `https://mcp.people.ai/mcp` | People.ai MCP |
-| `presentation` | Claude Sonnet 4.5 | `https://mcp.people.ai/mcp` | People.ai MCP |
-| `digest` | Claude Sonnet 4.5 | `https://mcp-canary.people.ai/mcp` | People.ai MCP (canary) |
-| `meeting_prep` | Claude Sonnet 4.5 | `https://mcp.people.ai/mcp` | People.ai MCP |
-| `on_demand_digest` | Claude Sonnet 4.5 | `https://mcp-canary.people.ai/mcp` | People.ai MCP (canary) |
+| `backstory` | Claude Sonnet 4.5 | `https://mcp.people.ai/mcp` | Backstory MCP |
+| `presentation` | Claude Sonnet 4.5 | `https://mcp.people.ai/mcp` | Backstory MCP |
+| `digest` | Claude Sonnet 4.5 | `https://mcp-canary.people.ai/mcp` | Backstory MCP (canary) |
+| `meeting_prep` | Claude Sonnet 4.5 | `https://mcp.people.ai/mcp` | Backstory MCP |
+| `on_demand_digest` | Claude Sonnet 4.5 | `https://mcp-canary.people.ai/mcp` | Backstory MCP (canary) |

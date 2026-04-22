@@ -322,7 +322,7 @@ def add_assist_to_recap_card_od():
 
 RESOLUTION_SYSTEM_PROMPT = (
     "You are a task resolution analyst. You evaluate whether CRM tasks have been "
-    "completed based on recent account activity from People.ai SalesAI.\n\n"
+    "completed based on recent account activity from Backstory SalesAI.\n\n"
     "RULES:\n"
     "- Only mark a task COMPLETE if there is CLEAR evidence the work was done\n"
     "- Evidence includes: email sent, meeting held, document delivered, issue resolved, follow-up completed\n"
@@ -340,7 +340,7 @@ RESOLUTION_SYSTEM_PROMPT = (
 
 RESOLUTION_USER_PROMPT = (
     '={{ "Review these open CRM tasks for " + $json.accountName + ":\\n\\n" '
-    '+ $json.taskList + "\\n\\nUse People.ai SalesAI tools (ask_sales_ai_about_account) '
+    '+ $json.taskList + "\\n\\nUse Backstory SalesAI tools (ask_sales_ai_about_account) '
     'to check recent activity, emails, and meeting outcomes for " + $json.accountName '
     '+ ".\\n\\nFor each task, determine if it was completed based on evidence from recent '
     'activity. Also determine if the assistant can help with each OPEN task.\\n\\nOutput JSON:'

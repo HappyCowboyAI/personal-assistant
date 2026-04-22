@@ -2,7 +2,7 @@
 ### Programmable Executive Attention — Design & Build Spec
 
 **Owner:** Scott Metcalf
-**Role:** Head of AI, People.ai
+**Role:** Head of AI, Backstory
 **Status:** Active Experiment → Potential Company Blueprint
 **Version:** v3.0
 
@@ -16,21 +16,21 @@ The core bet: an executive's inbox is not a communication tool — it's an atten
 
 The goal is not to automate email. The goal is to free executive attention for the things that actually require it.
 
-**The unfair advantage:** People.ai is a relationship intelligence platform. Every email that arrives can be immediately enriched with engagement scores, deal context, stakeholder maps, and relationship health — before a single classification rule fires. This is what separates this system from every generic email AI on the market.
+**The unfair advantage:** Backstory is a relationship intelligence platform. Every email that arrives can be immediately enriched with engagement scores, deal context, stakeholder maps, and relationship health — before a single classification rule fires. This is what separates this system from every generic email AI on the market.
 
 ---
 
-## How People.ai Powers This System
+## How Backstory Powers This System
 
 Most email triage systems are flying blind on sender context. They classify by domain keywords, whitelist rules, or email content alone. This system has a relationship graph.
 
-When an email arrives, before any classification logic runs, the system asks People.ai:
+When an email arrives, before any classification logic runs, the system asks Backstory:
 
 > *Who is this person, what's my relationship with them, what deals are active on their account, and how healthy is that relationship right now?*
 
 The answers determine everything downstream — tier assignment, draft context, urgency, and routing.
 
-### What People.ai Provides Per Email
+### What Backstory Provides Per Email
 
 | Signal | Source | Use |
 |--------|--------|-----|
@@ -62,25 +62,25 @@ This isn't enrichment — it's the classification engine.
 
 ---
 
-## People.ai Already Captures Everything
+## Backstory Already Captures Everything
 
-People.ai captures email metadata and body from all of Scott's emails every 15 minutes, matching them to accounts and opportunities automatically.
+Backstory captures email metadata and body from all of Scott's emails every 15 minutes, matching them to accounts and opportunities automatically.
 
 **What this means for the system:**
 
-- **Activity write-back is already solved.** When the assistant sends a reply from `+assistant@people.ai`, People.ai logs it as an email activity against the account. Engagement scores update automatically. No engineering required.
+- **Activity write-back is already solved.** When the assistant sends a reply from `+assistant@people.ai`, Backstory logs it as an email activity against the account. Engagement scores update automatically. No engineering required.
 - **Email body available for the last 15 days.** `get_recent_account_activity` returns full email content for recent conversations — what was said, what was asked. Beyond 15 days, only metadata (subject, sender, date) is retained. Still useful for relationship signals, just not verbatim content.
-- **48-hour lag for insights and dashboards.** People.ai processes captured data into insights within 48 hours. This means the *current inbound email* will not yet be in People.ai — it must be read directly from the Gmail webhook. People.ai enrichment covers everything *before* this email.
-- **Sensitive content is automatically filtered.** Emails flagged as HR, legal, financial, or personal have their body redacted by People.ai before CRM sync. For our system, this is a feature: a redacted body is itself a signal to apply more conservative tier handling.
+- **48-hour lag for insights and dashboards.** Backstory processes captured data into insights within 48 hours. This means the *current inbound email* will not yet be in Backstory — it must be read directly from the Gmail webhook. Backstory enrichment covers everything *before* this email.
+- **Sensitive content is automatically filtered.** Emails flagged as HR, legal, financial, or personal have their body redacted by Backstory before CRM sync. For our system, this is a feature: a redacted body is itself a signal to apply more conservative tier handling.
 
 **The data split:**
 
 | Data source | What it provides |
 |-------------|-----------------|
 | Gmail webhook | Current inbound email (body, headers, TO address) |
-| People.ai | Everything prior: relationship health, engagement score, recent email history (body ≤15 days, metadata beyond) |
+| Backstory | Everything prior: relationship health, engagement score, recent email history (body ≤15 days, metadata beyond) |
 
-This is a clean division. Read the current email from Gmail. Understand the relationship from People.ai.
+This is a clean division. Read the current email from Gmail. Understand the relationship from Backstory.
 
 ---
 
@@ -94,14 +94,14 @@ Email arrives → scott.metcalf@people.ai or +assistant alias
          ↓
   Extract sender email + domain
          ↓
-  People.ai (parallel):
+  Backstory (parallel):
     find_account(domain)
     → get_account_status          [engagement score, health trend]
     → get_recent_account_activity [email body ≤15 days, metadata beyond]
     → get_opportunity_status      [open deals, stage, amount, close date]
          ↓
   ┌──────────────────────────────────────────────────┐
-  │  TIER SIGNAL 1: Relationship (People.ai)          │
+  │  TIER SIGNAL 1: Relationship (Backstory)          │
   │  High score + open deal → Tier 0                 │
   │  In CRM + any activity → Tier 1 minimum          │
   │  Not in CRM → intent classification decides       │
@@ -112,30 +112,30 @@ Email arrives → scott.metcalf@people.ai or +assistant alias
   │  TO=regular → apply conservative defaults         │
   │                                                   │
   │  TIER SIGNAL 3: Sensitive content flag            │
-  │  Body redacted by People.ai → bump tier up        │
+  │  Body redacted by Backstory → bump tier up        │
   └──────────────────────────────────────────────────┘
          ↓
   Claude: intent + sentiment + risk signals
-  (receives: current email + People.ai context package)
+  (receives: current email + Backstory context package)
          ↓
   Final tier = most conservative of all signals
          ↓
   Draft — grounded in:
     • Current email content (Gmail)
-    • Prior conversation threads (People.ai, ≤15 days full, older = metadata)
-    • Account health + deal context (People.ai)
+    • Prior conversation threads (Backstory, ≤15 days full, older = metadata)
+    • Account health + deal context (Backstory)
     • Scott's voice spec + examples (Supabase)
          ↓
   [Auto-send FROM +assistant | Queue for approval | Archive]
          ↓
   Supabase: audit log
   Slack: daily digest
-  People.ai: captures assistant's sent emails as activities automatically ✓
+  Backstory: captures assistant's sent emails as activities automatically ✓
 ```
 
 **Stack:**
 - Gmail OAuth → n8n webhook trigger + send
-- People.ai MCP (already available) — relationship enrichment + activity history
+- Backstory MCP (already available) — relationship enrichment + activity history
 - Claude — intent classification + context-enriched drafting
 - Google Sheets — Tier 0 whitelist (editable without touching n8n), audit log
 - Gmail labels — `AI-Handled`, `AI-Archived`, `AI-Draft-Pending` (audit trail lives with the emails)
@@ -150,7 +150,7 @@ One new credential beyond existing infra: Gmail OAuth. Everything else is alread
 
 ## The Tier Model
 
-Tier assignment uses **both** People.ai relationship data and Claude intent classification. The more conservative tier always wins.
+Tier assignment uses **both** Backstory relationship data and Claude intent classification. The more conservative tier always wins.
 
 ---
 
@@ -160,7 +160,7 @@ Tier assignment uses **both** People.ai relationship data and Claude intent clas
 
 **Defined by:**
 - Named list in Supabase (manually maintained for the innermost circle)
-- People.ai signals: open opportunity + high engagement score
+- Backstory signals: open opportunity + high engagement score
 - Any account where relationship health is flagged as "at risk"
 
 **AI role:**
@@ -168,7 +168,7 @@ Tier assignment uses **both** People.ai relationship data and Claude intent clas
 - Draft a context-enriched suggested response — never shown to sender
 - Never send. Never archive.
 
-**The People.ai difference:** A seemingly routine email from a customer gets auto-promoted to Tier 0 when People.ai shows their engagement dropped 25% this month and renewal is in 60 days. The email content doesn't have to reveal that — the relationship data does.
+**The Backstory difference:** A seemingly routine email from a customer gets auto-promoted to Tier 0 when Backstory shows their engagement dropped 25% this month and renewal is in 60 days. The email content doesn't have to reveal that — the relationship data does.
 
 ---
 
@@ -179,7 +179,7 @@ Tier assignment uses **both** People.ai relationship data and Claude intent clas
 **Defined by:**
 - Internal `@people.ai` domain
 - CRM match with any logged activity (meeting, email, call)
-- People.ai engagement score 30–70
+- Backstory engagement score 30–70
 
 **AI role:**
 - Query `get_recent_account_activity` → pull last 3 interactions as draft context
@@ -187,7 +187,7 @@ Tier assignment uses **both** People.ai relationship data and Claude intent clas
 - Surface in Slack: approve / edit / decline — one tap
 - Batch approval for low-stakes drafts
 
-**The People.ai difference:** The draft isn't generic — it references real context. "Good to hear from you — sounds like the Q1 sync with [name] went well" because the system knows about that meeting.
+**The Backstory difference:** The draft isn't generic — it references real context. "Good to hear from you — sounds like the Q1 sync with [name] went well" because the system knows about that meeting.
 
 ---
 
@@ -207,7 +207,7 @@ Tier assignment uses **both** People.ai relationship data and Claude intent clas
 - Escalation triggers override to Tier 1 automatically
 
 **What does NOT belong in Tier 2:**
-- Senders whose domain appears in People.ai as a current or past account — even if the contact isn't in CRM personally
+- Senders whose domain appears in Backstory as a current or past account — even if the contact isn't in CRM personally
 - Any email mentioning pricing, contracts, or legal terms
 - "Generic AI inquiries" — too broad (catches journalists, analysts, regulators)
 - New contacts from company domains that ARE in CRM
@@ -221,7 +221,7 @@ Tier assignment uses **both** People.ai relationship data and Claude intent clas
 **Defined by:**
 - No CRM match
 - Cold outbound signals (bulk send headers, unsubscribe links, pitch language)
-- No engagement with any People.ai account
+- No engagement with any Backstory account
 
 **AI role:**
 - Archive immediately
@@ -241,7 +241,7 @@ Most email AI produces tonally-correct responses. This produces contextually-acc
 **Standard email AI:**
 > "Thanks for reaching out! Happy to connect soon to discuss."
 
-**Context-enriched (People.ai + Claude):**
+**Context-enriched (Backstory + Claude):**
 > "Good timing on this — I know the team wrapped up onboarding last month and things should be hitting their stride. Happy to loop in [CSM name] on the technical question and get you on the calendar for a strategic check-in."
 
 The system knows about the onboarding because `get_recent_account_activity` returned it. It knows the CSM because `get_engaged_people` returned them. The AI didn't guess — it read the relationship.
@@ -260,7 +260,7 @@ The system knows about the onboarding because `get_recent_account_activity` retu
 
 This is the most underexplored capability in the original design.
 
-People.ai tracks relationship health over time. A declining engagement score from an existing account is a warning signal — regardless of what the email says.
+Backstory tracks relationship health over time. A declining engagement score from an existing account is a warning signal — regardless of what the email says.
 
 **Escalation rules based on relationship data:**
 
@@ -273,7 +273,7 @@ People.ai tracks relationship health over time. A declining engagement score fro
 | First email from known account domain | Tier 1 minimum, introduce to AE/CSM |
 | Engagement trending up significantly | Surface in digest as "positive signal" |
 
-The goal: the system responds to relationship context, not just email content. An email that reads as casual — "Hey Scott, quick question" — gets treated very differently when People.ai shows a $500K renewal at risk.
+The goal: the system responds to relationship context, not just email content. An email that reads as casual — "Hey Scott, quick question" — gets treated very differently when Backstory shows a $500K renewal at risk.
 
 ---
 
@@ -281,7 +281,7 @@ The goal: the system responds to relationship context, not just email content. A
 
 Not every email Scott receives should be answered by Scott.
 
-When People.ai identifies that:
+When Backstory identifies that:
 - The sender is a customer contact with an assigned AE or CSM
 - The email is operational rather than strategic
 - The right person to respond is internal but not Scott
@@ -297,9 +297,9 @@ This protects Scott from becoming a support channel while keeping relationships 
 
 ## Activity Logging Back to CRM
 
-Every email the system handles should be logged as an activity in People.ai.
+Every email the system handles should be logged as an activity in Backstory.
 
-**Why this matters:** If the system sends a Tier 2 auto-response on Scott's behalf, People.ai doesn't know it happened — the engagement signal goes unrecorded, and the relationship data drifts from reality.
+**Why this matters:** If the system sends a Tier 2 auto-response on Scott's behalf, Backstory doesn't know it happened — the engagement signal goes unrecorded, and the relationship data drifts from reality.
 
 **What to log:**
 - Email received + classified tier
@@ -309,7 +309,7 @@ Every email the system handles should be logged as an activity in People.ai.
 
 This keeps the relationship intelligence current and makes the system's actions visible in the CRM — not just in Slack.
 
-**This problem is already solved.** People.ai captures all email activity automatically and matches it against accounts and opportunities. The system doesn't need to write back — it just needs to read forward.
+**This problem is already solved.** Backstory captures all email activity automatically and matches it against accounts and opportunities. The system doesn't need to write back — it just needs to read forward.
 
 ---
 
@@ -321,7 +321,7 @@ This keeps the relationship intelligence current and makes the system's actions 
 
 2. **Voice spec document (500 words):** Communication style — formality level, typical greeting, sign-off convention, sentence length preference, what you never say ("Certainly!", "Per my last email", "Circling back", any corporate filler).
 
-3. **System prompt construction:** Claude receives: voice spec + 3 labeled examples calibrated to the email type (customer, internal, external stranger) + People.ai account context.
+3. **System prompt construction:** Claude receives: voice spec + 3 labeled examples calibrated to the email type (customer, internal, external stranger) + Backstory account context.
 
 4. **Feedback loop:** Every Tier 1 draft that gets edited before approval is logged with a diff. Monthly review identifies drift patterns. Voice spec updated accordingly.
 
@@ -339,7 +339,7 @@ Footer: *Reply with `[human]` anywhere in your message to request personal revie
 - Legal language: contract, liability, counsel, litigation
 - Urgency signals: urgent, ASAP, emergency, escalate
 - Press / analyst affiliation detected in signature
-- People.ai relationship health signals (see above)
+- Backstory relationship health signals (see above)
 - Open deal context found in enrichment
 
 When triggered: downgrade to Tier 1, Slack alert with reason code.
@@ -352,7 +352,7 @@ When triggered: downgrade to Tier 1, Slack alert with reason code.
 
 The inbox doesn't have to be purely reactive.
 
-People.ai knows:
+Backstory knows:
 - Which accounts haven't had executive contact in 30+ days
 - Which deals are going quiet before a close date
 - Which stakeholders have gone dark
@@ -388,7 +388,7 @@ Short. Not apologetic. Gives recipients the escape hatch without making the disc
 - Tier 2 auto-sent: full list with links to review
 - Tier 3 archived: count + 10% sample
 - Escalations: how many, why, triggered by what
-- Tier 0 flagged: account summary + People.ai context
+- Tier 0 flagged: account summary + Backstory context
 - Drafts pending approval
 
 **Monthly metrics:**
@@ -404,11 +404,11 @@ Short. Not apologetic. Gives recipients the escape hatch without making the disc
 
 | Risk | Severity | Likelihood | Mitigation |
 |------|----------|------------|------------|
-| Auto-response to strategic contact damages relationship | High | Low | Tier 0 hard protection + People.ai open deal lock |
+| Auto-response to strategic contact damages relationship | High | Low | Tier 0 hard protection + Backstory open deal lock |
 | Tone drift | Medium | Medium | Monthly calibration, edit rate monitoring |
 | Missing signal in Tier 3 | Medium | Medium | 10% sample in daily digest |
 | CRM data lag causes wrong tier assignment | Medium | Low | Enrichment freshness check; default to Tier 1 on stale data |
-| Activity not logged → engagement score drifts | Medium | Medium | Phase 2: write-back to People.ai |
+| Activity not logged → engagement score drifts | Medium | Medium | Phase 2: write-back to Backstory |
 | Proactive outreach feels intrusive | Low | Low | Opt-in per suggestion, not auto-send |
 | Transparency statement causes over-escalation | Low | Low | A/B test footer copy |
 
@@ -421,11 +421,11 @@ Short. Not apologetic. Gives recipients the escape hatch without making the disc
 - Write voice spec document
 - Draft Tier 0 named list
 - Confirm email platform (Gmail or Outlook)
-- Test People.ai domain lookup on sample senders
+- Test Backstory domain lookup on sample senders
 
 ### Phase 1 — Classify + Draft, No Auto-Send (4 weeks)
 - Gmail connected, all inbound classified and enriched
-- People.ai context pulled for every CRM-matched sender
+- Backstory context pulled for every CRM-matched sender
 - Drafts generated for Tier 1 and Tier 2 — human sends all
 - Measure: classification accuracy, draft quality, edit rate
 - Gate: >70% of drafts sendable as-is
@@ -441,7 +441,7 @@ Short. Not apologetic. Gives recipients the escape hatch without making the disc
 - If working: internal case study, evaluate multi-user version
 - If not: diagnose and fix before expanding scope
 - Proactive outreach suggestions (opt-in, not auto-send)
-- Activity write-back to People.ai CRM
+- Activity write-back to Backstory CRM
 
 ---
 
@@ -470,7 +470,7 @@ Remaining decisions before building:
 
 1. **Approval UX:** Slack buttons (fastest, already built for other workflows) vs. lightweight web UI (better for batch review). Start with Slack — already proven in this stack.
 
-2. **People.ai data staleness threshold:** If `get_account_status` returns data last updated > 30 days ago, default to Tier 1 rather than trust the classification score. What's the right window? Suggest 14 days for active accounts, 45 days for known-dormant.
+2. **Backstory data staleness threshold:** If `get_account_status` returns data last updated > 30 days ago, default to Tier 1 rather than trust the classification score. What's the right window? Suggest 14 days for active accounts, 45 days for known-dormant.
 
 3. **Who is on the Tier 0 named list?** Write it now, before building. Named list lives in Supabase. Don't leave for later — this is the most important safety decision in the system.
 
@@ -490,9 +490,9 @@ Upgrade to company initiative when Phase 2 produces:
 - Measurable time savings (hours/week, not minutes)
 - Zero relationship damage
 - Acceptable draft quality without heavy editing
-- A People.ai-specific story about relationship intelligence as the differentiator
+- A Backstory-specific story about relationship intelligence as the differentiator
 
-That last point is the company angle. The story isn't "Scott automated his email." The story is "People.ai's relationship intelligence made executive communication measurably smarter." That's a product story, a press story, and an internal culture story — all from the same experiment.
+That last point is the company angle. The story isn't "Scott automated his email." The story is "Backstory's relationship intelligence made executive communication measurably smarter." That's a product story, a press story, and an internal culture story — all from the same experiment.
 
 The inbox becomes a testbed. The data becomes the pitch.
 
@@ -510,7 +510,7 @@ No third-party email AI knows:
 - What was discussed in the last meeting (body captured for 15 days)
 - Which deals are closing this quarter and at what stage
 
-That's the moat. An email assistant powered by People.ai relationship intelligence is defensible in a way that generic AI email tools aren't. The classification engine *is* the product differentiation.
+That's the moat. An email assistant powered by Backstory relationship intelligence is defensible in a way that generic AI email tools aren't. The classification engine *is* the product differentiation.
 
 ---
 
@@ -545,13 +545,13 @@ Model A is where you go after Model B is proven. Same infrastructure, higher aut
 |---------------------|-----------------|
 | One voice spec, hardcoded | Per-user voice onboarding at setup (3-5 example emails) |
 | Google Sheet for Tier 0 list | Per-user config in Supabase (multi-tenant) |
-| Scott's People.ai OAuth | Per-user People.ai OAuth — each rep reads their own data |
+| Scott's Backstory OAuth | Per-user Backstory OAuth — each rep reads their own data |
 | Gmail label audit trail | Per-user audit log with org-level admin visibility |
 | Slack for approvals | In-context approval: Gmail plugin, mobile, or Slack per-user |
 | n8n Static Data for state | Multi-tenant state management |
 | No admin layer | RevOps console: org-level Tier 0 domains, auto-send policy by role |
 
-**The per-user People.ai OAuth is the critical unlock.** Each user's assistant must access their relationship data, not a shared service account. This is the primary engineering question that determines product feasibility and timeline.
+**The per-user Backstory OAuth is the critical unlock.** Each user's assistant must access their relationship data, not a shared service account. This is the primary engineering question that determines product feasibility and timeline.
 
 ---
 
@@ -559,7 +559,7 @@ Model A is where you go after Model B is proven. Same infrastructure, higher aut
 
 Before pitching this as a customer product, the experiment needs to answer:
 
-1. **Does People.ai enrichment actually improve classification?** Are known CRM contacts getting correctly elevated vs. cold contacts?
+1. **Does Backstory enrichment actually improve classification?** Are known CRM contacts getting correctly elevated vs. cold contacts?
 2. **Does context-enriched drafting produce meaningfully better drafts?** Would a rep send the AI draft, or rewrite it?
 3. **What's the real time savings number?** Measured, not estimated. Emails handled × average response time saved = hours per week. That's the ROI slide.
 4. **What breaks at volume?** Classification errors, voice drift, false escalations — which failure modes matter at scale?
@@ -573,6 +573,6 @@ With that data, you have a case study. With a case study, you have a product pit
 
 ### The Product Story
 
-*"Your reps spend hours every week answering customer emails from memory — digging through Salesforce for context, guessing at deal stage, trying to remember what was said on the last call. People.ai already knows all of that. We connect the two: every inbound customer email gets an AI-drafted response grounded in live relationship intelligence. Reps review and send in 30 seconds. The CRM stays current automatically — People.ai was already capturing everything."*
+*"Your reps spend hours every week answering customer emails from memory — digging through Salesforce for context, guessing at deal stage, trying to remember what was said on the last call. Backstory already knows all of that. We connect the two: every inbound customer email gets an AI-drafted response grounded in live relationship intelligence. Reps review and send in 30 seconds. The CRM stays current automatically — Backstory was already capturing everything."*
 
-That story works for any enterprise sales org. It extends People.ai's existing value proposition — relationship intelligence — into the surface reps live in every day: their inbox.
+That story works for any enterprise sales org. It extends Backstory's existing value proposition — relationship intelligence — into the surface reps live in every day: their inbox.

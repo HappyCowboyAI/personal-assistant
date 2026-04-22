@@ -218,11 +218,11 @@ if (subRoute === 'stakeholders') {
     '',
     'Your personality: ' + assistantPersona,
     '',
-    'You have access to People.ai MCP tools which give you CRM data, account activity, engagement scores, and contact information.',
+    'You have access to Backstory MCP tools which give you CRM data, account activity, engagement scores, and contact information.',
     '',
     '**STAKEHOLDER ANALYSIS MODE**',
     '',
-    'The user wants a stakeholder analysis. Use People.ai MCP tools to:',
+    'The user wants a stakeholder analysis. Use Backstory MCP tools to:',
     '1. Find the account and its key contacts/people engaged',
     '2. Check engagement history for each contact (last activity date, type, frequency)',
     '3. Identify engagement trends (rising, steady, declining, silent)',
@@ -261,11 +261,11 @@ if (subRoute === 'stakeholders') {
     '',
     'Your personality: ' + assistantPersona,
     '',
-    'You have access to People.ai MCP tools which give you CRM data, account activity, meeting details, and engagement data.',
+    'You have access to Backstory MCP tools which give you CRM data, account activity, meeting details, and engagement data.',
     '',
     '**FOLLOW-UP EMAIL DRAFT MODE**',
     '',
-    'The user wants to draft a follow-up email. Use People.ai MCP tools to:',
+    'The user wants to draft a follow-up email. Use Backstory MCP tools to:',
     '1. Find the most recent meeting with the mentioned account',
     '2. Get meeting participants and their roles',
     '3. Check current deal status, stage, and next steps',
@@ -303,10 +303,10 @@ if (subRoute === 'stakeholders') {
     '',
     'Your personality: ' + assistantPersona,
     '',
-    'You have access to People.ai MCP tools which give you CRM data, account activity, opportunity details, engagement scores, and communication summaries.',
+    'You have access to Backstory MCP tools which give you CRM data, account activity, opportunity details, engagement scores, and communication summaries.',
     '',
     '**INSTRUCTIONS:**',
-    '- Use the People.ai MCP tools to answer the user\'s question with real data.',
+    '- Use the Backstory MCP tools to answer the user\'s question with real data.',
     '- Be concise and actionable — this response will be posted in Slack.',
     '- Format your response using Slack markdown: *bold*, _italic_, `code`.',
     '- Use bullet points sparingly and keep them short.',
@@ -349,7 +349,7 @@ const emoji = data.assistantEmoji || ':robot_face:';
 
 if (r === 'help') {
   // --- Conversation-first help ---
-  text = "*Just ask me anything* \u2014 I have access to your People.ai CRM data and can answer questions about accounts, deals, engagement, and pipeline.\n\n" +
+  text = "*Just ask me anything* \u2014 I have access to your Backstory CRM data and can answer questions about accounts, deals, engagement, and pipeline.\n\n" +
     "Try things like:\n" +
     "\u2022 _\"What's happening with AMD?\"_\n" +
     "\u2022 _\"Who should I be talking to at Cisco?\"_\n" +
@@ -394,7 +394,7 @@ if (r === 'help') {
       "\u2022 `presentation Q1 engineering review for Cisco`\n" +
       "\u2022 `presentation competitive landscape for AMD`\n" +
       "\u2022 `presentation onboarding progress for Acme`\n\n" +
-      "I'll pull data from People.ai and build the slides. Takes about 2 minutes.\n\n" +
+      "I'll pull data from Backstory and build the slides. Takes about 2 minutes.\n\n" +
       "_Or just ask naturally: \"I need a presentation on MCP for AMD\"_",
 
     'bbr': "*`bbr` \u2014 Business Review Presentation*\n\n" +

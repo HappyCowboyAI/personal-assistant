@@ -2,11 +2,11 @@
 
 > **For agentic workers:** REQUIRED: Use superpowers:subagent-driven-development (if subagents available) or superpowers:executing-plans to implement this plan. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Add a "Draft Follow-up" option to silence alert overflow menus that uses a Claude agent with People.ai MCP to draft a re-engagement email with recommended contacts.
+**Goal:** Add a "Draft Follow-up" option to silence alert overflow menus that uses a Claude agent with Backstory MCP to draft a re-engagement email with recommended contacts.
 
 **Architecture:** Single Python script (`scripts/add_silence_draft_followup.py`) modifies three live n8n workflows via the API. Overflow menus get a 4th option ("Draft Follow-up"). The Interactive Events Handler gets a new routing branch that posts a "Drafting..." thread reply, runs a re-engagement agent, and replaces it with the draft via `chat.update`.
 
-**Tech Stack:** Python 3, n8n REST API, Slack Block Kit, Claude Sonnet 4.5 via LangChain agent, People.ai MCP
+**Tech Stack:** Python 3, n8n REST API, Slack Block Kit, Claude Sonnet 4.5 via LangChain agent, Backstory MCP
 
 **Spec:** `docs/superpowers/specs/2026-03-10-silence-draft-followup-design.md`
 
@@ -99,13 +99,13 @@ const assistantName = data.assistantName;
 
 const systemPrompt = `You are ${assistantName}, a personal sales assistant for ${repName}.
 
-You have access to People.ai MCP tools for CRM data, account activity, meeting details, and engagement data.
+You have access to Backstory MCP tools for CRM data, account activity, meeting details, and engagement data.
 
 **RE-ENGAGEMENT EMAIL DRAFT MODE**
 
 The account *${accountName}* has gone silent — there has been no recent engagement. Your job is to draft a compelling re-engagement email.
 
-**STEP 1: RESEARCH** (use People.ai MCP tools)
+**STEP 1: RESEARCH** (use Backstory MCP tools)
 1. Look up the account — current deal status, stage, open opportunities
 2. Find engaged contacts — roles, titles, last activity dates. Prioritize:
    - Contacts ${repName} has had direct interaction with
@@ -145,7 +145,7 @@ _Reply in this thread to adjust the tone, recipients, or ask me to revise._
 - Keep total output under 3000 characters
 - If you cannot find any engaged contacts, say so clearly and suggest the rep check Salesforce for the account team`;
 
-const agentPrompt = `Draft a re-engagement email for the silent account: ${accountName}. Research the account and contacts first using your People.ai tools.`;
+const agentPrompt = `Draft a re-engagement email for the silent account: ${accountName}. Research the account and contacts first using your Backstory tools.`;
 
 return [{
   json: {

@@ -4,12 +4,12 @@ Create the On-Demand Silence Check sub-workflow + wire it into the Slack Events 
 
 Sub-workflow flow:
   Workflow Input Trigger
-    → Get Auth Token (People.ai)
+    → Get Auth Token (Backstory)
     → Fetch Opp Ownership (Query API: owner + CSM columns)
     → Parse Opp Teams (CSV → per-person account lists)
     → Filter User Accounts (scope-aware: my_deals=own accounts, team=wider, exec=all)
     → Build Silence Prompt (account list → agent prompt)
-    → Silence Agent (Claude Sonnet 4.5 + People.ai MCP)
+    → Silence Agent (Claude Sonnet 4.5 + Backstory MCP)
     → Parse Silence Results (extract JSON from agent)
     → Build Alert Message (format for Slack)
     → Send Silence Check (chat.postMessage)
@@ -235,7 +235,7 @@ if (scope === 'my_deals' && userAccounts.length > 0) {
 
 const systemPrompt = `You are ${assistantName}, a proactive sales assistant.${assistantPersona ? ' Your personality: ' + assistantPersona + '.' : ''} You detect "silence contracts" — accounts where customer engagement has gone quiet.
 
-Using the People.ai tools, check accounts for engagement gaps:
+Using the Backstory tools, check accounts for engagement gaps:
 1. For each account, check the most recent customer-facing activity (emails, meetings, calls)
 2. Identify accounts where the last activity was more than 5 days ago
 
@@ -305,7 +305,7 @@ return [{ json: { ...data, silencePrompt: prompt, systemPrompt, assistantName, a
                 "anthropicApi": {"id": CRED_ANTHROPIC, "name": "Anthropic account 2"}
             }
         },
-        # 6b. People.ai MCP
+        # 6b. Backstory MCP
         {
             "parameters": {
                 "url": "https://mcp.people.ai/mcp",
@@ -314,12 +314,12 @@ return [{ json: { ...data, silencePrompt: prompt, systemPrompt, assistantName, a
                 "options": {}
             },
             "id": mcp_id,
-            "name": "People.ai MCP",
+            "name": "Backstory MCP",
             "type": "@n8n/n8n-nodes-langchain.mcpClientTool",
             "typeVersion": 1,
             "position": [1220, 520],
             "credentials": {
-                "httpHeaderAuth": {"id": CRED_PAI_MCP, "name": "People.ai MCP Multi-Header"}
+                "httpHeaderAuth": {"id": CRED_PAI_MCP, "name": "Backstory MCP Multi-Header"}
             }
         },
         # 7. Parse Silence Results
@@ -439,7 +439,7 @@ return [{ json: { ...data, blocks: JSON.stringify(blocks), notificationText: `${
         "Build Silence Prompt": {"main": [[{"node": "Silence Agent", "type": "main", "index": 0}]]},
         "Silence Agent": {"main": [[{"node": "Parse Silence Results", "type": "main", "index": 0}]]},
         "Anthropic Chat Model": {"ai_languageModel": [[{"node": "Silence Agent", "type": "ai_languageModel", "index": 0}]]},
-        "People.ai MCP": {"ai_tool": [[{"node": "Silence Agent", "type": "ai_tool", "index": 0}]]},
+        "Backstory MCP": {"ai_tool": [[{"node": "Silence Agent", "type": "ai_tool", "index": 0}]]},
         "Parse Silence Results": {"main": [[{"node": "Build Alert Message", "type": "main", "index": 0}]]},
         "Build Alert Message": {"main": [[{"node": "Send Silence Check", "type": "main", "index": 0}]]},
     }

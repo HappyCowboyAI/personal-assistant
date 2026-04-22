@@ -399,7 +399,7 @@ blocks.push({
 // Footer
 blocks.push({
   type: "context",
-  elements: [{ type: "mrkdwn", text: `People.ai Assistant Analytics \u2022 Week ${weekNum} ${monDate.getFullYear()}` }]
+  elements: [{ type: "mrkdwn", text: `Backstory Assistant Analytics \u2022 Week ${weekNum} ${monDate.getFullYear()}` }]
 });
 
 const notificationText = `Weekly Report: ${twTotal} interactions, ${twActiveCount} active users (${adoptionRate}%) ${intTrend.icon} ${intTrend.pct >= 0 ? '+' : ''}${intTrend.pct}% WoW`;

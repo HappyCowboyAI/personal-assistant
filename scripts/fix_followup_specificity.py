@@ -21,7 +21,7 @@ from n8n_helpers import (
 
 # ── Events Handler: Build DM System Prompt ──
 
-OLD_DM_STEPS = """'The user wants to draft a follow-up email. Use People.ai MCP tools to:',
+OLD_DM_STEPS = """'The user wants to draft a follow-up email. Use Backstory MCP tools to:',
     '1. Find the most recent meeting with the mentioned account',
     '2. Get meeting participants and their roles',
     '3. Check current deal status, stage, and next steps',
@@ -30,7 +30,7 @@ OLD_DM_STEPS = """'The user wants to draft a follow-up email. Use People.ai MCP 
 NEW_DM_STEPS = """'The user wants to draft a follow-up email for their MOST RECENT meeting with this account.',
     '',
     '**STEP 1: FIND THE SPECIFIC MEETING**',
-    'Use People.ai MCP tools to find the most recent meeting/activity with this account. Look for:',
+    'Use Backstory MCP tools to find the most recent meeting/activity with this account. Look for:',
     '- Meeting notes, agenda items, or transcript summaries',
     '- Specific topics discussed, decisions made, action items agreed upon',
     '- Who attended and what each person contributed or committed to',
@@ -66,14 +66,14 @@ NEW_DM_RULES_PREFIX = """'**RULES:**',
 
 # ── Interactive Handler: Build Followup Context ──
 
-OLD_INT_STEPS = """Use People.ai MCP tools to:
+OLD_INT_STEPS = """Use Backstory MCP tools to:
 1. Check the account's current deal status and stage
 2. Review recent engagement and activity
 3. Look up the participants to personalize the email
 
 Draft a professional follow-up email."""
 
-NEW_INT_STEPS = """Use People.ai MCP tools to:
+NEW_INT_STEPS = """Use Backstory MCP tools to:
 1. Find the SPECIFIC most recent meeting with this account — look for meeting notes, topics discussed, and action items
 2. Extract what was actually discussed in that meeting (not general deal context)
 3. Look up participant emails to personalize the email

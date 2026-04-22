@@ -51,7 +51,7 @@ Slack "Complete" button → n8n Interactive Handler → Workato "write" webhook 
 
 ### Component 1: Workato Read Recipe
 
-**New recipe:** "People.ai Assistant — Read from Salesforce"
+**New recipe:** "Backstory Assistant — Read from Salesforce"
 
 **Trigger:** Webhook (`assistant_sf_read`)
 
@@ -181,7 +181,7 @@ Context: "View all tasks in PeopleGlass" (linked)
 
 ### Component 6: Workato Write Recipe Update
 
-Add `update_task` action to the existing "People.ai Assistant — Save to Salesforce" recipe:
+Add `update_task` action to the existing "Backstory Assistant — Save to Salesforce" recipe:
 
 1. New IF branch: `action equals update_task`
 2. Update Task in Salesforce by `task_id`

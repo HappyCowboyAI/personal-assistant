@@ -21,7 +21,7 @@
 
 ## Overview
 
-This skill creates professional presentations using **Backstory brand guidelines**. Unlike People.ai which uses image-based backgrounds, Backstory uses **solid colors and gradients** from its brand palette.
+This skill creates professional presentations using **Backstory brand guidelines**. Unlike Backstory which uses image-based backgrounds, Backstory uses **solid colors and gradients** from its brand palette.
 
 **Output Formats:**
 - HTML (reveal.js) - Interactive web presentations  
@@ -185,7 +185,7 @@ Each slide type needs boundary definitions:
 - What are the heading sizes?
 - What are the body text sizes?
 
-### Proposed Starting Point (based on People.ai learnings)
+### Proposed Starting Point (based on Backstory learnings)
 
 | Element | Size | Weight |
 |---------|------|--------|

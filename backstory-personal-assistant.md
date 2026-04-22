@@ -1,6 +1,6 @@
-# People.ai Personal Assistant — Project Concept
+# Backstory Personal Assistant — Project Concept
 
-> A conversational, agentic AI assistant that works for sales reps around the clock — built on People.ai intelligence, delivered through Slack and email, orchestrated with n8n.
+> A conversational, agentic AI assistant that works for sales reps around the clock — built on Backstory intelligence, delivered through Slack and email, orchestrated with n8n.
 
 ---
 
@@ -10,7 +10,7 @@ A named, personal AI assistant for every sales rep that monitors their pipeline 
 
 The product is built on three pillars:
 
-**People.ai as the intelligence layer** — engagement scores, activity signals, deal health, stakeholder intel from the last 30 days of communications.
+**Backstory as the intelligence layer** — engagement scores, activity signals, deal health, stakeholder intel from the last 30 days of communications.
 
 **Claude (Anthropic API) as the reasoning layer** — synthesizing signals into natural language briefings, drafting follow-ups, identifying risk patterns, writing personalized outputs.
 
@@ -38,7 +38,7 @@ Both primary competitors have mobile and assistant presence, but occupy distinct
 
 **Clari** owns forecasting — pipeline roll-ups, commit calls, manager-layer review. Their mobile app is built for the VP reviewing the weekly number.
 
-**The gap People.ai can own:** rep-level deal intelligence at the moment of a customer interaction. The "here's what's happening in my deals right now and what should I do next" layer. Neither Gong nor Clari is squarely focused on that at-risk deal / next best action angle that People.ai's engagement scoring enables.
+**The gap Backstory can own:** rep-level deal intelligence at the moment of a customer interaction. The "here's what's happening in my deals right now and what should I do next" layer. Neither Gong nor Clari is squarely focused on that at-risk deal / next best action angle that Backstory's engagement scoring enables.
 
 A named personal assistant positions around a distinct persona and moment — the rep in the field who needs actionable guidance, not recordings or forecast commits.
 
@@ -102,7 +102,7 @@ The key design question is how much autonomy the agent has. A spectrum from "dra
 | Layer | Tool |
 |-------|------|
 | Orchestration | n8n |
-| Intelligence | People.ai MCP + Insights API |
+| Intelligence | Backstory MCP + Insights API |
 | Reasoning | Claude via Anthropic API |
 | Delivery | Slack + Email |
 | Data store | Supabase (or Airtable for v1) |
@@ -113,7 +113,7 @@ A single Slackbot serves all users. Slack's API allows display name and avatar o
 ### Onboarding Flow (Entirely in Slack)
 1. Bot DMs new user: *"Hi! Before we get started — what do you want to call me?"*
 2. Rep replies with a name
-3. n8n stores: Slack user ID → assistant name, People.ai ID, preferences
+3. n8n stores: Slack user ID → assistant name, Backstory ID, preferences
 4. Bot confirms: *"Nice to meet you. I'm ScottAI. Your first briefing arrives tomorrow morning."*
 
 No external onboarding UI needed for v1. The naming conversation, the daily digest, the meeting prep, the email draft approvals — all in Slack.
@@ -126,7 +126,7 @@ Rep DMs the bot "rename Max" at any point. n8n catches the pattern and updates t
 ## Build Sequence (Solo Developer)
 
 ### Month 1 — Nightly Digest
-A cron trigger in n8n fires at 6am, pulls open opportunities from People.ai, passes data to Claude with a briefing prompt, and posts a personalized Slack DM from the named assistant. Get this in front of 2–3 real reps internally. Gather feedback obsessively.
+A cron trigger in n8n fires at 6am, pulls open opportunities from Backstory, passes data to Claude with a briefing prompt, and posts a personalized Slack DM from the named assistant. Get this in front of 2–3 real reps internally. Gather feedback obsessively.
 
 **v1 scope:** 6–8 n8n nodes, one Google Sheet as data store, one Slackbot, one Claude prompt.
 
@@ -151,11 +151,11 @@ Although the initial build is internal, the architecture should assume multiple 
 
 **Slack OAuth** — each customer installs the bot in their own workspace. This requires a proper Slack app with OAuth rather than a simple webhook. Plan for this before building the customer-facing version.
 
-**Credential storage** — each customer brings their own People.ai API credentials. These need secure per-tenant storage, not a config file.
+**Credential storage** — each customer brings their own Backstory API credentials. These need secure per-tenant storage, not a config file.
 
 **Two-level naming** — for customers, the company sets a default assistant name and persona. Individual reps can customize on top of that. "Your company default is Aria, but you can rename her whatever you want."
 
-**Admin UI** — eventually a simple web page where a new customer connects their People.ai account, connects their Slack workspace, sets their default assistant persona, and sees who's onboarded. This is a month 3–4 problem but worth knowing it's coming.
+**Admin UI** — eventually a simple web page where a new customer connects their Backstory account, connects their Slack workspace, sets their default assistant persona, and sees who's onboarded. This is a month 3–4 problem but worth knowing it's coming.
 
 **The core n8n workflow logic, Claude prompting, and Slack delivery pattern translates directly from internal to customer use.** That's the reusable IP. Design it cleanly from the start.
 
@@ -165,7 +165,7 @@ Although the initial build is internal, the architecture should assume multiple 
 
 The technology here is almost secondary to the relationship design. What makes a named personal assistant compelling isn't the AI — it's the ownership, the habit, and the trust that builds over time as the assistant proves its value.
 
-The assistant that helps a rep close a big deal won't be remembered as "the People.ai tool." It'll be remembered by its name. That's the moat.
+The assistant that helps a rep close a big deal won't be remembered as "the Backstory tool." It'll be remembered by its name. That's the moat.
 
 ---
 

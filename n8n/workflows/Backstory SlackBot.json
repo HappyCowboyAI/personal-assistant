@@ -40,7 +40,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const slackData = $('Extract Slash Command Data').first().json;\nconst lookupResult = $('Lookup User').first().json;\n\n// Resolve assistant identity (user override -> defaults)\nlet assistantName = 'Backstory';\nlet assistantEmoji = ':robot_face:';\nlet assistantPersona = 'direct, action-oriented, conversational';\nlet dbUserId = null;\n\nif (lookupResult && lookupResult.id) {\n  if (lookupResult.assistant_name) assistantName = lookupResult.assistant_name;\n  if (lookupResult.assistant_emoji) assistantEmoji = lookupResult.assistant_emoji;\n  if (lookupResult.assistant_persona) assistantPersona = lookupResult.assistant_persona;\n  dbUserId = lookupResult.id;\n}\n\n\n// BBR/PBR detection \u2014 extract account name\nconst commandText = slackData.commandText || '';\nconst commandLower = commandText.toLowerCase();\nconst bbrPatterns = [/\\bbbr\\b/, /\\bpbr\\b/, /business review/i, /backstory business review/i, /people\\.?ai business review/i];\nconst isBBR = bbrPatterns.some(p => p.test(commandLower));\nlet bbrAccount = null;\nif (isBBR) {\n  bbrAccount = commandText\n    .replace(/\\b(bbr|pbr|business\\s+review|backstory\\s+business\\s+review|people\\.?ai\\s+business\\s+review|for|with|about|on|create|make|generate|build|a|the|presentation|deck|slide|slides)\\b/gi, ' ')\n    .replace(/\\s+/g, ' ')\n    .trim();\n}\n\n// Presentation detection\nconst presPatterns = [/^presentation\\b/i, /^pres\\b/i, /^slides?\\b/i, /^deck\\b/i];\nconst isPresentation = presPatterns.some(p => p.test(commandLower));\nlet presentationPrompt = null;\nif (isPresentation) {\n  presentationPrompt = commandText\n    .replace(/^(presentation|pres|slides?|deck)\\s*/i, '')\n    .trim();\n}\n\n// Build system prompt\nconst systemPrompt = [\n  'You are ' + assistantName + ', a personal sales assistant for ' + slackData.userName + '. You work exclusively for them.',\n  '',\n  'Your personality: ' + assistantPersona,\n  '',\n  'You have access to People.ai MCP tools which give you CRM data, account activity, opportunity details, engagement scores, and communication summaries.',\n  '',\n  '**INSTRUCTIONS:**',\n  '- Use the People.ai MCP tools to answer the user\\'s question with real data.',\n  '- Be concise and actionable \u2014 this response will be posted in Slack.',\n  '- Format your response using Slack markdown: *bold*, _italic_, `code`.',\n  '- Use bullet points sparingly and keep them short.',\n  '- If the question is about a specific account or opportunity, include key metrics (engagement level, amount, stage, etc.).',\n  '- If you can\\'t find the requested data, say so clearly rather than guessing.',\n  '- Keep your total response under 3000 characters so it displays well in Slack.',\n  '- Do NOT use headers with ### or ** section headers ** \u2014 just use *bold* for emphasis.',\n  '- End with a brief actionable recommendation when relevant.',\n\n  '',\n  '## PRESENTATIONS',\n  'If the user asks you to create a presentation, slides, or deck, respond:',\n  '\"I\\'ll create that presentation for you now! Building your Backstory deck...\"',\n  'Do NOT generate pptxgenjs code or any code. The presentation system handles this automatically.',\n].join('\\n');\n\n// Pre-format Slack messages\nconst headerText = assistantEmoji + ' ' + assistantName + '  \u2014  @' + slackData.userName + '\\'s personal assistant:';\nconst thinkingText = headerText + '\\n\\n\u23f3 Thinking...';\nconst answeredText = headerText + '\\n\\n\u2705 Answered in thread';\n\nreturn [{\n  json: {\n    ...slackData,\n    assistantName,\n    assistantEmoji,\n    assistantPersona,\n    dbUserId,\n    systemPrompt,\n    isBBR,\n    bbrAccount,\n    isPresentation,\n    presentationPrompt,\n    headerText,\n    thinkingText,\n    answeredText\n  }\n}];"
+        "jsCode": "const slackData = $('Extract Slash Command Data').first().json;\nconst lookupResult = $('Lookup User').first().json;\n\n// Resolve assistant identity (user override -> defaults)\nlet assistantName = 'Backstory';\nlet assistantEmoji = ':robot_face:';\nlet assistantPersona = 'direct, action-oriented, conversational';\nlet dbUserId = null;\n\nif (lookupResult && lookupResult.id) {\n  if (lookupResult.assistant_name) assistantName = lookupResult.assistant_name;\n  if (lookupResult.assistant_emoji) assistantEmoji = lookupResult.assistant_emoji;\n  if (lookupResult.assistant_persona) assistantPersona = lookupResult.assistant_persona;\n  dbUserId = lookupResult.id;\n}\n\n\n// BBR/PBR detection \u2014 extract account name\nconst commandText = slackData.commandText || '';\nconst commandLower = commandText.toLowerCase();\nconst bbrPatterns = [/\\bbbr\\b/, /\\bpbr\\b/, /business review/i, /backstory business review/i, /people\\.?ai business review/i];\nconst isBBR = bbrPatterns.some(p => p.test(commandLower));\nlet bbrAccount = null;\nif (isBBR) {\n  bbrAccount = commandText\n    .replace(/\\b(bbr|pbr|business\\s+review|backstory\\s+business\\s+review|people\\.?ai\\s+business\\s+review|for|with|about|on|create|make|generate|build|a|the|presentation|deck|slide|slides)\\b/gi, ' ')\n    .replace(/\\s+/g, ' ')\n    .trim();\n}\n\n// Presentation detection\nconst presPatterns = [/^presentation\\b/i, /^pres\\b/i, /^slides?\\b/i, /^deck\\b/i];\nconst isPresentation = presPatterns.some(p => p.test(commandLower));\nlet presentationPrompt = null;\nif (isPresentation) {\n  presentationPrompt = commandText\n    .replace(/^(presentation|pres|slides?|deck)\\s*/i, '')\n    .trim();\n}\n\n// Build system prompt\nconst systemPrompt = [\n  'You are ' + assistantName + ', a personal sales assistant for ' + slackData.userName + '. You work exclusively for them.',\n  '',\n  'Your personality: ' + assistantPersona,\n  '',\n  'You have access to Backstory MCP tools which give you CRM data, account activity, opportunity details, engagement scores, and communication summaries.',\n  '',\n  '**INSTRUCTIONS:**',\n  '- Use the Backstory MCP tools to answer the user\\'s question with real data.',\n  '- Be concise and actionable \u2014 this response will be posted in Slack.',\n  '- Format your response using Slack markdown: *bold*, _italic_, `code`.',\n  '- Use bullet points sparingly and keep them short.',\n  '- If the question is about a specific account or opportunity, include key metrics (engagement level, amount, stage, etc.).',\n  '- If you can\\'t find the requested data, say so clearly rather than guessing.',\n  '- Keep your total response under 3000 characters so it displays well in Slack.',\n  '- Do NOT use headers with ### or ** section headers ** \u2014 just use *bold* for emphasis.',\n  '- End with a brief actionable recommendation when relevant.',\n\n  '',\n  '## PRESENTATIONS',\n  'If the user asks you to create a presentation, slides, or deck, respond:',\n  '\"I\\'ll create that presentation for you now! Building your Backstory deck...\"',\n  'Do NOT generate pptxgenjs code or any code. The presentation system handles this automatically.',\n].join('\\n');\n\n// Pre-format Slack messages\nconst headerText = assistantEmoji + ' ' + assistantName + '  \u2014  @' + slackData.userName + '\\'s personal assistant:';\nconst thinkingText = headerText + '\\n\\n\u23f3 Thinking...';\nconst answeredText = headerText + '\\n\\n\u2705 Answered in thread';\n\nreturn [{\n  json: {\n    ...slackData,\n    assistantName,\n    assistantEmoji,\n    assistantPersona,\n    dbUserId,\n    systemPrompt,\n    isBBR,\n    bbrAccount,\n    isPresentation,\n    presentationPrompt,\n    headerText,\n    thinkingText,\n    answeredText\n  }\n}];"
       },
       "id": "616db660-dbeb-4d69-8117-e1e48cbd382b",
       "name": "Resolve Assistant Identity",
@@ -281,11 +281,11 @@
         2480
       ],
       "id": "887479dd-4362-4a5e-bba9-68e4808fc0c8",
-      "name": "People.ai MCP DM1",
+      "name": "Backstory MCP DM1",
       "credentials": {
         "httpMultipleHeadersAuth": {
           "id": "wvV5pwBeIL7f2vLG",
-          "name": "People.ai MCP Multi-Header"
+          "name": "Backstory MCP Multi-Header"
         }
       }
     },
@@ -414,11 +414,11 @@
         2080
       ],
       "id": "f0b2dfc5-8073-4aa8-b413-f6c81a6c6abd",
-      "name": "People.ai MCP",
+      "name": "Backstory MCP",
       "credentials": {
         "httpMultipleHeadersAuth": {
           "id": "wvV5pwBeIL7f2vLG",
-          "name": "People.ai MCP Multi-Header"
+          "name": "Backstory MCP Multi-Header"
         }
       }
     },
@@ -1112,7 +1112,7 @@
         ]
       ]
     },
-    "People.ai MCP DM1": {
+    "Backstory MCP DM1": {
       "ai_tool": [
         [
           {
@@ -1156,7 +1156,7 @@
         ]
       ]
     },
-    "People.ai MCP": {
+    "Backstory MCP": {
       "ai_tool": [
         [
           {
@@ -1409,7 +1409,7 @@
       },
       {
         "parameters": {
-          "jsCode": "const slackData = $('Extract Slash Command Data').first().json;\nconst lookupResult = $('Lookup User').first().json;\n\n// Resolve assistant identity (user override -> defaults)\nlet assistantName = 'Backstory';\nlet assistantEmoji = ':robot_face:';\nlet assistantPersona = 'direct, action-oriented, conversational';\nlet dbUserId = null;\n\nif (lookupResult && lookupResult.id) {\n  if (lookupResult.assistant_name) assistantName = lookupResult.assistant_name;\n  if (lookupResult.assistant_emoji) assistantEmoji = lookupResult.assistant_emoji;\n  if (lookupResult.assistant_persona) assistantPersona = lookupResult.assistant_persona;\n  dbUserId = lookupResult.id;\n}\n\n\n// BBR/PBR detection \u2014 extract account name\nconst commandText = slackData.commandText || '';\nconst commandLower = commandText.toLowerCase();\nconst bbrPatterns = [/\\bbbr\\b/, /\\bpbr\\b/, /business review/i, /backstory business review/i, /people\\.?ai business review/i];\nconst isBBR = bbrPatterns.some(p => p.test(commandLower));\nlet bbrAccount = null;\nif (isBBR) {\n  bbrAccount = commandText\n    .replace(/\\b(bbr|pbr|business\\s+review|backstory\\s+business\\s+review|people\\.?ai\\s+business\\s+review|for|with|about|on|create|make|generate|build|a|the|presentation|deck|slide|slides)\\b/gi, ' ')\n    .replace(/\\s+/g, ' ')\n    .trim();\n}\n\n// Presentation detection\nconst presPatterns = [/^presentation\\b/i, /^pres\\b/i, /^slides?\\b/i, /^deck\\b/i];\nconst isPresentation = presPatterns.some(p => p.test(commandLower));\nlet presentationPrompt = null;\nif (isPresentation) {\n  presentationPrompt = commandText\n    .replace(/^(presentation|pres|slides?|deck)\\s*/i, '')\n    .trim();\n}\n\n// Build system prompt\nconst systemPrompt = [\n  'You are ' + assistantName + ', a personal sales assistant for ' + slackData.userName + '. You work exclusively for them.',\n  '',\n  'Your personality: ' + assistantPersona,\n  '',\n  'You have access to People.ai MCP tools which give you CRM data, account activity, opportunity details, engagement scores, and communication summaries.',\n  '',\n  '**INSTRUCTIONS:**',\n  '- Use the People.ai MCP tools to answer the user\\'s question with real data.',\n  '- Be concise and actionable \u2014 this response will be posted in Slack.',\n  '- Format your response using Slack markdown: *bold*, _italic_, `code`.',\n  '- Use bullet points sparingly and keep them short.',\n  '- If the question is about a specific account or opportunity, include key metrics (engagement level, amount, stage, etc.).',\n  '- If you can\\'t find the requested data, say so clearly rather than guessing.',\n  '- Keep your total response under 3000 characters so it displays well in Slack.',\n  '- Do NOT use headers with ### or ** section headers ** \u2014 just use *bold* for emphasis.',\n  '- End with a brief actionable recommendation when relevant.',\n\n  '',\n  '## PRESENTATIONS',\n  'If the user asks you to create a presentation, slides, or deck, respond:',\n  '\"I\\'ll create that presentation for you now! Building your Backstory deck...\"',\n  'Do NOT generate pptxgenjs code or any code. The presentation system handles this automatically.',\n].join('\\n');\n\n// Pre-format Slack messages\nconst headerText = assistantEmoji + ' ' + assistantName + '  \u2014  @' + slackData.userName + '\\'s personal assistant:';\nconst thinkingText = headerText + '\\n\\n\u23f3 Thinking...';\nconst answeredText = headerText + '\\n\\n\u2705 Answered in thread';\n\nreturn [{\n  json: {\n    ...slackData,\n    assistantName,\n    assistantEmoji,\n    assistantPersona,\n    dbUserId,\n    systemPrompt,\n    isBBR,\n    bbrAccount,\n    isPresentation,\n    presentationPrompt,\n    headerText,\n    thinkingText,\n    answeredText\n  }\n}];"
+          "jsCode": "const slackData = $('Extract Slash Command Data').first().json;\nconst lookupResult = $('Lookup User').first().json;\n\n// Resolve assistant identity (user override -> defaults)\nlet assistantName = 'Backstory';\nlet assistantEmoji = ':robot_face:';\nlet assistantPersona = 'direct, action-oriented, conversational';\nlet dbUserId = null;\n\nif (lookupResult && lookupResult.id) {\n  if (lookupResult.assistant_name) assistantName = lookupResult.assistant_name;\n  if (lookupResult.assistant_emoji) assistantEmoji = lookupResult.assistant_emoji;\n  if (lookupResult.assistant_persona) assistantPersona = lookupResult.assistant_persona;\n  dbUserId = lookupResult.id;\n}\n\n\n// BBR/PBR detection \u2014 extract account name\nconst commandText = slackData.commandText || '';\nconst commandLower = commandText.toLowerCase();\nconst bbrPatterns = [/\\bbbr\\b/, /\\bpbr\\b/, /business review/i, /backstory business review/i, /people\\.?ai business review/i];\nconst isBBR = bbrPatterns.some(p => p.test(commandLower));\nlet bbrAccount = null;\nif (isBBR) {\n  bbrAccount = commandText\n    .replace(/\\b(bbr|pbr|business\\s+review|backstory\\s+business\\s+review|people\\.?ai\\s+business\\s+review|for|with|about|on|create|make|generate|build|a|the|presentation|deck|slide|slides)\\b/gi, ' ')\n    .replace(/\\s+/g, ' ')\n    .trim();\n}\n\n// Presentation detection\nconst presPatterns = [/^presentation\\b/i, /^pres\\b/i, /^slides?\\b/i, /^deck\\b/i];\nconst isPresentation = presPatterns.some(p => p.test(commandLower));\nlet presentationPrompt = null;\nif (isPresentation) {\n  presentationPrompt = commandText\n    .replace(/^(presentation|pres|slides?|deck)\\s*/i, '')\n    .trim();\n}\n\n// Build system prompt\nconst systemPrompt = [\n  'You are ' + assistantName + ', a personal sales assistant for ' + slackData.userName + '. You work exclusively for them.',\n  '',\n  'Your personality: ' + assistantPersona,\n  '',\n  'You have access to Backstory MCP tools which give you CRM data, account activity, opportunity details, engagement scores, and communication summaries.',\n  '',\n  '**INSTRUCTIONS:**',\n  '- Use the Backstory MCP tools to answer the user\\'s question with real data.',\n  '- Be concise and actionable \u2014 this response will be posted in Slack.',\n  '- Format your response using Slack markdown: *bold*, _italic_, `code`.',\n  '- Use bullet points sparingly and keep them short.',\n  '- If the question is about a specific account or opportunity, include key metrics (engagement level, amount, stage, etc.).',\n  '- If you can\\'t find the requested data, say so clearly rather than guessing.',\n  '- Keep your total response under 3000 characters so it displays well in Slack.',\n  '- Do NOT use headers with ### or ** section headers ** \u2014 just use *bold* for emphasis.',\n  '- End with a brief actionable recommendation when relevant.',\n\n  '',\n  '## PRESENTATIONS',\n  'If the user asks you to create a presentation, slides, or deck, respond:',\n  '\"I\\'ll create that presentation for you now! Building your Backstory deck...\"',\n  'Do NOT generate pptxgenjs code or any code. The presentation system handles this automatically.',\n].join('\\n');\n\n// Pre-format Slack messages\nconst headerText = assistantEmoji + ' ' + assistantName + '  \u2014  @' + slackData.userName + '\\'s personal assistant:';\nconst thinkingText = headerText + '\\n\\n\u23f3 Thinking...';\nconst answeredText = headerText + '\\n\\n\u2705 Answered in thread';\n\nreturn [{\n  json: {\n    ...slackData,\n    assistantName,\n    assistantEmoji,\n    assistantPersona,\n    dbUserId,\n    systemPrompt,\n    isBBR,\n    bbrAccount,\n    isPresentation,\n    presentationPrompt,\n    headerText,\n    thinkingText,\n    answeredText\n  }\n}];"
         },
         "id": "616db660-dbeb-4d69-8117-e1e48cbd382b",
         "name": "Resolve Assistant Identity",
@@ -1650,11 +1650,11 @@
           2480
         ],
         "id": "887479dd-4362-4a5e-bba9-68e4808fc0c8",
-        "name": "People.ai MCP DM1",
+        "name": "Backstory MCP DM1",
         "credentials": {
           "httpMultipleHeadersAuth": {
             "id": "wvV5pwBeIL7f2vLG",
-            "name": "People.ai MCP Multi-Header"
+            "name": "Backstory MCP Multi-Header"
           }
         }
       },
@@ -1783,11 +1783,11 @@
           2080
         ],
         "id": "f0b2dfc5-8073-4aa8-b413-f6c81a6c6abd",
-        "name": "People.ai MCP",
+        "name": "Backstory MCP",
         "credentials": {
           "httpMultipleHeadersAuth": {
             "id": "wvV5pwBeIL7f2vLG",
-            "name": "People.ai MCP Multi-Header"
+            "name": "Backstory MCP Multi-Header"
           }
         }
       },
@@ -2481,7 +2481,7 @@
           ]
         ]
       },
-      "People.ai MCP DM1": {
+      "Backstory MCP DM1": {
         "ai_tool": [
           [
             {
@@ -2525,7 +2525,7 @@
           ]
         ]
       },
-      "People.ai MCP": {
+      "Backstory MCP": {
         "ai_tool": [
           [
             {
